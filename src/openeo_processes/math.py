@@ -4207,5 +4207,103 @@ class NormalizedDifference:
     def exec_da():
         pass
 
+
+########################################################################################################################
+# apply_kernel Convolution Process
+########################################################################################################################
+
+@process
+def apply_kernel():
+    """
+    Returns class instance of `ApplyKernel`.
+    For more details, please have a look at the implementations inside `ApplyKernel`.
+
+    Returns
+    -------
+    ApplyKernel :
+        Class instance implementing all 'apply_kernel' processes.
+
+    """
+    return ApplyKernel()
+
+
+class ApplyKernel:
+    """
+    Class implementing all 'apply_kernel' processes.
+
+    """
+
+    @staticmethod
+    def exec_num():
+        pass
+
+    @staticmethod
+    def exec_np():
+        pass
+
+    @staticmethod
+    def exec_xar(data,kernel,border=0,factor=1,replace_invalid=0):
+        """
+       Applies a 2D convolution (i.e. a focal operation with a weighted kernel) on the horizontal spatial
+       dimensions (axes x and y) of the data cube. Each value in the kernel is multiplied with the corresponding
+       pixel value and all products are summed up afterwards. The sum is then multiplied with the factor.
+       The process can't handle non-numerical or infinite numerical values in the data cube.
+       Boolean values are converted to integers (false = 0, true = 1), but all other non-numerical or infinite values
+       are replaced with zeroes by default (see parameter replace_invalid).
+
+        Parameters
+        ----------
+        data : xr.DataArray
+            The input datacube.
+        kernel : np.ndarray
+            The kernel.
+        factor : int or float
+            A factor that is multiplied to each value after the kernel has been applied.
+        border : int, float or string
+            Determines how the data is extended when the kernel overlaps with the borders. Defaults to fill the border with zeroes.
+            The following options are available:
+            numeric value - fill with a user-defined constant number n: nnnnnn|abcdefgh|nnnnnn (default, with n = 0)
+            replicate - repeat the value from the pixel at the border: aaaaaa|abcdefgh|hhhhhh
+            reflect - mirror/reflect from the border: fedcba|abcdefgh|hgfedc
+            reflect_pixel - mirror/reflect from the center of the pixel at the border: gfedcb|abcdefgh|gfedcb
+            wrap - repeat/wrap the image: cdefgh|abcdefgh|abcdef
+        replace_invalid : int or float
+            This parameter specifies the value to replace non-numerical or infinite numerical values with. By default, those values are replaced with zeroes.
+       
+        Returns
+        -------
+        xr.DataArray :
+            The computed result.
+
+        """
+        def convolve(data, kernel, mode='constant', cval=0, fill_value=0):
+            dims = ('x','y')
+            convolved = lambda data: scipy.ndimage.convolve(data, kernel, mode=mode, cval=cval)
+
+            data_masked = data.fillna(fill_value)
+
+            return xr.apply_ufunc(convolved, data_masked,
+                                  vectorize=True,
+                                  dask='parallelized',
+                                  input_core_dims = [dims],
+                                  output_core_dims = [dims],
+                                  output_dtypes=[data.dtype],
+                                  dask_gufunc_kwargs={'allow_rechunk':True})
+
+        openeo_scipy_modes = {'replicate':'nearest','reflect':'reflect','reflect_pixel':'mirror','wrap':'wrap'}
+        if isinstance(border,np.int) or isinstance(border,np.float):
+            mode = 'constant'
+            cval = border
+        else:
+            mode = openeo_scipy_modes[border]
+            cval = 0
+            
+        return convolve(data,kernel,mode,cval,replace_invalid)*factor
+
+    @staticmethod
+    def exec_da():
+        pass
+    
 if __name__ == '__main__':
     pass
+
