@@ -4277,7 +4277,7 @@ class ApplyKernel:
 
         """
         def convolve(data, kernel, mode='constant', cval=0, fill_value=0):
-            dims = ('x','y')
+            dims = ('y','x')
             convolved = lambda data: scipy.ndimage.convolve(data, kernel, mode=mode, cval=cval)
 
             data_masked = data.fillna(fill_value)
