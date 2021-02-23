@@ -1,5 +1,6 @@
 import builtins
 import numpy as np
+import numbers
 import xarray as xr
 
 try:
@@ -3552,7 +3553,7 @@ class Sum:
             return np.nansum(data, axis=dimension) + summand
 
     @staticmethod
-    def exec_xar(data, ignore_nodata=True, dimension=None, extra_values=None):
+    def exec_xar(data, ignore_nodata=True, dimension=None):
         """
         Sums up all elements in a sequential array of numbers and returns the computed sum. By default no-data values
         are ignored. Setting `ignore_nodata` to false considers no-data values so that np.nan is returned if any element
@@ -3570,35 +3571,27 @@ class Sum:
             Defines the dimension to calculate the sum along (defaults to first
             dimension if not specified). Dimensions are expected in this order:
             (dim1, dim2, y, x)
-        extra_values: list, optional
-            Offers to add additional elements to the computed sum.
 
         Returns
         -------
         xr.DataArray :
             The computed sum of the sequence of numbers.
 
-        Notes
-        -----
-        `extra_values` have been introduced to handle np.array and single value interaction.
-        It is more efficient to add the additional summands after computing the sum along the dimension of the array.
-
         """
 
+        summand = 0
         if isinstance(data, list):
-            if isinstance(data[0], xr.DataArray):
-                # Concatenate along dim 'new_dim'
-                data = xr.concat(data, dim='new_dim')
+            data_tmp = []
+            for item in data:
+                if isinstance(item, xr.DataArray):
+                    data_tmp.append(item)
+                elif isinstance(item, numbers.Number):
+                    summand += item
+            # Concatenate along dim 'new_dim'
+            data = xr.concat(data_tmp, dim='new_dim')
 
-        extra_values = extra_values if extra_values is not None else []
-
-        if is_empty(data) and len(extra_values) == 0:
+        if is_empty(data):
             return np.nan
-
-        if not ignore_nodata:
-            summand = np.sum(extra_values)
-        else:
-            summand = np.nansum(extra_values)
 
         if not dimension:
             dimension = data.dims[0]

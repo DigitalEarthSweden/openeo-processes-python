@@ -292,6 +292,11 @@ class MathTester(unittest.TestCase):
             int(oeop.sum(self.test_data.xr_data_3d)[0, 0].data),
             88
             )
+        # Take sum over 't' dimension in a 3d array
+        self.assertEqual(
+            list(oeop.sum([self.test_data.xr_data_3d, 1000])[:, 0, 0].data),
+            [1008., 1080.]
+            )
         # Take sum over 's' dimension in a 4d array
         self.assertListEqual(
             list(oeop.sum(self.test_data.xr_data_4d)[:, 0, 0].data),
