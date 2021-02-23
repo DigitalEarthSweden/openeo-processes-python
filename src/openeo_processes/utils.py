@@ -67,7 +67,7 @@ def process(processor):
         # TODO: remove automatic conversion from List to np.Array and update all tests
         # Convert lists to numpy arrays
         try:
-            if isinstance(args[0], list) and isinstance(args[0][0], xr.DataArray):
+            if isinstance(args[0], list) and np.any(tuple(True if isinstance(a, xr.DataArray) else False for a in args[0])):
                 datatypes = ["xarray"]
             else:
                 args = tuple(list2nparray(a) if isinstance(a, list) else a for a in args)
