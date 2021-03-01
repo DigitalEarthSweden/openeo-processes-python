@@ -36,11 +36,14 @@ class CubesTester(unittest.TestCase):
         assert os.path.exists(out_filename)
         os.remove(out_filename)
 
-        out_filename = "out.netcdf"
+        out_filename = "out.nc"
         oeop.save_result(self.test_data.xr_data_3d, out_filename, format='netCDF')
-        import pdb; pdb.set_trace()
         assert os.path.exists(out_filename)
         os.remove(out_filename)
+
+        oeop.save_result(self.test_data.xr_data_3d, format='netCDF')
+        assert os.path.exists('out.nc')
+        os.remove('out.nc')
 
 
 if __name__ == "__main__":

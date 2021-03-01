@@ -1,7 +1,7 @@
 
 import rioxarray  # needed by save_result even if not directly called
 from openeo_processes.utils import process
-
+from os.path import splitext
 
 ###############################################################################
 # Load Collection Process
@@ -141,7 +141,7 @@ class SaveResult:
     """
 
     @staticmethod
-    def exec_xar(data, output_filepath, format='GTiff', options={}):
+    def exec_xar(data, output_filepath='out', format='GTiff', options={}):
         """
         Save data to disk in specified format.
 
@@ -150,7 +150,8 @@ class SaveResult:
         data : xr.DataArray
             An array of numbers. An empty array resolves always with np.nan.
         output_filepath: str
-            Full filepath where to store data on disk
+            Absolute or relative filepath where to store data on disk,
+            with or without extention
         format: str, optional
             data format (default: GTiff)
 
@@ -158,8 +159,12 @@ class SaveResult:
 
         formats = ('GTiff', 'netCDF')
         if format == 'netCDF':
+            if not splitext(output_filepath)[1]:
+                output_filepath = output_filepath + '.nc'
             data.to_netcdf(path=output_filepath)
         elif format == 'GTiff':
+            if not splitext(output_filepath)[1]:
+                output_filepath = output_filepath + '.tif'
             # TODO
             # Add check, this works only for 2D or 3D DataArrays, else loop is needed
             data.rio.to_raster(raster_path=output_filepath, driver=format, **options)
