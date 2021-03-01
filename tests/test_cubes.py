@@ -28,13 +28,19 @@ class CubesTester(unittest.TestCase):
     def test_save_result(self):
         """ Tests `reduce_dimension` function. """
 
+        # TODO improve file check
         # xarray tests
         out_filename = "out.tif"
         oeop.save_result(self.test_data.xr_data_3d, out_filename)
 
         assert os.path.exists(out_filename)
         os.remove(out_filename)
-        # TODO imporve file check
+
+        out_filename = "out.netcdf"
+        oeop.save_result(self.test_data.xr_data_3d, out_filename, format='netCDF')
+        import pdb; pdb.set_trace()
+        assert os.path.exists(out_filename)
+        os.remove(out_filename)
 
 
 if __name__ == "__main__":

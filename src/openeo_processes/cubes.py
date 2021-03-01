@@ -156,7 +156,12 @@ class SaveResult:
 
         """
 
-        # TODO
-        # Add check, this works only for 2D or 3D DataArrays, else loop is needed
-
-        data.rio.to_raster(raster_path=output_filepath, driver=format, **options)
+        formats = ('GTiff', 'netCDF')
+        if format == 'netCDF':
+            data.to_netcdf(path=output_filepath)
+        elif format == 'GTiff':
+            # TODO
+            # Add check, this works only for 2D or 3D DataArrays, else loop is needed
+            data.rio.to_raster(raster_path=output_filepath, driver=format, **options)
+        else:
+            raise ValueError(f"Error when saving to file. Format '{format}' is not in {formats}.")
