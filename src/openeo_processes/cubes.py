@@ -57,7 +57,7 @@ def load_result():
         Class instance implementing all 'load_result' processes.
 
     """
-    return LoadCollection()
+    return LoadResult()
 
 
 class LoadResult:
