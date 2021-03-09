@@ -31,7 +31,7 @@ class LoadCollection:
     """
 
     @staticmethod
-    def exec_odc(odc_cube, product: str, x: tuple, y: tuple, time: tuple,
+    def exec_odc(odc_cube, product: str, x: tuple, y: tuple, time: list,
                  dask_chunks: dict, measurements: list = [],
                  crs: str = "EPSG:4326"):
 
@@ -68,7 +68,7 @@ class LoadResult:
 
     @staticmethod
     def exec_odc(odc_cube, product: str, dask_chunks: dict,
-                 x: tuple = (), y: tuple = (), time: tuple = (),
+                 x: tuple = (), y: tuple = (), time: list = [],
                  measurements: list = [], crs: str = "EPSG:4326"):
 
         odc_params = {
