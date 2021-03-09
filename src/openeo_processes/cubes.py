@@ -35,15 +35,55 @@ class LoadCollection:
                  dask_chunks: dict, measurements: list = [],
                  crs: str = "EPSG:4326"):
 
+        return load_result(odc_cube, product, dask_chunks, x, y, time,
+                           measurements, crs)
+
+
+###############################################################################
+# Load Result Process
+###############################################################################
+
+
+@process
+def load_result():
+    """
+    Returns class instance of `LoadResult`.
+    For more details, please have a look at the implementations inside
+    `LoadResult`.
+
+    Returns
+    -------
+    LoadResult :
+        Class instance implementing all 'load_result' processes.
+
+    """
+    return LoadCollection()
+
+
+class LoadResult:
+    """
+    Class implementing all 'load_result' processes.
+
+    """
+
+    @staticmethod
+    def exec_odc(odc_cube, product: str, dask_chunks: dict,
+                 x: tuple = (), y: tuple = (), time: tuple = (),
+                 measurements: list = [], crs: str = "EPSG:4326"):
+
         odc_params = {
             'product': product,
-            'dask_chunks': dask_chunks,
-            'x': x,
-            'y': y,
-            'crs': crs,
-            'time': time
+            'dask_chunks': dask_chunks
         }
-        if len(measurements) > 0:
+        if x:
+            odc_params['x'] = x
+        if y:
+            odc_params['y'] = y
+        if crs:
+            odc_params['crs'] = crs
+        if time:
+            odc_params['time'] = time
+        if measurements:
             odc_params['measurements'] = measurements
 
         datacube = odc_cube.load(**odc_params)
