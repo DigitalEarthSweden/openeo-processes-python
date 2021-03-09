@@ -81,7 +81,9 @@ class LoadResult:
             odc_params['y'] = y
         if crs:
             odc_params['crs'] = crs
-        if time:
+        # lists are transformed to np.arrays by the wrapper
+        # update when that step has been removed
+        if time.any():
             odc_params['time'] = time
         if measurements:
             odc_params['measurements'] = measurements
