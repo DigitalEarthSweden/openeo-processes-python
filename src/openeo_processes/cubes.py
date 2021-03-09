@@ -85,7 +85,7 @@ class LoadResult:
         # update when that step has been removed
         if time.any():
             odc_params['time'] = time
-        if measurements:
+        if measurements.any():
             odc_params['measurements'] = measurements
 
         datacube = odc_cube.load(**odc_params)
