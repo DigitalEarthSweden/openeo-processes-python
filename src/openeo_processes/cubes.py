@@ -83,9 +83,9 @@ class LoadResult:
             odc_params['crs'] = crs
         # lists are transformed to np.arrays by the wrapper
         # update when that step has been removed
-        if time and time.any():
+        if time != [] and time.any():
             odc_params['time'] = time
-        if measurements and measurements.any():
+        if measurements != [] and measurements.any():
             odc_params['measurements'] = measurements
 
         datacube = odc_cube.load(**odc_params)
