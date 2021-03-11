@@ -2238,7 +2238,7 @@ class Mean:
         if is_empty(data):
             return np.nan
 
-        return data.mean(data, dim=dimension, skipna=~ignore_nodata)
+        return data.mean(dim=dimension, skipna=~ignore_nodata)
 
     @staticmethod
     def exec_da():
@@ -2421,7 +2421,7 @@ class Max():
         if is_empty(data):
             return np.nan
 
-        return data.max(data, dim=dimension, skipna=~ignore_nodata)
+        return data.max(dim=dimension, skipna=~ignore_nodata)
 
     @staticmethod
     def exec_da():
@@ -2523,7 +2523,7 @@ class Median:
         if is_empty(data):
             return np.nan
 
-        return data.median(data, dim=dimension, skipna=~ignore_nodata)
+        return data.median(dim=dimension, skipna=~ignore_nodata)
 
     @staticmethod
     def exec_da():
@@ -2628,7 +2628,7 @@ class Sd:
         if is_empty(data):
             return np.nan
 
-        return data.std(data, dim=dimension, skipna=~ignore_nodata)
+        return data.std(dim=dimension, skipna=~ignore_nodata)
 
     @staticmethod
     def exec_da():
@@ -2722,7 +2722,7 @@ class Variance:
         if is_empty(data):
             return np.nan
 
-        return data.var(data, dim=dimension, skipna=~ignore_nodata)
+        return data.var(dim=dimension, skipna=~ignore_nodata)
 
     @staticmethod
     def exec_da():
