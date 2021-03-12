@@ -203,6 +203,12 @@ class SaveResult:
         if format == 'netCDF':
             if not splitext(output_filepath)[1]:
                 output_filepath = output_filepath + '.nc'
+            # start workaround
+            # https://github.com/opendatacube/datacube-core/issues/972
+            # ValueError failed to prevent overwriting existing key units in `attrs` on variable 'time'
+            if hasattr(data, 'time') and hasattr(data.time, 'units'):
+                data.time.attrs.pop('units', None)
+            # end workaround
             data.to_netcdf(path=output_filepath)
         elif format == 'GTiff':
             if not splitext(output_filepath)[1]:
