@@ -154,6 +154,60 @@ class ReduceDimension:
         elif isinstance(reducer, dict):
             # No need to map this
             return data
+###############################################################################
+# Apply process
+###############################################################################
+
+
+@process
+def apply():
+    """
+    Returns class instance of `Apply`.
+    For more details, please have a look at the implementations inside
+    `Apply`.
+
+    Returns
+    -------
+    reduce_dimension :
+        Class instance implementing all 'apply' processes.
+
+    """
+    return Apply()
+
+
+class Apply:
+    """
+    Class implementing all 'apply' processes.
+
+    """
+
+    @staticmethod
+    def exec_xar(data, process, context={}):
+        """
+
+
+        Parameters
+        ----------
+        data : xr.DataArray
+            An array of numbers. An empty array resolves always with np.nan.
+        process : callable or dict
+            the name of an existing process (e.g. `mean`) or a dict for a
+            process graph
+        context: dict, optional
+            keyworded parameters needed by the `reducer`
+
+        Returns
+        -------
+        xr.DataArray
+
+
+        """
+
+        if callable(process):
+            return process(data, **context)
+        elif isinstance(process, dict):
+            # No need to map this
+            return data
 
 ###############################################################################
 # Save result process
