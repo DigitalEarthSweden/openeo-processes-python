@@ -294,7 +294,7 @@ class SaveResult:
             data = refactor_data(data)
             data.to_netcdf(path=output_filepath)
 
-        elif format.lower() in ['gtiff','gtif','geotiff','geotif','tiff','tif']:
+        elif format.lower() in ['gtiff','geotiff']:
             if not splitext(output_filepath)[1]:
                 output_filepath = output_filepath + '.tif'
             # TODO
