@@ -1,5 +1,7 @@
 import builtins
 import numpy as np
+import numbers
+import xarray as xr
 
 try:
     import xarray_extras as xar_addons
@@ -2237,7 +2239,7 @@ class Mean:
         if is_empty(data):
             return np.nan
 
-        return data.mean(data, dim=dimension, skipna=~ignore_nodata)
+        return data.mean(dim=dimension, skipna=~ignore_nodata)
 
     @staticmethod
     def exec_da():
@@ -2304,7 +2306,7 @@ class Min:
             return np.nanmin(data, axis=dimension)
 
     @staticmethod
-    def exec_xar(data, ignore_nodata=True, dimension=0):
+    def exec_xar(data, ignore_nodata=True, dimension=None):
         """
         Computes the smallest value of an array of numbers, which is is equal to the last element of a sorted
         (i.e., ordered) version the array.
@@ -2316,8 +2318,10 @@ class Min:
         ignore_nodata : bool, optional
             Indicates whether no-data values are ignored or not. Ignores them by default (=True).
             Setting this flag to False considers no-data values so that np.nan is returned if any value is such a value.
-        dimension : int, optional
-            Defines the dimension to calculate the minimum along (default is 0).
+        dimension : str, optional
+            Defines the dimension to calculate the sum along (defaults to first
+            dimension if not specified). Dimensions are expected in this order:
+            (dim1, dim2, y, x)
 
         Returns
         -------
@@ -2328,7 +2332,10 @@ class Min:
         if is_empty(data):
             return np.nan
 
-        return data.min(data, dim=dimension, skipna=~ignore_nodata)
+        if not dimension:
+            dimension = data.dims[0]
+
+        return data.min(dim=dimension, skipna=~ignore_nodata)
 
     @staticmethod
     def exec_da():
@@ -2415,7 +2422,7 @@ class Max():
         if is_empty(data):
             return np.nan
 
-        return data.max(data, dim=dimension, skipna=~ignore_nodata)
+        return data.max(dim=dimension, skipna=~ignore_nodata)
 
     @staticmethod
     def exec_da():
@@ -2517,7 +2524,7 @@ class Median:
         if is_empty(data):
             return np.nan
 
-        return data.median(data, dim=dimension, skipna=~ignore_nodata)
+        return data.median(dim=dimension, skipna=~ignore_nodata)
 
     @staticmethod
     def exec_da():
@@ -2622,7 +2629,7 @@ class Sd:
         if is_empty(data):
             return np.nan
 
-        return data.std(data, dim=dimension, skipna=~ignore_nodata)
+        return data.std(dim=dimension, skipna=~ignore_nodata)
 
     @staticmethod
     def exec_da():
@@ -2716,7 +2723,7 @@ class Variance:
         if is_empty(data):
             return np.nan
 
-        return data.var(data, dim=dimension, skipna=~ignore_nodata)
+        return data.var(dim=dimension, skipna=~ignore_nodata)
 
     @staticmethod
     def exec_da():
@@ -3546,7 +3553,7 @@ class Sum:
             return np.nansum(data, axis=dimension) + summand
 
     @staticmethod
-    def exec_xar(data, ignore_nodata=True, dimension=0, extra_values=None):
+    def exec_xar(data, ignore_nodata=True, dimension=None):
         """
         Sums up all elements in a sequential array of numbers and returns the computed sum. By default no-data values
         are ignored. Setting `ignore_nodata` to false considers no-data values so that np.nan is returned if any element
@@ -3555,38 +3562,41 @@ class Sum:
 
         Parameters
         ----------
-        data : xr.DataArray
-            An array of numbers. An empty array resolves always with np.nan.
+        data : xr.DataArray or List(xr.DataArray)
+            An xarray DataArray or list thereof. An empty array resolves always with np.nan.
         ignore_nodata : bool, optional
             Indicates whether no-data values are ignored or not. Ignores them by default (=True).
             Setting this flag to False considers no-data values so that np.nan is returned if any value is such a value.
-        dimension : int, optional
-            Defines the dimension to calculate the sum along (default is 0).
-        extra_values: list, optional
-            Offers to add additional elements to the computed sum.
+        dimension : str, optional
+            Defines the dimension to calculate the sum along (defaults to first
+            dimension if not specified). Dimensions are expected in this order:
+            (dim1, dim2, y, x)
 
         Returns
         -------
         xr.DataArray :
             The computed sum of the sequence of numbers.
 
-        Notes
-        -----
-        `extra_values` have been introduced to handle np.array and single value interaction.
-        It is more efficient to add the additional summands after computing the sum along the dimension of the array.
-
         """
-        extra_values = extra_values if extra_values is not None else []
 
-        if is_empty(data) and len(extra_values) == 0:
+        summand = 0
+        if isinstance(data, list):
+            data_tmp = []
+            for item in data:
+                if isinstance(item, xr.DataArray):
+                    data_tmp.append(item)
+                elif isinstance(item, numbers.Number):
+                    summand += item
+            # Concatenate along dim 'new_dim'
+            data = xr.concat(data_tmp, dim='new_dim')
+
+        if is_empty(data):
             return np.nan
 
-        if not ignore_nodata:
-            summand = np.sum(extra_values)
-        else:
-            summand = np.nansum(extra_values)
+        if not dimension:
+            dimension = data.dims[0]
 
-        return data.sum(data, dim=dimension, skipna=~ignore_nodata) + summand
+        return data.sum(dim=dimension, skipna=~ignore_nodata) + summand
 
     @staticmethod
     def exec_da():
@@ -3669,7 +3679,7 @@ class Product:
         return np.prod(data, axis=dimension, initial=multiplicand)
 
     @staticmethod
-    def exec_xar(data, ignore_nodata=True, dimension=0, extra_values=None):
+    def exec_xar(data, ignore_nodata=True, dimension=None, extra_values=None):
         """
         Multiplies all elements in a sequential array of numbers and returns the computed product. By default no-data
         values are ignored. Setting `ignore_nodata` to False considers no-data values so that np.nan is returned if any
@@ -3683,8 +3693,10 @@ class Product:
         ignore_nodata : bool, optional
             Indicates whether no-data values are ignored or not. Ignores them by default (=True).
             Setting this flag to False considers no-data values so that np.nan is returned if any value is such a value.
-        dimension : int, optional
-            Defines the dimension to calculate the product along (default is 0).
+        dimension : str, optional
+            Defines the dimension to calculate the sum along (defaults to first
+            dimension if not specified). Dimensions are expected in this order:
+            (dim1, dim2, y, x)
         extra_values: list, optional
             Offers to add additional elements to the computed sum.
 
@@ -3705,15 +3717,15 @@ class Product:
         if is_empty(data) and len(extra_values) == 0:
             return np.nan
 
-        if ignore_nodata:
-            data[np.isnan(data)] = 1.
-
         if len(extra_values) > 0:
             multiplicand = np.prod(extra_values)
         else:
             multiplicand = 1.
 
-        return data.prod(data, dim=dimension, skipna=~ignore_nodata) * multiplicand
+        if not dimension:
+            dimension = data.dims[0]
+
+        return data.prod(dim=dimension, skipna=ignore_nodata) * multiplicand
 
     @staticmethod
     def exec_da():
@@ -4188,5 +4200,103 @@ class NormalizedDifference:
     def exec_da():
         pass
 
+
+########################################################################################################################
+# apply_kernel Convolution Process
+########################################################################################################################
+
+@process
+def apply_kernel():
+    """
+    Returns class instance of `ApplyKernel`.
+    For more details, please have a look at the implementations inside `ApplyKernel`.
+
+    Returns
+    -------
+    ApplyKernel :
+        Class instance implementing all 'apply_kernel' processes.
+
+    """
+    return ApplyKernel()
+
+
+class ApplyKernel:
+    """
+    Class implementing all 'apply_kernel' processes.
+
+    """
+
+    @staticmethod
+    def exec_num():
+        pass
+
+    @staticmethod
+    def exec_np():
+        pass
+
+    @staticmethod
+    def exec_xar(data,kernel,border=0,factor=1,replace_invalid=0):
+        """
+       Applies a 2D convolution (i.e. a focal operation with a weighted kernel) on the horizontal spatial
+       dimensions (axes x and y) of the data cube. Each value in the kernel is multiplied with the corresponding
+       pixel value and all products are summed up afterwards. The sum is then multiplied with the factor.
+       The process can't handle non-numerical or infinite numerical values in the data cube.
+       Boolean values are converted to integers (false = 0, true = 1), but all other non-numerical or infinite values
+       are replaced with zeroes by default (see parameter replace_invalid).
+
+        Parameters
+        ----------
+        data : xr.DataArray
+            The input datacube.
+        kernel : np.ndarray
+            The kernel.
+        factor : int or float
+            A factor that is multiplied to each value after the kernel has been applied.
+        border : int, float or string
+            Determines how the data is extended when the kernel overlaps with the borders. Defaults to fill the border with zeroes.
+            The following options are available:
+            numeric value - fill with a user-defined constant number n: nnnnnn|abcdefgh|nnnnnn (default, with n = 0)
+            replicate - repeat the value from the pixel at the border: aaaaaa|abcdefgh|hhhhhh
+            reflect - mirror/reflect from the border: fedcba|abcdefgh|hgfedc
+            reflect_pixel - mirror/reflect from the center of the pixel at the border: gfedcb|abcdefgh|gfedcb
+            wrap - repeat/wrap the image: cdefgh|abcdefgh|abcdef
+        replace_invalid : int or float
+            This parameter specifies the value to replace non-numerical or infinite numerical values with. By default, those values are replaced with zeroes.
+       
+        Returns
+        -------
+        xr.DataArray :
+            The computed result.
+
+        """
+        def convolve(data, kernel, mode='constant', cval=0, fill_value=0):
+            dims = ('y','x')
+            convolved = lambda data: scipy.ndimage.convolve(data, kernel, mode=mode, cval=cval)
+
+            data_masked = data.fillna(fill_value)
+
+            return xr.apply_ufunc(convolved, data_masked,
+                                  vectorize=True,
+                                  dask='parallelized',
+                                  input_core_dims = [dims],
+                                  output_core_dims = [dims],
+                                  output_dtypes=[data.dtype],
+                                  dask_gufunc_kwargs={'allow_rechunk':True})
+
+        openeo_scipy_modes = {'replicate':'nearest','reflect':'reflect','reflect_pixel':'mirror','wrap':'wrap'}
+        if isinstance(border,np.int) or isinstance(border,np.float):
+            mode = 'constant'
+            cval = border
+        else:
+            mode = openeo_scipy_modes[border]
+            cval = 0
+            
+        return convolve(data,kernel,mode,cval,replace_invalid)*factor
+
+    @staticmethod
+    def exec_da():
+        pass
+    
 if __name__ == '__main__':
     pass
+
