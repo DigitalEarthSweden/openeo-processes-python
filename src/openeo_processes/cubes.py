@@ -2,6 +2,7 @@ import xarray as xr
 import rioxarray  # needed by save_result even if not directly called
 from openeo_processes.utils import process
 from os.path import splitext
+import xarray as xr
 import odc.algo
 
 ###############################################################################
