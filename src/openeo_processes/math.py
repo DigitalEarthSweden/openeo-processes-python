@@ -112,8 +112,23 @@ class Floor:
         return np.floor(x)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x):
+        """
+        The greatest integer less than or equal to the numbers `x`. This process is not an alias for the 'int' process as
+        defined by some mathematicians. See the examples for negative numbers in both processes for differences.
+        The no-data value np.nan is passed through and therefore gets propagated.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Numbers to round down.
+
+        Returns
+        -------
+        xr.DataArray :
+            Numbers rounded down.
+        """
+        return xr.ufuncs.floor(x)
 
     @staticmethod
     def exec_da():
@@ -184,8 +199,22 @@ class Ceil:
         return np.ceil(x)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x):
+        """
+        The least integer greater than or equal to the given number.
+        The no-data value None is passed through and therefore gets propagated.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Numbers to round up.
+
+        Returns
+        -------
+        xr.DataArray :
+            Numbers rounded up.
+        """
+        return xr.ufuncs.ceil(x)
 
     @staticmethod
     def exec_da():
@@ -262,8 +291,23 @@ class Int:
         return obj_x
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x):
+        """
+        The integer part of the real number `x`. This process is not an alias for the floor process as defined by
+        some mathematicians, see the examples for negative numbers in both processes for differences.
+        The no-data value None is passed through and therefore gets propagated.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Numbers.
+
+        Returns
+        -------
+        xr.DataArray :
+            Integer part of the numbers.
+        """
+        return xr.ufuncs.trunc(x)
 
     @staticmethod
     def exec_da():
@@ -350,8 +394,31 @@ class Round:
         return np.around(x, p)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x, p=0):
+        """
+        Rounds real numbers `x` to specified precision `p`.
+        If the fractional part of `x` is halfway between two integers, one of which is even and the other odd,
+        then the even number is returned. This behaviour follows IEEE Standard 754.
+        This kind of rounding is also called "rounding to nearest" or "banker's rounding".
+        It minimizes rounding errors that result from consistently rounding a midpoint value in a single direction.
+        The no-data value None is passed through and therefore gets propagated.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Numbers to round.
+        p : int, optional
+            A positive number specifies the number of digits after the decimal point to round to.
+            A negative number means rounding to a power of ten, so for example -2 rounds to the nearest hundred.
+            Defaults to 0.
+
+        Returns
+        -------
+        xr.DataArray :
+            The rounded numbers.
+        """
+        #error for float objects: 'float' object has no attribute 'round'
+        return x.round(p)
 
     @staticmethod
     def exec_da():
@@ -422,8 +489,22 @@ class Exp:
         return np.exp(p)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(p):
+        """
+        Exponential function to the base e raised to the power of `p`.
+        The no-data value np.nan is passed through and therefore gets propagated.
+
+        Parameters
+        ----------
+        p : xr.DataArray
+            The numerical exponent.
+
+        Returns
+        -------
+        xr.DataArray :
+            The computed values for e raised to the power of `p`.
+        """
+        return xr.ufuncs.exp(p)
 
     @staticmethod
     def exec_da():
@@ -502,8 +583,26 @@ class Log:
         return np.log(x)/np.log(base)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x, base):
+        """
+        Logarithm to the base `base` of the numbers `x` is defined to be the inverse function of taking `base` to the
+        powers of `x`. The no-data value np.nan is passed through and therefore gets propagated if any of the arguments
+        is None. The computations follow IEEE Standard 754 whenever the processing environment supports it.
+        Therefore, exec_np(0, 2) results in ±infinity.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Numbers to compute the logarithm for.
+        base : int or float
+            The numerical base.
+
+        Returns
+        -------
+        xr.DataArray :
+            The computed logarithm.
+        """
+        return xr.ufuncs.log(x)/xr.ufuncs.log(base)
 
     @staticmethod
     def exec_da():
@@ -578,8 +677,24 @@ class Ln:
         return np.log(x)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x):
+        """
+        The natural logarithm is the logarithm to the base e of the numbers `x`, which equals to using the log process
+        with the base set to e. The natural logarithm is the inverse function of taking e to the powers `x`. The no-data
+        value np.nan is passed through. The computations follow IEEE Standard 754.
+        Therefore, exec_np(0) results in ±infinity.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Numbers to compute the natural logarithm for.
+
+        Returns
+        -------
+        xr.DataArray :
+            The computed natural logarithms.
+        """
+        return xr.ufuncs.log(x)
 
     @staticmethod
     def exec_da():
@@ -650,8 +765,23 @@ class Cos:
         return np.cos(x)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x):
+        """
+        Computes the cosine of `x`.
+        Works on radians only. The no-data value np.nan is passed through and therefore gets propagated.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Angles in radians.
+
+        Returns
+        -------
+        xr.DataArray :
+            The computed cosines of `x`.
+
+        """
+        return xr.ufuncs.cos(x)
 
     @staticmethod
     def exec_da():
@@ -724,8 +854,24 @@ class Arccos:
         return np.arccos(x)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x):
+        """
+        Computes the arc cosine of `x`. The arc cosine is the inverse function of the cosine so that
+        `arccos(cos(x)) = x`. Works on radians only. The no-data value np.nan is passed through and therefore gets
+        propagated.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Numbers.
+
+        Returns
+        -------
+        xr.DataArray :
+            The computed angles in radians.
+
+        """
+        return xr.ufuncs.arccos(x)
 
     @staticmethod
     def exec_da():
@@ -796,8 +942,22 @@ class Cosh:
         return np.cosh(x)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x):
+        """
+        Computes the hyperbolic cosine of `x`. Works on radians only.
+        The no-data value np.nan is passed through and therefore gets propagated.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Angles in radians.
+
+        Returns
+        -------
+        xr.DataArray :
+            The computed hyperbolic cosines of `x`.
+        """
+        return xr.ufuncs.cosh(x)
 
     @staticmethod
     def exec_da():
@@ -870,8 +1030,24 @@ class Arcosh:
         return np.arccosh(x)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x):
+        """
+        Computes the inverse hyperbolic cosine of `x`. It is the inverse function of the hyperbolic cosine so that
+        `arcosh(cosh(x)) = x`. Works on radians only. The no-data value np.nan is passed through and therefore gets
+        propagated.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Numbers.
+
+        Returns
+        -------
+        xr.DataArray :
+            The computed angles in radians.
+
+        """
+        return xr.ufuncs.arccosh(x)
 
     @staticmethod
     def exec_da():
@@ -942,8 +1118,22 @@ class Sin:
         return np.sin(x)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x):
+        """
+        Computes the sine of `x`.
+        Works on radians only. The no-data value np.nan is passed through and therefore gets propagated.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Angles in radians.
+
+        Returns
+        -------
+        xr.DataArray :
+            The computed sines of `x`.
+        """
+        return xr.ufuncs.sin(x)
 
     @staticmethod
     def exec_da():
@@ -1016,8 +1206,23 @@ class Arcsin:
         return np.arcsin(x)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x):
+        """
+        Computes the arc sine of `x`. The arc sine is the inverse function of the sine so that
+        `arcsin(sin(x)) = x`. Works on radians only. The no-data value np.nan is passed through and therefore gets
+        propagated.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Numbers.
+
+        Returns
+        -------
+        xr.DataArray :
+            The computed angles in radians.
+        """
+        return xr.ufuncs.arcsin(x)
 
     @staticmethod
     def exec_da():
@@ -1081,15 +1286,29 @@ class Sinh:
 
         Returns
         -------
-        np.nan :
+        np.array :
             The computed hyperbolic sines of `x`.
 
         """
         return np.sinh(x)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x):
+        """
+        Computes the hyperbolic sine of `x`. Works on radians only.
+        The no-data value np.nan is passed through and therefore gets propagated.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Angles in radians.
+
+        Returns
+        -------
+        xr.DataArray :
+            The computed hyperbolic sines of `x`.
+        """
+        return xr.ufuncs.sinh(x)
 
     @staticmethod
     def exec_da():
@@ -1162,8 +1381,23 @@ class Arsinh:
         return np.arcsinh(x)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x):
+        """
+        Computes the inverse hyperbolic sine of `x`. It is the inverse function of the hyperbolic sine so that
+        `arsinh(sinh(x)) = x`. Works on radians only. The no-data value np.nan is passed through and therefore gets
+        propagated.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Numbers.
+
+        Returns
+        -------
+        xr.DataArray :
+            The computed angles in radians.
+        """
+        return xr.ufuncs.arcsinh(x)
 
     @staticmethod
     def exec_da():
@@ -1236,8 +1470,23 @@ class Tan:
         return np.tan(x)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x):
+        """
+        Computes the tangent of `x`. The tangent is defined to be the sine of `x` divided by the cosine of `x`.
+        Works on radians only. The no-data value np.nan is passed through and therefore gets propagated.
+
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Angles in radians.
+
+        Returns
+        -------
+        xr.DataArray :
+            The computed tangents of `x`.
+        """
+        return xr.ufuncs.tan(x)
 
     @staticmethod
     def exec_da():
@@ -1310,8 +1559,24 @@ class Arctan:
         return np.arctan(x)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x):
+        """
+        Computes the arc tangent of `x`. The arc tangent is the inverse function of the tangent so that
+        `arctan(tan(x)) = x`. Works on radians only. The no-data value np.nan is passed through and therefore gets
+        propagated.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Numbers.
+
+        Returns
+        -------
+        xr.DataArray :
+            The computed angles in radians.
+
+        """
+        return xr.ufuncs.arctan(x)
 
     @staticmethod
     def exec_da():
@@ -1384,8 +1649,23 @@ class Tanh:
         return np.tanh(x)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x):
+        """
+        Computes the hyperbolic tangent of `x`.  The hyperbolic tangent is defined to be the hyperbolic sine of `x`
+        divided by the hyperbolic cosine of `x`. Works on radians only.
+        The no-data value np.nan is passed through and therefore gets propagated.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Angles in radians.
+
+        Returns
+        -------
+        xr.DataArray :
+            The computed hyperbolic tangents of `x`.
+        """
+        return xr.ufuncs.tanh(x)
 
     @staticmethod
     def exec_da():
@@ -1458,8 +1738,23 @@ class Artanh:
         return np.arctanh(x)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x):
+        """
+        Computes the inverse hyperbolic tangent of `x`. It is the inverse function of the hyperbolic tangent so that
+        `artanh(tanh(x)) = x`. Works on radians only. The no-data value np.nan is passed through and therefore gets
+        propagated.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Numbers.
+
+        Returns
+        -------
+        xr.DataArray :
+            The computed angles in radians.
+        """
+        return xr.ufuncs.arctanh(x)
 
     @staticmethod
     def exec_da():
@@ -1536,8 +1831,26 @@ class Arctan2:
         return np.arctan2(y, x)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(y, x):
+        """
+        Computes the arc tangent of two data arrays `x` and `y`. It is similar to calculating the arc tangent of `y/x`,
+        except that the signs of both arguments are used to determine the quadrant of the result. Works on radians only.
+        The no-data value np.nan is passed through and therefore gets propagated if any of the arguments is null.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Numbers to be used as dividend.
+        x : xr.DataArray
+            Numbers to be used as divisor.
+
+        Returns
+        -------
+        xr.DataArray :
+            The computed angles in radians.
+
+        """
+        return xr.ufuncs.arctan2(y, x)
 
     @staticmethod
     def exec_da():
@@ -1636,8 +1949,35 @@ class LinearScaleRange:
         return ((x - input_min) / (input_max - input_min)) * (output_max - output_min) + output_min
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x, input_min, input_max, output_min=0., output_max=1.):
+        """
+        Performs a linear transformation between the input and output range. The underlying formula is:
+        `((x - input_min) / (input_max - input_min)) * (output_max - output_min) + output_min`.
+
+        Potential use case include scaling values to the 8-bit range (0 - 255) often used for numeric representation of
+        values in one of the channels of the RGB colour model or calculating percentages (0 - 100).
+
+        The no-data value np.nan is passed through and therefore gets propagated.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Numbers to transform.
+        input_min : int or float
+            Minimum value the input can obtain.
+        input_max : int or float
+            Maximum value the input can obtain.
+        output_min : int or float, optional
+            Minimum value of the desired output range (default is 0.).
+        output_max : int or float, optional
+            Maximum value of the desired output range (default is 1.).
+
+        Returns
+        -------
+        xr.DataArray :
+            The transformed numbers.
+        """
+        return ((x - input_min) / (input_max - input_min)) * (output_max - output_min) + output_min
 
     @staticmethod
     def exec_da():
@@ -1712,8 +2052,25 @@ class Scale:
         return x*factor
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x, factor=1.):
+        """
+        Scales `x` with a multiplicand `factor`.
+        The no-data value np.nan is passed through and therefore gets propagated.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            A number to scale.
+        factor : int or float, optional
+            The scale factor/multiplicand (default is 1.).
+
+        Returns
+        -------
+        xr.DataArray :
+            The scaled numbers.
+
+        """
+        return x*factor
 
     @staticmethod
     def exec_da():
@@ -1788,8 +2145,24 @@ class Mod:
         return np.mod(x, y)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x, y):
+        """
+        Remainder after division of `x` by `y`. The result of a modulo operation has the sign of the divisor.
+        The no-data value None is passed through and therefore gets propagated if any of the arguments is None.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Numbers to be used as dividend.
+        y : xr.DataArray
+            Numbers to be used as divisor.
+
+        Returns
+        -------
+        xr.DataArray :
+            The remainders after division.
+        """
+        return x % y if x is not None and y is not None else None # xr.ufuncs.fmod(x, y)
 
     @staticmethod
     def exec_da():
@@ -1874,9 +2247,8 @@ class Absolute:
         -------
         xr.DataArray :
             The computed absolute values.
-
         """
-        return x.abs()
+        return xr.ufuncs.fabs(x)
 
     @staticmethod
     def exec_da():
@@ -1976,9 +2348,8 @@ class Sgn:
         -------
         xr.DataArray :
             The computed signum values of `x`.
-
         """
-        return data.sign()
+        return xr.ufuncs.sign(data)
 
     @staticmethod
     def exec_da():
@@ -2069,9 +2440,8 @@ class Sqrt:
         -------
         xr.DataArray :
             The computed square roots.
-
         """
-        return data.sqrt()
+        return xr.ufuncs.sqrt(data)
 
     @staticmethod
     def exec_da():
@@ -2147,8 +2517,26 @@ class Power:
         return np.power(base, float(p))  # float(p) because of error message in NumPy: ValueError: Integers to negative integer powers are not allowed.
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(base, p):
+        """
+        Computes the exponentiation for the bases `base` raised to the power of `p`.
+        The no-data value np.nan is passed through and therefore gets propagated if any of the arguments is np.nan.
+
+        Parameters
+        ----------
+        base : xr.DataArray
+            The numerical bases.
+        p : int or float
+            The numerical exponent.
+
+        Returns
+        -------
+        xr.DataArray :
+            The computed values for `base` raised to the power of `p`.
+        """
+
+        return base**float(p)
+
 
     @staticmethod
     def exec_da():
@@ -2215,7 +2603,7 @@ class Mean:
             return np.nanmean(data, axis=dimension)
 
     @staticmethod
-    def exec_xar(data, ignore_nodata=True, dimension=0):
+    def exec_xar(data, ignore_nodata=True, dimension=None):
         """
         The arithmetic mean of an array of numbers is the quantity commonly called the average.
         It is defined as the sum of all elements divided by the number of elements.
@@ -2398,7 +2786,7 @@ class Max():
             return np.nanmax(data, axis=dimension)
 
     @staticmethod
-    def exec_xar(data, ignore_nodata=True, dimension=0):
+    def exec_xar(data, ignore_nodata=True, dimension=None): #TODO: Check, if Maximum is correct. It has been done before, but is different from Minimum.
         """
         Computes the largest value of an array of numbers, which is is equal to the first element of a sorted
         (i.e., ordered) version the array.
@@ -2495,7 +2883,7 @@ class Median:
             return np.nanmedian(data, axis=dimension)
 
     @staticmethod
-    def exec_xar(data, ignore_nodata=True, dimension=0):
+    def exec_xar(data, ignore_nodata=True, dimension=None):
         """
         The statistical median of an array of numbers is the value separating the higher half from the lower half of
         the data. Remarks:
@@ -2598,7 +2986,7 @@ class Sd:
             return np.nanstd(data, axis=dimension, ddof=1)
 
     @staticmethod
-    def exec_xar(data, ignore_nodata=True, dimension=0):
+    def exec_xar(data, ignore_nodata=True, dimension=None):
         """
         Computes the sample standard deviation, which quantifies the amount of variation of an array of numbers.
         It is defined to be the square root of the corresponding variance (see `variance`). A low standard deviation
@@ -2697,7 +3085,7 @@ class Variance:
             return np.nanvar(data, axis=dimension, ddof=1)
 
     @staticmethod
-    def exec_xar(data, ignore_nodata=True, dimension=0):
+    def exec_xar(data, ignore_nodata=True, dimension=None):
         """
         Computes the sample variance of an array of numbers by calculating the square of the standard deviation
         (see `sd`). It is defined to be the expectation of the squared deviation of a random variable from its
@@ -2789,8 +3177,36 @@ class Extrema:
                 max(data, dimension=dimension, ignore_nodata=ignore_nodata)]
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(data, ignore_nodata=True, dimension=None):
+        """
+        Two element array containing the minimum and the maximum values of data. This process is basically an alias
+        for calling both `min` and `max`.
+
+        Parameters
+        ----------
+        data : xr.DataArray
+            An array of numbers. An empty array resolves always with np.nan.
+        ignore_nodata : bool, optional
+            Indicates whether no-data values are ignored or not. Ignores them by default (=True).
+            Setting this flag to False considers no-data values so that np.nan is returned if any value is such a value.
+        dimension : int, optional
+            Defines the dimension to calculate the variance along (default is 0).
+
+        Returns
+        -------
+        list of xr.DataArray :
+            A list containing the minimum and maximum values for the specified numbers. The first element is the
+            minimum, the second element is the maximum. If the input array is empty both elements are set to np.nan.
+        """
+        if is_empty(data):
+            return xr.DataArray(np.nan)
+        else:
+            minimum = data.min(dim=dimension, skipna=~ignore_nodata).values
+            maximum = data.max(dim=dimension, skipna=~ignore_nodata).values
+            extrema = np.append(minimum, maximum)
+
+        return xr.DataArray(extrema)
+
 
     @staticmethod
     def exec_da():
@@ -2881,8 +3297,31 @@ class Clip:
         return x
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(data, min_x, max_x):
+        """
+        Clips a number between specified minimum and maximum values. A value larger than the maximal value will have
+        the maximal value, a value lower than minimal value will have the minimal value.
+        The no-data value None is passed through and therefore gets propagated.
+
+        Parameters
+        ----------
+        xr.DataArray : int or float
+            An array.
+        min_x : int or float
+            Minimum value. If `x` is lower than this value, the process will return the value of this parameter.
+        max_x : int or float
+            Maximum value. If `x` is greater than this value, the process will return the value of this parameter.
+
+        Returns
+        -------
+        xr.DataArray :
+            The value clipped to the specified range.
+        """
+
+        x = data.where(data > min_x, min_x)
+        x = x.where(data < max_x, max_x)
+
+        return x
 
     @staticmethod
     def exec_da():
@@ -4193,8 +4632,29 @@ class NormalizedDifference:
         return NormalizedDifference.exec_num(x, y)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x, y):
+        """
+        Computes the normalized difference for two arrays. The normalized difference is computed as
+        `(x - y) / (x + y)´.
+
+        This process could be used for a number of remote sensing indices such as:
+            - NDVI: `x` = NIR band, `y` = red band
+            - NDWI: `x` = NIR band, `y` = SWIR band
+            - NDSI: `x` = green band, `y` = SWIR band
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            The array for the first band.
+        y : xr.DataArray
+            The array for the second band.
+
+        Returns
+        -------
+        xr.DataArray :
+           The computed normalized difference.
+        """
+        return (x - y) / (x + y)
 
     @staticmethod
     def exec_da():
