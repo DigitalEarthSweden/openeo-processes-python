@@ -10,13 +10,13 @@ def test_data(request):
         def __init__(self):
             self.steps = {'y': 5, 'x': 3}
             self.coords_4d = {
-                's': ['B08', 'B04', 'B02'],
-                't': [datetime(2019, 12, 1), datetime(2019, 12, 5)],
+                'bands': ['B08', 'B04', 'B02'],
+                'time': [datetime(2019, 12, 1), datetime(2019, 12, 5)],
                 'y': np.arange(55.3, 55.3 + self.steps['y']),
                 'x': np.arange(118.9, 118.9 + self.steps['x'])
             }
             self.coords_3d = {
-                't': [datetime(2019, 12, 1), datetime(2019, 12, 5)],
+                'time': [datetime(2019, 12, 1), datetime(2019, 12, 5)],
                 'y': np.arange(55.3, 55.3 + self.steps['y']),
                 'x': np.arange(118.9, 118.9 + self.steps['x'])
             }

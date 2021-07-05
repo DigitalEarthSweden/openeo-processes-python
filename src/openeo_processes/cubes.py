@@ -2,6 +2,7 @@
 import rioxarray  # needed by save_result even if not directly called
 from openeo_processes.utils import process
 from os.path import splitext
+import xarray as xr
 
 ###############################################################################
 # Load Collection Process
@@ -232,7 +233,7 @@ def save_result():
 
 class SaveResult:
     """
-    Class implementing all 'reduce_dimension' processes.
+    Class implementing 'save_result' processe.
 
     """
 
@@ -252,9 +253,36 @@ class SaveResult:
             data format (default: GTiff)
 
         """
-
+        
+        def refactor_data(data):
+            # The following code is required to recreate a Dataset from the final result as Dataarray, to get a well formatted netCDF
+            if 'time' in data.coords:
+                tmp = xr.Dataset(coords={'t':data.time.values,'y':data.y,'x':data.x})
+                if 'bands' in data.coords:
+                    try:
+                        for var in data['bands'].values:
+                            tmp[str(var)] = (('t','y','x'),data.loc[dict(bands=var)])
+                    except Exception as e:
+                        print(e)
+                        tmp[str((data['bands'].values))] = (('t','y','x'),data)
+                else:
+                    tmp['result'] = (('t','y','x'),data)
+            else:
+                tmp = xr.Dataset(coords={'y':data.y,'x':data.x})
+                if 'bands' in data.coords:
+                    try:
+                        for var in data['bands'].values:
+                            tmp[str(var)] = (('y','x'),data.loc[dict(bands=var)])
+                    except Exception as e:
+                        print(e)
+                        tmp[str((data['bands'].values))] = (('y','x'),data)
+                else:
+                    tmp['result'] = (('y','x'),data)
+            tmp.attrs = data.attrs
+            return tmp
+        
         formats = ('GTiff', 'netCDF')
-        if format == 'netCDF':
+        if format.lower() == 'netcdf':
             if not splitext(output_filepath)[1]:
                 output_filepath = output_filepath + '.nc'
             # start workaround
@@ -263,12 +291,26 @@ class SaveResult:
             if hasattr(data, 'time') and hasattr(data.time, 'units'):
                 data.time.attrs.pop('units', None)
             # end workaround
+            
+            data = refactor_data(data)
             data.to_netcdf(path=output_filepath)
-        elif format == 'GTiff':
+
+        elif format.lower() in ['gtiff','geotiff']:
             if not splitext(output_filepath)[1]:
                 output_filepath = output_filepath + '.tif'
             # TODO
             # Add check, this works only for 2D or 3D DataArrays, else loop is needed
-            data.rio.to_raster(raster_path=output_filepath, driver=format, **options)
+            
+            data = refactor_data(data)
+            if len(data.dims) > 3:
+                if len(data.t)==1:
+                    # We keep the time variable as band in the GeoTiff, multiple band/variables of the same timestamp
+                    data = data.squeeze('t')
+                else:
+                    raise Exception("[!] Not possible to write a 4-dimensional GeoTiff, use NetCDF instead.")
+            
+            data.rio.to_raster(raster_path=output_filepath,**options)
+
+            
         else:
             raise ValueError(f"Error when saving to file. Format '{format}' is not in {formats}.")
