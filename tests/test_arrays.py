@@ -52,10 +52,10 @@ class ArrayTester(TestCase):
 
         # xarray tests
         xr.testing.assert_equal(
-            oeop.array_element(self.test_data.xr_data_4d, dimension='s', label="B08"),
+            oeop.array_element(self.test_data.xr_data_4d, dimension='bands', label="B08"),
             self.test_data.xr_data_3d)
         xr.testing.assert_equal(
-            oeop.array_element(self.test_data.xr_data_4d, dimension='s', index=0),
+            oeop.array_element(self.test_data.xr_data_4d, dimension='bands', index=0),
             self.test_data.xr_data_3d)
         # Assert raised errors?
         # ArrayElementNotAvailable

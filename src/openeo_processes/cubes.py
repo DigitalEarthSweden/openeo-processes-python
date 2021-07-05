@@ -305,7 +305,7 @@ class SaveResult:
             if len(data.dims) > 3:
                 if len(data.t)==1:
                     # We keep the time variable as band in the GeoTiff, multiple band/variables of the same timestamp
-                    data = data.squeeze('time')
+                    data = data.squeeze('t')
                 else:
                     raise Exception("[!] Not possible to write a 4-dimensional GeoTiff, use NetCDF instead.")
             
