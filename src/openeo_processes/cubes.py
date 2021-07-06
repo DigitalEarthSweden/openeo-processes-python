@@ -364,8 +364,8 @@ class ResampleCubeSpatial:
             if method is None or method == 'near':
                 method = 'nearest'
             elif method not in methods_list:
-                raise Exception("Selected resampling method \""+method+"is not available! Please select one of " + methods_list)
+                raise Exception(f"Selected resampling method \"{method}\" is not available! Please select one of "
+                                f"[{', '.join(methods_list)}]")
             return odc.algo._warp.xr_reproject(data,target.geobox,resampling=method)
-            #return data.rio.reproject_match(target,resampling=method) # rioxarray works only on 2D and 3D arrays
         except Exception as e:
             raise e
