@@ -427,6 +427,12 @@ class MathTester(unittest.TestCase):
         assert oeop.add(5, 2.5) == 7.5
         assert oeop.add(-2, -4) == -6
         assert oeop.add(1, None) is None
+        xr.testing.assert_equal(
+            oeop.add(self.test_data.xr_data_factor(1, 9), self.test_data.xr_data_factor(2, 2)),
+            self.test_data.xr_data_factor(3, 11))
+        xr.testing.assert_equal(
+            oeop.add(self.test_data.xr_data_factor(1, 9), self.test_data.xr_data_factor(np.nan, -2)),
+            self.test_data.xr_data_factor(np.nan, 7))
 
     def test_subtract(self):
         """ Tests `subtract` function. """
@@ -443,12 +449,18 @@ class MathTester(unittest.TestCase):
         assert oeop.multiply(5, 2.5) == 12.5
         assert oeop.multiply(-2, -4) == 8
         assert oeop.multiply(1, None) is None
+        xr.testing.assert_equal(
+            oeop.multiply(self.test_data.xr_data_factor(3, 9), self.test_data.xr_data_factor(2, np.nan)),
+            self.test_data.xr_data_factor(6, np.nan))
 
     def test_divide(self):
         """ Tests `divide` function. """
         assert oeop.divide(5, 2.5) == 2.
         assert oeop.divide(-2, 4) == -0.5
         assert oeop.divide(1, None) is None
+        xr.testing.assert_equal(
+            oeop.divide(self.test_data.xr_data_factor(1, 6.4), self.test_data.xr_data_factor(np.nan, 2)),
+            self.test_data.xr_data_factor(np.nan, 3.2))
 
     def test_normalized_difference(self):
         """ Tests `normalized_difference` function. """

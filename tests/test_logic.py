@@ -13,6 +13,9 @@ class LogicTester(unittest.TestCase):
         assert not oeop.not_(True)
         assert oeop.not_(False)
         assert oeop.not_(None) is None
+        xr.testing.assert_equal(
+            oeop.not_(self.test_data.xr_data_factor(False, True)),
+            self.test_data.xr_data_factor(True, False))
 
     def test_and_(self):
         """ Tests `and_` function. """
