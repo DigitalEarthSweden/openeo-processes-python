@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from copy import deepcopy
 import openeo_processes as oeop
-
+import xarray as xr
 
 @pytest.mark.usefixtures("test_data")
 class MathTester(unittest.TestCase):
