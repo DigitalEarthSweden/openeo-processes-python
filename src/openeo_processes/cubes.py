@@ -1,8 +1,8 @@
-
 import rioxarray  # needed by save_result even if not directly called
 from openeo_processes.utils import process
 from os.path import splitext
 import xarray as xr
+import odc.algo
 
 ###############################################################################
 # Load Collection Process
@@ -32,10 +32,9 @@ class LoadCollection:
     """
 
     @staticmethod
-    def exec_odc(odc_cube, product: str, x: tuple, y: tuple, time: list,
-                 dask_chunks: dict, measurements: list = [],
-                 crs: str = "EPSG:4326"):
-
+    def exec_odc(odc_cube, product: str, dask_chunks: dict,
+                 x: tuple = (), y: tuple = (), time: list = [],
+                 measurements: list = [], crs: str = "EPSG:4326"):
         return load_result(odc_cube, product, dask_chunks, x, y, time,
                            measurements, crs)
 
@@ -314,3 +313,59 @@ class SaveResult:
             
         else:
             raise ValueError(f"Error when saving to file. Format '{format}' is not in {formats}.")
+
+            
+###############################################################################
+# Resample cube temporal process
+###############################################################################
+
+
+@process
+def resample_cube_spatial():
+    """
+    Returns class instance of `resample_cube_spatial`.
+    For more details, please have a look at the implementations inside
+    `resample_cube_spatial`.
+
+    Returns
+    -------
+    save_result :
+        Class instance implementing 'resample_cube_spatial' process.
+
+    """
+    return ResampleCubeSpatial()
+
+
+class ResampleCubeSpatial:
+    """
+    Class implementing 'resample_cube_spatial' processe.
+
+    """
+
+    @staticmethod
+    def exec_xar(data, target, method, options={}):
+        """
+        Save data to disk in specified format.
+
+        Parameters
+        ----------
+        data : xr.DataArray
+           A data cube.
+        target: str,
+          A data cube that describes the spatial target resolution.
+        method: str,
+          Resampling method. Methods are inspired by GDAL, see [gdalwarp](https://www.gdal.org/gdalwarp.html) for more information.
+          "near","bilinear","cubic","cubicspline","lanczos","average","mode","max","min","med","q1","q3"
+          (default: near)
+
+        """
+        try:
+            methods_list = ["near","bilinear","cubic","cubicspline","lanczos","average","mode","max","min","med","q1","q3"]
+            if method is None or method == 'near':
+                method = 'nearest'
+            elif method not in methods_list:
+                raise Exception(f"Selected resampling method \"{method}\" is not available! Please select one of "
+                                f"[{', '.join(methods_list)}]")
+            return odc.algo._warp.xr_reproject(data,target.geobox,resampling=method)
+        except Exception as e:
+            raise e
