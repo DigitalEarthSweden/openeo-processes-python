@@ -2810,6 +2810,9 @@ class Max():
         if is_empty(data):
             return np.nan
 
+        if not dimension:
+            dimension = data.dims[0]
+
         return data.max(dim=dimension, skipna=~ignore_nodata)
 
     @staticmethod

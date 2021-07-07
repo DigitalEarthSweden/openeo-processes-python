@@ -252,7 +252,8 @@ class MathTester(unittest.TestCase):
         assert oeop.min([5, 2.5, np.nan, -0.7]) == -0.7
         assert np.isnan(oeop.min([1, 0, 3, np.nan, 2], ignore_nodata=False))
         assert np.isnan(oeop.min([np.nan, np.nan]))
-        assert (oeop.min(self.test_data.xr_data_factor(3, 5)).values == self.test_data.xr_data_factor(3, 5).isel(t=0).values).all()
+        assert (oeop.min(self.test_data.xr_data_factor(3, 5), dimension = 't') == 3).all()
+        assert (oeop.min(self.test_data.xr_data_factor(np.nan, 5), dimension='t') == 5).all()
 
     def test_max(self):
         """ Tests `max` function. """
@@ -260,9 +261,8 @@ class MathTester(unittest.TestCase):
         assert oeop.max([5, 2.5, np.nan, -0.7]) == 5
         assert np.isnan(oeop.max([1, 0, 3, np.nan, 2], ignore_nodata=False))
         assert np.isnan(oeop.max([np.nan, np.nan]))
-        xr.testing.assert_equal(
-            oeop.max(self.test_data.xr_data_factor(3, 5)),
-            xr.DataArray(5))
+        assert (oeop.max(self.test_data.xr_data_factor(3, 5), dimension = 't') == 5).all()
+        assert (oeop.max(self.test_data.xr_data_factor(np.nan, 5), dimension='t') == (oeop.max(self.test_data.xr_data_factor(3, 5), dimension = 't'))).all()
 
     def test_median(self):
         """ Tests `median` function. """
@@ -338,6 +338,11 @@ class MathTester(unittest.TestCase):
         assert np.all([np.isnan(quantile) for quantile in quantiles_4]) and len(quantiles_4) == 3
         quantiles_5 = oeop.quantiles(data=[], probabilities=[0.1, 0.5])
         assert np.all([np.isnan(quantile) for quantile in quantiles_5]) and len(quantiles_5) == 2
+        assert (oeop.quantiles(self.test_data.xr_data_factor(1, 2), dimension = None, q = 2) == xr.DataArray(np.array([1.5, 1.5, 1.5]))).all()
+        assert (oeop.quantiles(self.test_data.xr_data_factor(1, 2), dimension='t', q=2) == xr.DataArray(
+            np.array([1.5, 1.5, 1.5]))).all()
+        assert (oeop.quantiles(self.test_data.xr_data_factor(np.nan, 2), dimension='t', q=2) == xr.DataArray(
+            np.array([2, 2, 2]))).all()
 
     def test_cummin(self):
         """ Tests `cummin` function. """
@@ -345,6 +350,7 @@ class MathTester(unittest.TestCase):
         assert np.isclose(oeop.cummin([5, 3, np.nan, 1, 5]), [5, 3, np.nan, 1, 1], equal_nan=True).all()
         assert np.isclose(oeop.cummin([5, 3, np.nan, 1, 5], ignore_nodata=False),
                           [5, 3, np.nan, np.nan, np.nan], equal_nan=True).all()
+        assert (oeop.cummin(xr.DataArray(np.array([3, 5, 2]))) == [3, 3, 2]).all()
 
     def test_cummax(self):
         """ Tests `cummax` function. """
@@ -352,6 +358,7 @@ class MathTester(unittest.TestCase):
         assert np.isclose(oeop.cummax([1, 3, np.nan, 5, 1]), [1, 3, np.nan, 5, 5], equal_nan=True).all()
         assert np.isclose(oeop.cummax([1, 3, np.nan, 5, 1], ignore_nodata=False),
                           [1, 3, np.nan, np.nan, np.nan], equal_nan=True).all()
+        assert (oeop.cummax(xr.DataArray(np.array([3, 5, 2]))) == [3, 5, 5]).all()
 
     def test_cumproduct(self):
         """ Tests `cumproduct` function. """
@@ -359,6 +366,7 @@ class MathTester(unittest.TestCase):
         assert np.isclose(oeop.cumproduct([1, 2, 3, np.nan, 3, 1]), [1, 2, 6, np.nan, 18, 18], equal_nan=True).all()
         assert np.isclose(oeop.cumproduct([1, 2, 3, np.nan, 3, 1], ignore_nodata=False),
                           [1, 2, 6, np.nan, np.nan, np.nan], equal_nan=True).all()
+        assert (oeop.cumproduct(xr.DataArray(np.array([3, 5, 2]))) == [3, 15, 30]).all()
 
     def test_cumsum(self):
         """ Tests `cumsum` function. """
@@ -366,6 +374,7 @@ class MathTester(unittest.TestCase):
         assert np.isclose(oeop.cumsum([1, 3, np.nan, 3, 1]), [1, 4, np.nan, 7, 8], equal_nan=True).all()
         assert np.isclose(oeop.cumsum([1, 3, np.nan, 3, 1], ignore_nodata=False),
                           [1, 4, np.nan, np.nan, np.nan], equal_nan=True).all()
+        assert (oeop.cumsum(xr.DataArray(np.array([3, 5, 2]))) == [3, 8, 10]).all()
 
     def test_sum(self):
         """ Tests `sum` function. """

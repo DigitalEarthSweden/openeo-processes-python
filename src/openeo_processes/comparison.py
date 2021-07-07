@@ -409,7 +409,7 @@ class Eq:
 
         if (x.dtype in [float, int]) and (y.dtype in [float, int]):  # both arrays only contain numbers
             if type(delta) in [float, int]:
-                ar_eq = (abs(x-y).round(10) <= delta)
+                ar_eq = (abs(x-y) <= delta)
             else:
                 ar_eq = x == y
         elif x.dtype == '<U32' and (y.dtype == '<U32'):  # comparison of strings or dates
