@@ -2072,7 +2072,7 @@ class Sqrt:
             The computed square roots.
 
         """
-        return data.sqrt()
+        return xr.ufuncs.sqrt(data)
 
     @staticmethod
     def exec_da():
