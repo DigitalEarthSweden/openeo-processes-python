@@ -126,8 +126,6 @@ class ReduceDimension:
     @staticmethod
     def exec_xar(data, reducer, dimension=None, context={}):
         """
-
-
         Parameters
         ----------
         data : xr.DataArray
@@ -208,6 +206,127 @@ class Apply:
         elif isinstance(process, dict):
             # No need to map this
             return data
+###############################################################################
+# MergeCubes process
+###############################################################################
+
+
+@process
+def merge_cubes():
+    """
+    Returns class instance of `Merge Cubes`.
+    For more details, please have a look at the implementations inside
+    `Merge Cubes`.
+
+    Returns
+    -------
+    merged data cube :
+        See the process description for details regarding the dimensions and dimension properties (name, type, labels, reference system and resolution).
+    """
+    return MergeCubes()
+
+
+class MergeCubes:
+    """
+    Class implementing 'merge_cubes' process.
+
+    The data cubes have to be compatible. A merge operation without overlap should be reversible with (a set of) filter operations for each of the two cubes.
+    The process performs the join on overlapping dimensions, with the same name and type.
+    An overlapping dimension has the same name, type, reference system and resolution in both dimensions, but can have different labels.
+    One of the dimensions can have different labels, for all other dimensions the labels must be equal.
+    If data overlaps, the parameter overlap_resolver must be specified to resolve the overlap.
+    """
+
+    @staticmethod
+    def exec_xar(cube1, cube2, overlap_resolver, context={}):
+        """
+        Parameters
+        ----------
+        cube1 : xr.DataArray
+            The first data cube.
+        cube2 : xr.DataArray
+            The second data cube.
+        overlap_resolver : callable or dict
+            the name of an existing process (e.g. `mean`) or a dict for a
+            process graph
+        context: dict, optional
+            keyworded parameters needed by the `reducer`
+
+        Returns
+        -------
+        xr.DataArray
+        """
+        if (cube1.dims == cube2.dims):  # Check if the dimensions have the same names
+            matching = 0
+            not_matching = 0
+            for c in cube1.coords:
+                cord = len(cube1[c] == cube2[c])  # Check how many dimensions have exactly the same coordinates
+                if cord == 0:  # dimension with different coordinates
+                    dimension = c
+                elif cord == len(cube1[c]):  # dimensions with matching coordinates
+                    matching += 1
+                else:
+                    not_matching += 1
+                    dim_not_matching = c  # dimensions with some matching coordinates
+            if matching + 1 == len(cube1.coords) and not_matching == 0:  # one dimension with different coordinates
+                merge = xr.concat([cube1, cube2], dim=dimension)
+                merge = merge.sortby(dimension)
+            elif matching == len(cube1.coords):  # all dimensions match
+                if overlap_resolver == None:  # no overlap resolver, so a new dimension is added
+                    values = np.array([cube1.values, cube2.values])
+                    cubes = ["Cube01", "Cube02"]
+                    coords = [cubes]
+                    dimensions = ["cubes"]
+                    for d in cube1.dims:
+                        dimensions.append(d)
+                        coords.append(cube1[d])
+                    merge = xr.DataArray(values, coords=coords, dims=dimensions)
+                else:
+                    if callable(overlap_resolver):  # overlap resolver, for example add
+                        values = overlap_resolver(cube1, cube2, **context)
+                        merge = xr.DataArray(values, coords=cube1.coords,
+                                             dims=cube1.dims)  # define dimensions like in cube1
+                    else:
+                        raise Exception(overlap_resolver, 'not found!')
+            else:  # WIP
+                if not_matching == 1:  # one dimension where some coordinates match, others do not, other dimensions match
+                    same = []
+                    diff = []
+                    for t in cube1[dim_not_matching]:  # count matching coordinates
+                        if (t == cube2[dim_not_matching]).any():
+                            same.append(t.values)
+                        else:  # count different coordinates
+                            diff.append(t.values)
+                    diff2 = []
+                    for t in cube2[dim_not_matching]:
+                        if not (t == cube1[dim_not_matching]).any():
+                            diff2.append(t.values)
+                    if callable(overlap_resolver):
+                        if dim_not_matching == 'time':  # only possible for time or bands WIP!
+                            merge = overlap_resolver(cube1.sel(time=same), cube2.sel(time=same), **context)
+                            if len(diff) > 0:
+                                values_cube1 = cube1.sel(time=diff)
+                                merge = xr.concat([merge, values_cube1], dim=dim_not_matching)
+                            if len(diff2) > 0:
+                                values_cube2 = cube2.sel(time=diff2)
+                                merge = xr.concat([merge, values_cube2], dim=dim_not_matching)
+                            merge = merge.sortby(dim_not_matching)
+                        elif dim_not_matching == 'bands':
+                            merge = overlap_resolver(cube1.sel(bands=same), cube2.sel(bands=same), **context)
+                            if len(diff) > 0:
+                                values_cube1 = cube1.sel(bands=diff)
+                                merge = xr.concat([merge, values_cube1], dim=dim_not_matching)
+                            if len(diff2) > 0:
+                                values_cube2 = cube2.sel(bands=diff2)
+                                merge = xr.concat([merge, values_cube2], dim=dim_not_matching)
+                            merge = merge.sortby(dim_not_matching)
+                else:
+                    merge = xr.concat([cube1, cube2], dim=dim_not_matching)
+
+        else:  # if dims do not match - WIP
+            pass
+
+        return merge
 
 ###############################################################################
 # Save result process
