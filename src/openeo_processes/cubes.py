@@ -3,6 +3,7 @@ from openeo_processes.utils import process
 from os.path import splitext
 import xarray as xr
 import odc.algo
+import numpy as np
 
 ###############################################################################
 # Load Collection Process

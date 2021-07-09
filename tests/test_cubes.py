@@ -8,6 +8,7 @@ import unittest
 import pytest
 import openeo_processes as oeop
 import xarray as xr
+import numpy as np
 
 
 @pytest.mark.usefixtures("test_data")
@@ -25,6 +26,13 @@ class CubesTester(unittest.TestCase):
             list(reduced[:, 0, 0].data),
             [14, 140]
             )
+
+    def test_merge_cubes(self):
+        """Tests 'merge_cubes' function. """
+        merged = oeop.merge_cubes(self.test_data.xr_data_4d, self.test_data.xr_data_4d,
+                                  oeop.add)  # merges two cubes together with add: x + x
+        assert (merged.dims == self.test_data.xr_data_4d.dims)  # dimensions did not change
+        xr.testing.assert_equal(merged, self.test_data.xr_data_4d * 2)  # x + x is the same as the cube*2
 
     def test_save_result(self):
         """ Tests `reduce_dimension` function. """
