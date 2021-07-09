@@ -26,6 +26,7 @@ Installation
 
         python3 -m venv .venv
         source .venv/bin/activate
+        python -m pip install --upgrade pip
 
    (You might want to use a different bootstrap python executable
    instead of ``python3`` in this example.)
@@ -50,7 +51,10 @@ Installation
         pip install .[dask]
         pip install .[xarray]
         pip install .[dask,xarray]
-
+	
+	Please note: the xarray process resample_cube_spatial requires the odc-tools library, which can't be installed automatically. You have to install it using::
+	
+        pip install --extra-index-url="https://packages.dea.ga.gov.au" odc-algo odc-aws
 
 4. Optionally run the tests::
 

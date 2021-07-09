@@ -5,10 +5,12 @@ https://openeo.org/documentation/1.0/processes.html
 
 import unittest
 import numpy as np
+import pytest
 from copy import deepcopy
 import openeo_processes as oeop
+import xarray as xr
 
-
+@pytest.mark.usefixtures("test_data")
 class MathTester(unittest.TestCase):
     """ Tests all math functions. """
 
@@ -284,6 +286,29 @@ class MathTester(unittest.TestCase):
         assert oeop.sum([-2, 4, 2.5]) == 4.5
         assert np.isnan(oeop.sum([1, np.nan], ignore_nodata=False))
 
+        # xarray tests
+        # Take sum over 't' dimension in a 3d array
+        self.assertEqual(
+            int(oeop.sum(self.test_data.xr_data_3d)[0, 0].data),
+            88
+            )
+        # Take sum over 't' dimension in a 3d array
+        self.assertEqual(
+            list(oeop.sum([self.test_data.xr_data_3d, 1000])[:, 0, 0].data),
+            [1008., 1080.]
+            )
+        # Take sum over 's' dimension in a 4d array
+        self.assertListEqual(
+            list(oeop.sum(self.test_data.xr_data_4d)[:, 0, 0].data),
+            [14, 140]
+            )
+        # Test with input as [xr.DataArray, xr.DataArray]
+        self.assertEqual(
+            (
+             oeop.sum([self.test_data.xr_data_3d, self.test_data.xr_data_3d]) -
+             self.test_data.xr_data_3d * 2
+            ).sum(), 0)
+
     def test_product(self):
         """ Tests `product` function. """
         assert oeop.product([5, 0]) == 0
@@ -298,6 +323,18 @@ class MathTester(unittest.TestCase):
         assert np.sum(oeop.product(deepcopy(C), extra_values=[2]) - np.ones((5, 5)) * 20000) == 0
         assert np.sum(oeop.product(deepcopy(C), extra_values=[2, 3]) - np.ones((5, 5)) * 60000) == 0
 
+        # xarray tests
+        # Take sum over 't' dimension in a 3d array
+        self.assertEqual(
+            int(oeop.product(self.test_data.xr_data_3d)[0, 0].data),
+            640
+            )
+        # Take sum over 's' dimension in a 4d array
+        self.assertListEqual(
+            list(oeop.product(self.test_data.xr_data_4d)[:, 0, 0].data),
+            [64, 64000]
+            )
+
     def test_add(self):
         """ Tests `add` function. """
         assert oeop.add(5, 2.5) == 7.5
@@ -310,6 +347,10 @@ class MathTester(unittest.TestCase):
         assert oeop.subtract(-2, 4) == -6
         assert oeop.subtract(1, None) is None
 
+        # xarray tests
+        assert (oeop.subtract(self.test_data.xr_data_3d,
+                             self.test_data.xr_data_3d)).sum() == 0
+        
     def test_multiply(self):
         """ Tests `multiply` function. """
         assert oeop.multiply(5, 2.5) == 12.5
@@ -326,6 +367,14 @@ class MathTester(unittest.TestCase):
     def test_normalized_difference(self):
         """ Tests `normalized_difference` function. """
         pass
+        
+    def test_apply_kernel(self):
+        """ Tests `apply_kernel` function. """
+        # xarray tests
+        kernel = np.asarray([[0,0,0],[0,1,0],[0,0,0]])
+        # With the given kernel the result must be the same as the input
+        xr.testing.assert_equal(oeop.apply_kernel(self.test_data.xr_data_4d,kernel,border=0, factor=1),self.test_data.xr_data_4d)
+        xr.testing.assert_equal(oeop.apply_kernel(self.test_data.xr_data_3d,kernel,border=0, factor=1),self.test_data.xr_data_3d)
 
 if __name__ == "__main__":
     unittest.main()

@@ -130,7 +130,7 @@ class ArrayElement:
             By default this process throws an `ArrayElementNotAvailable` exception if the index or label is invalid.
             If you want to return np.nan instead, set this flag to `True`.
         labels : np.array, optional
-            The available labels.
+            The available labels. This is needed when specifing `label`.
 
         Returns
         -------
@@ -147,7 +147,11 @@ class ArrayElement:
             Only `index` or `labels` allowed to be set.
 
         """
-        ArrayElement._check_input(index, label, labels)
+
+        ArrayElement._check_input(index, label)
+        if label and (labels is None):
+            msg = "Parameter 'labels' is needed when specifying input parameter 'label'."
+            raise GenericError(msg)
         if label:
             # Convert label to index, using labels
             index = labels.tolist().index(label)
@@ -163,15 +167,70 @@ class ArrayElement:
         return array_elem
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(data, dimension, index=None, label=None, return_nodata=False, labels=None):
+        """
+        Returns the element with the specified index or label from the array. Either the parameter `index` or `label`
+        must be specified, otherwise the `ArrayElementParameterMissing` exception is thrown. If both parameters are set
+        the `ArrayElementParameterConflict` exception is thrown.
+
+        Parameters
+        ----------
+        data : xr.DataArray
+            An xarray DataArray object.
+        dimension : str
+            Defines the dimension name.
+        index : int, optional
+            The zero-based index of the element to retrieve (default is 0).
+        label : str, optional
+            The label of the element to retrieve.
+        return_nodata : bool, optional
+            By default this process throws an `ArrayElementNotAvailable` exception if the index or label is invalid.
+            If you want to return np.nan instead, set this flag to `True`.
+        labels : np.array, optional
+            The available labels. This is needed when specifing `label`.
+
+        Returns
+        -------
+        object
+            The value of the requested element.
+
+        Raises
+        ------
+        ArrayElementNotAvailable :
+            The array has no element with the specified index or label.
+        ArrayElementParameterMissing :
+            Either `index` or `labels` must be set.
+        ArrayElementParameterConflict :
+            Only `index` or `labels` allowed to be set.
+
+        """
+
+        ArrayElement._check_input(index, label)
+        if label:
+            try:
+                array_elem = data.loc[{dimension: label}]
+            except KeyError:
+                raise ArrayElementNotAvailable()
+
+        if index is not None:  # index could be 0
+            try:
+                array_elem = data[{dimension: index}]
+            except IndexError:
+                raise ArrayElementNotAvailable()
+
+        if dimension not in array_elem.dims:
+            # Drop coord for 'dimension' if only one value was left
+            # in this dim
+            array_elem = array_elem.drop_vars(dimension)
+
+        return array_elem
 
     @staticmethod
     def exec_da():
         pass
 
     @staticmethod
-    def _check_input(index, label, labels):
+    def _check_input(index, label): #, labels=None):
         """
         Checks if `index` and `label` are given correctly.
 
@@ -184,8 +243,8 @@ class ArrayElement:
             The zero-based index of the element to retrieve (default is 0).
         label : int or str, optional
             The label of the element to retrieve.
-        labels : np.array, optional
-            The available labels.
+        # labels : np.array, optional
+        #     The available labels.
 
         Raises
         ------
@@ -201,9 +260,9 @@ class ArrayElement:
         if index is None and label is None:
             raise ArrayElementParameterMissing()
         
-        if label and labels is None:
-            msg = "Parameter 'labels' is needed when specifying input parameter 'label'."
-            raise GenericError(msg)
+        # if label and labels is None:
+        #     msg = "Parameter 'labels' is needed when specifying input parameter 'label'."
+        #     raise GenericError(msg)
 
 
 ########################################################################################################################

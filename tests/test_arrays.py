@@ -3,12 +3,15 @@ Most tests are in alignment with:
 https://openeo.org/documentation/1.0/processes.html
 """
 
-import unittest
 import numpy as np
 import openeo_processes as oeop
+import pytest
+import xarray as xr
+from unittest import TestCase
 
 
-class ArrayTester(unittest.TestCase):
+@pytest.mark.usefixtures("test_data")
+class ArrayTester(TestCase):
     """ Tests all array functions. """
 
     def test_array_contains(self):
@@ -24,6 +27,7 @@ class ArrayTester(unittest.TestCase):
 
     def test_array_element(self):
         """ Tests `array_element` function. """
+        # numpy tests
         assert oeop.array_element([9, 8], label="B", labels=np.array(["A", "B"])) == 8
         assert oeop.array_element([9, 8, 7, 6, 5], index=2) == 7
         assert oeop.array_element(["A", "B", "C"], index=0) == "A"
@@ -46,6 +50,18 @@ class ArrayTester(unittest.TestCase):
         assert np.isclose(oeop.array_element(test_array, index=2, dimension=0), array_i2_d0, equal_nan=True).all()
         assert np.isclose(oeop.array_element(test_array, index=0, dimension=1), array_i0_d1, equal_nan=True).all()
 
+        # xarray tests
+        xr.testing.assert_equal(
+            oeop.array_element(self.test_data.xr_data_4d, dimension='bands', label="B08"),
+            self.test_data.xr_data_3d)
+        xr.testing.assert_equal(
+            oeop.array_element(self.test_data.xr_data_4d, dimension='bands', index=0),
+            self.test_data.xr_data_3d)
+        # Assert raised errors?
+        # ArrayElementNotAvailable
+        # oeop.array_element(self.xr_data_4d, dimension='s', label="B09")
+        # oeop.array_element(self.xr_data_4d, dimension='s', index=4)
+
     def test_count(self):
         """ Tests `count` function. """
         assert oeop.count([]) == 0
@@ -56,7 +72,7 @@ class ArrayTester(unittest.TestCase):
         assert oeop.count([0, 1, 2, 3, 4, 5, np.nan], condition=oeop.gt, context={'y': 2}) == 3
         assert oeop.count([0, 1, 2, 3, 4, 5, np.nan], condition=oeop.lte, context={'y': 2}) == 3
 
-    #TODO: add test
+    # TODO: add test
     def test_array_apply(self):
         """ Tests `array_apply` function. """
         pass
@@ -124,8 +140,8 @@ class ArrayTester(unittest.TestCase):
     def test_rearrange(self):
         """ Tests `rearrange` function. """
         self.assertListEqual(oeop.rearrange([5, 4, 3], [2, 1, 0]).tolist(), [3, 4, 5])
-        self.assertListEqual(oeop.rearrange([5, 4, 3, 2], [1, 3]).tolist(), [4, 2])
         self.assertListEqual(oeop.rearrange([5, 4, 3, 2], [0, 2, 1, 3]).tolist(), [5, 3, 4, 2])
+        self.assertListEqual(oeop.rearrange([5, 4, 3, 2], [1, 3]).tolist(), [4, 2])
 
     def test_sort(self):
         """ Tests `sort` function. """
@@ -138,6 +154,3 @@ class ArrayTester(unittest.TestCase):
     def test_mask(self):
         """ Tests `mask` function. """
         pass
-
-if __name__ == "__main__":
-    unittest.main()

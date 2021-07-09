@@ -4,6 +4,7 @@ from datetime import timezone, timedelta, datetime
 from typing import Callable
 
 import numpy as np
+import xarray as xr
 
 
 def eval_datatype(data):
@@ -32,7 +33,7 @@ def eval_datatype(data):
     package_root = package.split(".", 1)[0]
     if package in ("builtins", "datetime"):
         return type(data).__name__
-    elif package_root in ("numpy", "xarray", "dask"):
+    elif package_root in ("numpy", "xarray", "dask", "datacube"):
         return package_root
     else:
         return package + '.' + type(data).__name__
@@ -62,17 +63,35 @@ def process(processor):
     def fun_wrapper(*args, **kwargs):
         cls = processor()
 
+        # Workaround to allow mapping correctly also List(xr.DataArray)
+        # TODO: remove automatic conversion from List to np.Array and update all tests
         # Convert lists to numpy arrays
-        args = tuple(list2nparray(a) if isinstance(a, list) else a for a in args)
-        kwargs = {k: (list2nparray(v) if isinstance(v, list) else v) for k, v in kwargs.items()}
+        datatypes = None
+        if args:
+            # Check if there is a list of xr.DataArrays in the first variable
+            if isinstance(args[0], list) and np.any(tuple(True if isinstance(a, xr.DataArray) else False for a in args[0])):
+                datatypes = ["xarray"]
+            else:
+                args = tuple(list2nparray(a) if isinstance(a, list) else a for a in args)
+        if kwargs:
+            # Check if there is a list of xr.DataArrays in variable 'data'
+            if 'data' in kwargs and isinstance(kwargs['data'], list) and np.any(tuple(True if isinstance(a, xr.DataArray) else False for a in kwargs['data'])):
+                datatypes = ["xarray"]
+            else:
+                kwargs = {k: (list2nparray(v) if isinstance(v, list) else v) for k, v in kwargs.items()}
+        if not datatypes:
+            # retrieve data types of input (keyword) arguments
+            datatypes = set(eval_datatype(a) for a in args)
+            datatypes.update(eval_datatype(v) for v in kwargs.values())
 
-        # retrieve data types of input (keyword) arguments
-        datatypes = set(eval_datatype(a) for a in args)
-        datatypes.update(eval_datatype(v) for v in kwargs.values())
-        if "numpy" in datatypes:
-            cls_fun = getattr(cls, "exec_np")
+        if "datacube" in datatypes:
+            cls_fun = getattr(cls, "exec_odc")
         elif "xarray" in datatypes:
             cls_fun = getattr(cls, "exec_xar")
+        elif "numpy" in datatypes and "xarray" in datatypes:
+            cls_fun = getattr(cls, "exec_xar")
+        elif "numpy" in datatypes:
+            cls_fun = getattr(cls, "exec_np")
         elif "dask" in datatypes:
             cls_fun = getattr(cls, "exec_dar")
         elif datatypes.issubset({"int", "float", "NoneType", "str", "bool", "datetime"}):
