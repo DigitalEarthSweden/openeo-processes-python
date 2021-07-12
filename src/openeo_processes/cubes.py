@@ -334,6 +334,7 @@ class MergeCubes:
                 c1 = cube2
                 c2 = cube1
             check = []
+            dims_l = c2.dims
             for c in c1.dims:
                 check.append(c in c1.dims and c in c2.dims)
             for c in c2.dims:
@@ -348,6 +349,7 @@ class MergeCubes:
                         values.append(overlap_resolver(c2[l], c1, **context).values)
                     merge = xr.DataArray(values, coords=c2.coords,
                                          dims=c2.dims)  # define dimensions like in larger cube
+                    merge = merge.transpose(*dims_l)
             else:
                 raise Exception(overlap_resolver, 'not found!')
 
