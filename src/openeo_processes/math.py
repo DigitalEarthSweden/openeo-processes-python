@@ -2329,7 +2329,7 @@ class Sgn:
         return np.sign(x)
 
     @staticmethod
-    def exec_xar(data):
+    def exec_xar(x):
         """
         The signum (also known as sign) of `x` is defined as:
 
@@ -2349,7 +2349,7 @@ class Sgn:
         xr.DataArray :
             The computed signum values of `x`.
         """
-        return xr.ufuncs.sign(data)
+        return xr.ufuncs.sign(x)
 
     @staticmethod
     def exec_da():
@@ -2424,7 +2424,7 @@ class Sqrt:
         return np.sqrt(x)
 
     @staticmethod
-    def exec_xar(data):
+    def exec_xar(x):
         """
         Computes the square root of real numbers `x`, which is equal to calculating `x` to the power of 0.5.
         Square roots of `x` are numbers `a` such that `a^2 = x`. Therefore, the square root is the inverse function
@@ -2441,7 +2441,7 @@ class Sqrt:
         xr.DataArray :
             The computed square roots.
         """
-        return xr.ufuncs.sqrt(data)
+        return xr.ufuncs.sqrt(x)
 
     @staticmethod
     def exec_da():
@@ -2786,7 +2786,7 @@ class Max():
             return np.nanmax(data, axis=dimension)
 
     @staticmethod
-    def exec_xar(data, ignore_nodata=True, dimension=None): #TODO: Check, if Maximum is correct. It has been done before, but is different from Minimum.
+    def exec_xar(data, ignore_nodata=True, dimension=None):
         """
         Computes the largest value of an array of numbers, which is is equal to the first element of a sorted
         (i.e., ordered) version the array.
@@ -3300,7 +3300,7 @@ class Clip:
         return x
 
     @staticmethod
-    def exec_xar(data, min_x, max_x):
+    def exec_xar(x, min_x, max_x):
         """
         Clips a number between specified minimum and maximum values. A value larger than the maximal value will have
         the maximal value, a value lower than minimal value will have the minimal value.
@@ -3321,10 +3321,10 @@ class Clip:
             The value clipped to the specified range.
         """
 
-        x = data.where(data > min_x, min_x)
-        x = x.where(data < max_x, max_x)
+        clip = x.where(x > min_x, min_x)
+        clip = clip.where(x < max_x, max_x)
 
-        return x
+        return clip
 
     @staticmethod
     def exec_da():
@@ -3421,7 +3421,7 @@ class Quantiles:
             return np.nanpercentile(data, probabilities, axis=dimension)
 
     @staticmethod
-    def exec_xar(data, ignore_nodata=True, dimension=0, probabilities=None, q=None):
+    def exec_xar(data, probabilities=None, q=None, dimension=0, ignore_nodata=True):
         """
         Calculates quantiles, which are cut points dividing the range of a probability distribution into either
 
@@ -4698,7 +4698,7 @@ class ApplyKernel:
         pass
 
     @staticmethod
-    def exec_xar(data,kernel,border=0,factor=1,replace_invalid=0):
+    def exec_xar(data,kernel,factor=1,border=0,replace_invalid=0):
         """
        Applies a 2D convolution (i.e. a focal operation with a weighted kernel) on the horizontal spatial
        dimensions (axes x and y) of the data cube. Each value in the kernel is multiplied with the corresponding

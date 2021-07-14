@@ -1,5 +1,7 @@
 import numpy as np
 import pandas as pd
+import xarray as xr
+import math
 
 from openeo_processes.utils import create_slices
 from openeo_processes.utils import process
@@ -72,8 +74,34 @@ class ArrayContains:
         return False
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(data, value):
+        """
+        Checks whether the array specified for `data` contains the value specified in `value`.
+        Returns `True` if there's a match, otherwise `False`.
+
+        Parameters
+        ----------
+        data : xr.DataArray
+            Array to find the value in.
+        value : object
+            Value to find in `data`.
+
+        Returns
+        -------
+        bool :
+            Returns `True` if the list contains the value, `False` otherwise.
+
+        Notes
+        -----
+        `in` is not working because this process checks only for the first level.
+        """
+        if np.array(value).size == 1:
+            if pd.isnull(value):
+                return (data.isnull().sum().values > 0)
+            else:
+                return data.isin(value).sum().values > 0
+        else:
+            return data.isin(value) #TODO: Check what should happen when value contains more than one value
 
     @staticmethod
     def exec_da():
@@ -345,8 +373,52 @@ class Count:
         return count
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(data, condition=None, context=None, dimension=0):
+        """
+        Gives the number of elements in an array that matches the specified condition.
+        Remarks:
+            - Counts the number of valid elements by default (condition is set to None).
+              A valid element is every element for which is_valid returns True.
+            - To count all elements in a list set the `condition` parameter to `True`.
+
+        Parameters
+        ----------
+        data : xr.DataArray
+            An array.
+        condition : obj, optional
+            A condition consists of one ore more processes, which in the end return a boolean value.
+            It is evaluated against each element in the array. An element is counted only if the condition
+            returns `True`. Defaults to count valid elements in an array (see is_valid). Setting this parameter
+            to `True` counts all elements in the array. The following arguments are valid:
+                - None : Counts all valid elements, i.e. `is_valid` must yield `True`.
+                - `True` : Counts all elements in the array along the specified dimension.
+                - object : The following parameters are passed to the process:
+                    - `x` : The value of the current element being processed.
+                    - `context` : Additional data passed by the user.
+        context : dict, optional
+            Additional data/keyword arguments to be passed to the condition.
+        dimension : int, optional
+            Defines the dimension along to count the elements (default is 0).
+
+        Returns
+        -------
+        count: int
+            Count of the data.
+
+        Notes
+        -----
+        The condition/expression must be able to deal with NumPy arrays.
+        """
+        if condition is None:
+            condition = is_valid(data)
+        if condition is True:
+            count = data.shape[dimension]
+        elif callable(condition):
+            context = context if context is not None else {}
+            count = condition(data, **context).sum()
+        else:
+            raise ValueError(condition)
+        return count
 
     @staticmethod
     def exec_da():
@@ -417,8 +489,36 @@ class ArrayApply:
         return process(data, **context)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(data, process, context=None):
+        """
+        Applies a unary process which takes a single value such as `absolute` or `sqrt` to each value in the array.
+        This is basically what other languages call either a `for each` loop or a `map` function.
+
+        Parameters
+        ----------
+        data : np.array
+            An array.
+        process : callable
+            A process to be applied on each value, may consist of multiple sub-processes.
+            The specified process must be unary meaning that it must work on a single value.
+            The following parameters are passed to the process:
+                - `x` : The value of the current element being processed.
+                - `context` : Additional data passed by the user.
+        context : dict, optional
+            Additional data/keyword arguments to be passed to the process.
+
+        Returns
+        -------
+        np.array :
+            An array with the newly computed values. The number of elements are the same as for the original array.
+
+        Notes
+        -----
+        - The process must be able to deal with NumPy arrays.
+        - additional arguments `index` and `label` are ignored as process arguments
+        """
+        context = context if context is not None else {}
+        return process(data, **context)
 
     @staticmethod
     def exec_da():
@@ -490,8 +590,11 @@ class ArrayFilter:
         return data[condition(data, **context)]
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(data, condition, context=None):
+        context = context if context is not None else {}
+        data = data.where(condition(data, **context), drop = True) #TODO: NaNs should be skipped
+        data = data.dropna(data.dims[0])
+        return data
 
     @staticmethod
     def exec_da():
@@ -567,8 +670,41 @@ class ArrayFind:
             return idxs
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(data, value, dimension=None):
+        """
+        Checks whether the array specified for `data` contains the value specified in `value` and returns the
+        zero-based index for the first match. If there's no match, np.nan is returned..
+        Remarks:
+            - All definitions for the process `eq` regarding the comparison of values apply here as well.
+              A np.nan return value from eq is handled exactly as `False` (no match).
+            - Temporal strings are treated as normal strings and are not interpreted.
+            - If the specified value is np.nan, the process always returns np.nan.
+
+
+        Parameters
+        ----------
+        data : xr.DataArray
+            An array to find the value in.
+        value : object
+            Value to find in `data`.
+        dimension : str, optional
+            Defines the dimension along to find the value (default is None).
+
+        Returns
+        -------
+        int :
+            Returns the index of the first element with the specified value.
+            If no element was found, np.nan is returned.
+
+        Notes
+        -----
+        Own implementation, since np.argmax does not treat 'no matches' right.
+        """
+        data = data.where(data == value, False)
+        find = (data.argmax(dim=dimension))
+        find_in = data.isin(value).sum(dimension)
+        find = find.where(find_in > 0, np.nan)
+        return find
 
     @staticmethod
     def exec_da():
@@ -626,8 +762,31 @@ class ArrayLabels:
         return np.arange(n_vals)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(data, dimension=0):
+        """
+        Returns all labels for a labeled array in the data cube. The labels have the same order as in the array.
+
+        Parameters
+        ----------
+        data : xr.DataArray
+            An array with labels.
+        dimension : int, str, optional
+            Defines the dimension along to find the labels of the array (default is 0).
+
+        Returns
+        -------
+        xr.DataArray :
+            The labels as an array.
+        """
+        if type(dimension) == str:
+            i = 0
+            while data.dims[i] != dimension and i < len(data.dims):
+                i += 1
+            dim = i
+        else:
+            dim = dimension
+        n_vals = data.shape[dim]
+        return xr.DataArray(np.arange(n_vals))
 
     @staticmethod
     def exec_da():
@@ -699,8 +858,41 @@ class First:
         return first_elem
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(data, dimension=0, ignore_nodata=True):
+        """
+        Gives the first element of an array. For an empty array np.nan is returned.
+
+        Parameters
+        ----------
+        data : xr.DataArray
+            An array. An empty array resolves always with np.nan.
+        ignore_nodata : bool, optional
+            Indicates whether no-data values are ignored or not. Ignores them by default (=True).
+            Setting this flag to False considers no-data values so that np.nan is returned if any value is such a value.
+        dimension : int, optional
+            Defines the dimension to select the first element along (default is 0).
+
+        Returns
+        -------
+        xr.DataArray :
+            The first element of the input array.
+        """
+        if len(data) == 0:  # is_empty(data):
+            return np.nan
+        if type(dimension) == str:
+            dimension = dimension
+        else:
+            dimension = data.dims[dimension]
+        data_dim = data.transpose(dimension, ...)
+        data_first = data_dim[0]
+        if ignore_nodata:
+            i = 0
+            while (data_first.fillna(999) != data_first).any() and i < len(data_dim):
+                data_first = data_first.fillna(data_dim[i])
+                i += 1
+        else:
+            pass
+        return data_first
 
     @staticmethod
     def exec_da():
@@ -771,8 +963,41 @@ class Last:
         return last_elem
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(data, dimension=None, ignore_nodata=True):
+        """
+        Gives the last element of an array. For an empty array np.nan is returned.
+
+        Parameters
+        ----------
+        data : xr.DataArray
+            An array. An empty array resolves always with np.nan.
+        ignore_nodata : bool, optional
+            Indicates whether no-data values are ignored or not. Ignores them by default (=True).
+            Setting this flag to False considers no-data values so that np.nan is returned if any value is such a value.
+        dimension : int, optional
+            Defines the dimension to select the last element along (default is 0).
+
+        Returns
+        -------
+        xr.DataArray :
+            The last element of the input array.
+        """
+        if len(data) == 0:  # is_empty(data):
+            return np.nan
+        if type(dimension) == str:
+            dimension = dimension
+        else:
+            dimension = data.dims[dimension]
+        data_dim = data.transpose(dimension, ...)
+        data_last = data_dim[-1]
+        if ignore_nodata:
+            i = len(data_dim) - 1
+            while (data_last.fillna(999) != data_last).any() and i >= 0:
+                data_last = data_last.fillna(data_dim[i])
+                i -= 1
+        else:
+            pass
+        return data_last
 
     @staticmethod
     def exec_da():
@@ -874,8 +1099,70 @@ class Order:
             raise Exception(err_msg)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(data, dimension=0, asc=True, nodata=None):
+        """
+        Computes a permutation which allows rearranging the data into ascending or descending order.
+        In other words, this process computes the ranked (sorted) element positions in the original list.
+        Remarks:
+            - The positions in the result are zero-based.
+            - Ties will be left in their original ordering.
+
+        Parameters
+        ----------
+        data : xr.DataArray
+            An array to compute the order for.
+        dimension : int, str, optional
+            Defines the dimension to order along (default is 0).
+        asc : bool, optional
+            The default sort order is ascending, with smallest values first. To sort in reverse (descending) order,
+            set this parameter to `False`.
+        nodata : obj, optional
+            Controls the handling of no-data values (np.nan). By default they are removed. If `True`, missing values
+            in the data are put last; if `False`, they are put first.
+
+        Returns
+        -------
+        xr.DataArray :
+            The computed permutation.
+
+        Notes
+        -----
+        - the case with nodata=False is complicated, since a simple nan masking destroys the structure of the array
+        - due to the flipping, the order of the np.nan values is wrong, but this is ignored, since this order should
+          not be relevant
+        """
+        if len(data) == 0:
+            return np.nan
+        if type(dimension) == str:
+            dimension_str = dimension
+        else:
+            dimension_str = data.dims[dimension]
+        if nodata == None:
+            data = data.dropna(dimension_str)
+        data_t = data.transpose(dimension_str, ...)
+        order = np.zeros(data_t.shape)
+        i = 0
+        if asc:
+            if nodata:
+                data_t = data_t.fillna(data_t.max() + 1)
+            if not nodata:
+                data_t = data_t.fillna(data_t.min() - 1)
+            while i < len(order):
+                order[i] = data_t.argmin(dimension_str)
+                data_t[data_t.argmin(dimension_str)] = data_t.max() + 2
+                i += 1
+        else:
+            if nodata:
+                data_t = data_t.fillna(data_t.min() - 1)
+            if not nodata:
+                data_t = data_t.fillna(data_t.max() + 1)
+            while i < len(order):
+                order[i] = data_t.argmax(dimension_str)
+                data_t[data_t.argmax(dimension_str)] = data_t.min() - 2
+                i += 1
+        order = xr.DataArray(order, coords=data_t.coords, dims=data_t.dims)
+        order = order.transpose(*data.dims)
+        return order
 
     @staticmethod
     def exec_da():
@@ -934,8 +1221,26 @@ class Rearrange:
         return data[order]
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(data, order):
+        """
+        Rearranges an array based on a permutation, i.e. a ranked list of element positions in the original list.
+        The positions must be zero-based.
+
+        Parameters
+        ----------
+        data : xr.DataArray
+            The array to rearrange.
+        order : xr.DataArray
+            The permutation used for rearranging.
+
+        Returns
+        -------
+        xr.DataArray :
+            The rearranged array.
+
+        """
+
+        return data[order]
 
     @staticmethod
     def exec_da():
@@ -1019,8 +1324,64 @@ class Sort:
             raise Exception(err_msg)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(data, dimension=0, asc=True, nodata=None):
+        """
+        Sorts an array into ascending (default) or descending order.
+        Remarks:
+            - Ties will be left in their original ordering.
+
+        Parameters
+        ----------
+        data : xr.DataArray
+            An array with data to sort.
+        dimension : int, str, optional
+            Defines the dimension to sort along (default is 0).
+        asc : bool, optional
+            The default sort order is ascending, with smallest values first. To sort in reverse (descending) order,
+            set this parameter to `False`.
+        nodata : obj, optional
+            Controls the handling of no-data values (np.nan). By default they are removed. If `True`, missing values
+            in the data are put last; if `False`, they are put first.
+
+        Returns
+        -------
+        xr.DataArray :
+            The sorted array.
+        """
+        if len(data) == 0:
+            return np.nan
+        if type(dimension) == str:
+            dimension_str = dimension
+        else:
+            dimension_str = data.dims[dimension]
+        if nodata == None:
+            data = data.dropna(dimension_str)
+        data_t = data.transpose(dimension_str, ...)
+        sort = np.zeros(data_t.shape)
+        i = 0
+        if asc:
+            if nodata:
+                data_t = data_t.fillna(data_t.max() + 1)
+            if not nodata:
+                data_t = data_t.fillna(data_t.min() - 1)
+            while i < len(sort):
+                sort[i] = data_t.min(dimension_str)
+                data_t[data_t.argmin(dimension_str)] = data_t.max() + 2
+                i += 1
+        else:
+            if nodata:
+                data_t = data_t.fillna(data_t.min() - 1)
+            if not nodata:
+                data_t = data_t.fillna(data_t.max() + 1)
+            while i < len(sort):
+                sort[i] = data_t.max(dimension_str)
+                data_t[data_t.argmax(dimension_str)] = data_t.min() - 2
+                i += 1
+        sort = xr.DataArray(sort, coords=data_t.coords, dims=data_t.dims)
+        sort = sort.where(sort != data.max() + 1, np.nan)
+        sort = sort.where(sort != data.min() - 1, np.nan)
+        sort = sort.transpose(*data.dims)
+        return sort
 
     @staticmethod
     def exec_da():
@@ -1090,8 +1451,38 @@ class Mask:
         return data
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(data, mask, replacement=np.nan):
+        """
+        Applies a mask to an array. A mask is an array for which corresponding elements among `data` and `mask` are
+        compared and those elements in `data` are replaced whose elements in `mask` are non-zero (for numbers) or True
+        (for boolean values). The elements are replaced with the value specified for `replacement`, which defaults to
+        np.nan (no data).
+
+
+        Parameters
+        ----------
+        data : xr.DataArray
+            An array to mask.
+        mask : xr.DataArray
+            A mask as an array. Every element in `data` must have a corresponding element in `mask`.
+        replacement : float or int, optional
+            The value used to replace masked values with.
+
+        Returns
+        -------
+        xr.DataArray :
+            The masked array.
+        """
+        if data.shape == mask.shape:
+            data = data.where(mask == 0, replacement)
+        elif len(data.shape) > len(mask.shape):
+            data = data.where(mask == 0, replacement)
+        else:
+            for d in range(len(mask.dims)):
+                if not (mask.dims[d] in data.dims):
+                    mask_s = mask.squeeze(mask.dims[d])
+            data = data.where(mask_s == 0, replacement)
+        return data
 
     @staticmethod
     def exec_da():
