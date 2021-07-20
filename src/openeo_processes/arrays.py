@@ -138,7 +138,7 @@ class ArrayElement:
         pass
 
     @staticmethod
-    def exec_np(data, index=None, label=None, dimension=0, return_nodata=False, labels=None):
+    def exec_np(data, index=None, label=None, return_nodata=False, dimension=0, labels=None):
         """
         Returns the element with the specified index or label from the array. Either the parameter `index` or `label`
         must be specified, otherwise the `ArrayElementParameterMissing` exception is thrown. If both parameters are set
@@ -591,8 +591,37 @@ class ArrayFilter:
 
     @staticmethod
     def exec_xar(data, condition, context=None):
+        """
+        Filters the array elements based on a logical expression so that afterwards an array is returned that only
+        contains the values conforming to the condition.
+
+        Parameters
+        ----------
+        data : xr.DataArray
+            An array.
+        condition : callable
+            A condition that is evaluated against each value in the array. Only the array elements where the
+            condition returns `True` are preserved.
+            The following parameters are passed to the process:
+                - `x` : The value of the current element being processed.
+                - `context` : Additional data passed by the user.
+        context : dict, optional
+            Additional data/keyword arguments to be passed to the condition.
+
+        Returns
+        -------
+        xr.DataArray :
+            An array filtered by the specified condition. The number of elements are less than or equal compared to
+            the original array.
+
+        Notes
+        -----
+        - The condition must be able to deal with NumPy arrays.
+        - additional arguments `index` and `label` are ignored as condition arguments
+
+        """
         context = context if context is not None else {}
-        data = data.where(condition(data, **context), drop = True) #TODO: NaNs should be skipped
+        data = data.where(condition(data, **context), drop = True)
         data = data.dropna(data.dims[0])
         return data
 
@@ -762,7 +791,7 @@ class ArrayLabels:
         return np.arange(n_vals)
 
     @staticmethod
-    def exec_xar(data, dimension=0):
+    def exec_xar(data, dimension=None):
         """
         Returns all labels for a labeled array in the data cube. The labels have the same order as in the array.
 
@@ -778,7 +807,9 @@ class ArrayLabels:
         xr.DataArray :
             The labels as an array.
         """
-        if type(dimension) == str:
+        if dimension == None:
+            dim = 0
+        elif type(dimension) == str:
             i = 0
             while data.dims[i] != dimension and i < len(data.dims):
                 i += 1
@@ -823,7 +854,7 @@ class First:
         pass
 
     @staticmethod
-    def exec_np(data, dimension=0, ignore_nodata=True):
+    def exec_np(data, ignore_nodata=True, dimension=0):
         """
         Gives the first element of an array. For an empty array np.nan is returned.
 
@@ -858,7 +889,7 @@ class First:
         return first_elem
 
     @staticmethod
-    def exec_xar(data, dimension=0, ignore_nodata=True):
+    def exec_xar(data, ignore_nodata=True, dimension=None):
         """
         Gives the first element of an array. For an empty array np.nan is returned.
 
@@ -879,6 +910,8 @@ class First:
         """
         if len(data) == 0:  # is_empty(data):
             return np.nan
+        if dimension == None:
+            dimension = 0
         if type(dimension) == str:
             dimension = dimension
         else:
@@ -929,7 +962,7 @@ class Last:
         pass
 
     @staticmethod
-    def exec_np(data, dimension=0, ignore_nodata=True):
+    def exec_np(data, ignore_nodata=True, dimension=0):
         """
         Gives the last element of an array. For an empty array np.nan is returned.
 
@@ -963,7 +996,7 @@ class Last:
         return last_elem
 
     @staticmethod
-    def exec_xar(data, dimension=None, ignore_nodata=True):
+    def exec_xar(data, ignore_nodata=True, dimension=None):
         """
         Gives the last element of an array. For an empty array np.nan is returned.
 
@@ -984,6 +1017,8 @@ class Last:
         """
         if len(data) == 0:  # is_empty(data):
             return np.nan
+        if dimension == None:
+            dimension = 0
         if type(dimension) == str:
             dimension = dimension
         else:
@@ -1035,7 +1070,7 @@ class Order:
         pass
 
     @staticmethod
-    def exec_np(data, dimension=0, asc=True, nodata=None):
+    def exec_np(data, asc=True, nodata=None, dimension=0):
         """
         Computes a permutation which allows rearranging the data into ascending or descending order.
         In other words, this process computes the ranked (sorted) element positions in the original list.
@@ -1099,7 +1134,7 @@ class Order:
             raise Exception(err_msg)
 
     @staticmethod
-    def exec_xar(data, dimension=0, asc=True, nodata=None):
+    def exec_xar(data, asc=True, nodata=None, dimension=None):
         """
         Computes a permutation which allows rearranging the data into ascending or descending order.
         In other words, this process computes the ranked (sorted) element positions in the original list.
@@ -1133,6 +1168,8 @@ class Order:
         """
         if len(data) == 0:
             return np.nan
+        if dimension == None:
+            dimension = 0
         if type(dimension) == str:
             dimension_str = dimension
         else:
@@ -1278,7 +1315,7 @@ class Sort:
         pass
 
     @staticmethod
-    def exec_np(data, dimension=0, asc=True, nodata=None):
+    def exec_np(data, asc=True, nodata=None, dimension=0):
         """
         Sorts an array into ascending (default) or descending order.
         Remarks:
@@ -1324,7 +1361,7 @@ class Sort:
             raise Exception(err_msg)
 
     @staticmethod
-    def exec_xar(data, dimension=0, asc=True, nodata=None):
+    def exec_xar(data, asc=True, nodata=None, dimension=None):
         """
         Sorts an array into ascending (default) or descending order.
         Remarks:
@@ -1350,6 +1387,8 @@ class Sort:
         """
         if len(data) == 0:
             return np.nan
+        if dimension == None:
+            dimension = 0
         if type(dimension) == str:
             dimension_str = dimension
         else:
@@ -1418,7 +1457,7 @@ class Mask:
         pass
 
     @staticmethod
-    def exec_np(data, mask, replacement=np.nan, dimension=0):
+    def exec_np(data, mask, replacement=np.nan):
         """
         Applies a mask to an array. A mask is an array for which corresponding elements among `data` and `mask` are
         compared and those elements in `data` are replaced whose elements in `mask` are non-zero (for numbers) or True

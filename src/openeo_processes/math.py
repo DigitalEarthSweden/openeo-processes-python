@@ -1883,7 +1883,7 @@ class LinearScaleRange:
     """
 
     @staticmethod
-    def exec_num(x, input_min, input_max, output_min=0., output_max=1.):
+    def exec_num(x, inputMin, inputMax, outputMin=0., outputMax=1.):
         """
         Performs a linear transformation between the input and output range. The underlying formula is:
         `((x - input_min) / (input_max - input_min)) * (output_max - output_min) + output_min`.
@@ -1912,12 +1912,12 @@ class LinearScaleRange:
             The transformed number.
 
         """
-        return LinearScaleRange.exec_np(x, input_min, input_max,
-                                          output_min=output_min,
-                                          output_max=output_max) if x is not None else x
+        return LinearScaleRange.exec_np(x, inputMin, inputMax,
+                                          output_min=outputMin,
+                                          output_max=outputMax) if x is not None else x
 
     @staticmethod
-    def exec_np(x, input_min, input_max, output_min=0., output_max=1.):
+    def exec_np(x, inputMin, inputMax, outputMin=0., outputMax=1.):
         """
         Performs a linear transformation between the input and output range. The underlying formula is:
         `((x - input_min) / (input_max - input_min)) * (output_max - output_min) + output_min`.
@@ -1946,10 +1946,10 @@ class LinearScaleRange:
             The transformed numbers.
 
         """
-        return ((x - input_min) / (input_max - input_min)) * (output_max - output_min) + output_min
+        return ((x - inputMin) / (inputMax - inputMin)) * (outputMax - outputMin) + outputMin
 
     @staticmethod
-    def exec_xar(x, input_min, input_max, output_min=0., output_max=1.):
+    def exec_xar(x, inputMin, inputMax, outputMin=0., outputMax=1.):
         """
         Performs a linear transformation between the input and output range. The underlying formula is:
         `((x - input_min) / (input_max - input_min)) * (output_max - output_min) + output_min`.
@@ -1977,7 +1977,7 @@ class LinearScaleRange:
         xr.DataArray :
             The transformed numbers.
         """
-        return ((x - input_min) / (input_max - input_min)) * (output_max - output_min) + output_min
+        return ((x - inputMin) / (inputMax - inputMin)) * (outputMax - outputMin) + outputMin
 
     @staticmethod
     def exec_da():
@@ -3151,7 +3151,7 @@ class Extrema:
         pass
 
     @staticmethod
-    def exec_np(data, dimension=0, ignore_nodata=True):
+    def exec_np(data, ignore_nodata=True, dimension=0):
         """
         Two element array containing the minimum and the maximum values of data. This process is basically an alias
         for calling both `min` and `max`.
@@ -3242,7 +3242,7 @@ class Clip:
     """
 
     @staticmethod
-    def exec_num(x, min_x, max_x):
+    def exec_num(x, min, max):
         """
         Clips a number between specified minimum and maximum values. A value larger than the maximal value will have
         the maximal value, a value lower than minimal value will have the minimal value.
@@ -3265,15 +3265,15 @@ class Clip:
         """
         if x is None:
             pass
-        elif x < min_x:
-            x = min_x
-        elif x > max_x:
-            x = max_x
+        elif x < min:
+            x = min
+        elif x > max:
+            x = max
 
         return x
 
     @staticmethod
-    def exec_np(x, min_x, max_x):
+    def exec_np(x, min, max):
         """
         Clips a number between specified minimum and maximum values. A value larger than the maximal value will have
         the maximal value, a value lower than minimal value will have the minimal value.
@@ -3294,13 +3294,13 @@ class Clip:
             The value clipped to the specified range.
 
         """
-        x = np.where(x < min_x, min_x, x)
-        x = np.where(x > max_x, max_x, x)
+        x = np.where(x < min, min, x)
+        x = np.where(x > max, max, x)
 
         return x
 
     @staticmethod
-    def exec_xar(x, min_x, max_x):
+    def exec_xar(x, min, max):
         """
         Clips a number between specified minimum and maximum values. A value larger than the maximal value will have
         the maximal value, a value lower than minimal value will have the minimal value.
@@ -3321,8 +3321,8 @@ class Clip:
             The value clipped to the specified range.
         """
 
-        clip = x.where(x > min_x, min_x)
-        clip = clip.where(x < max_x, max_x)
+        clip = x.where(x > min, min)
+        clip = clip.where(x < max, max)
 
         return clip
 
@@ -3362,7 +3362,7 @@ class Quantiles:
         pass
 
     @staticmethod
-    def exec_np(data, probabilities=None, q=None, dimension=0, ignore_nodata=True):
+    def exec_np(data, probabilities=None, q=None, ignore_nodata=True, dimension=0):
         """
         Calculates quantiles, which are cut points dividing the range of a probability distribution into either
 
@@ -3421,7 +3421,7 @@ class Quantiles:
             return np.nanpercentile(data, probabilities, axis=dimension)
 
     @staticmethod
-    def exec_xar(data, probabilities=None, q=None, dimension=0, ignore_nodata=True):
+    def exec_xar(data, probabilities=None, q=None, ignore_nodata=True, dimension=0):
         """
         Calculates quantiles, which are cut points dividing the range of a probability distribution into either
 
