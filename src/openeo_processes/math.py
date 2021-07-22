@@ -3,6 +3,7 @@ import numpy as np
 import numbers
 import xarray as xr
 import scipy
+import scipy.ndimage
 
 try:
     import xarray_extras as xar_addons
