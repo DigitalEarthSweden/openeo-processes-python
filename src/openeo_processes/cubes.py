@@ -266,10 +266,14 @@ class MergeCubes:
             matching = 0
             not_matching = 0
             for c in cube1.coords:
-                cord = len(cube1[c] == cube2[c])  # Check how many dimensions have exactly the same coordinates
+                cord = (cube1[c] == cube2[c])  # Check how many dimensions have exactly the same coordinates
+                if (np.array([cord.values])).shape[-1] == 1: # Special case where dimension has only one coordinate, cannot compute len() of that, so I use shape
+                    cord = (np.array([cord.values])) # cord is set 0 or 1 here (False or True)
+                else:
+                    cord = len(cord)
                 if cord == 0:  # dimension with different coordinates
                     dimension = c
-                elif cord == len(cube1[c]):  # dimensions with matching coordinates
+                elif cord == (np.array([cube1[c].values])).shape[-1]:  # dimensions with matching coordinates, shape instead of len, for special case with only one coordinate
                     matching += 1
                 else:
                     not_matching += 1
