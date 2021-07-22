@@ -2,6 +2,7 @@ import builtins
 import numpy as np
 import numbers
 import xarray as xr
+import scipy
 
 try:
     import xarray_extras as xar_addons
@@ -1913,8 +1914,8 @@ class LinearScaleRange:
 
         """
         return LinearScaleRange.exec_np(x, inputMin, inputMax,
-                                          output_min=outputMin,
-                                          output_max=outputMax) if x is not None else x
+                                          outputMin=outputMin,
+                                          outputMax=outputMax) if x is not None else x
 
     @staticmethod
     def exec_np(x, inputMin, inputMax, outputMin=0., outputMax=1.):

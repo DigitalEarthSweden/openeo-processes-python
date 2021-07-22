@@ -9,6 +9,7 @@ import pytest
 from copy import deepcopy
 import openeo_processes as oeop
 import xarray as xr
+import scipy
 
 @pytest.mark.usefixtures("test_data")
 class MathTester(unittest.TestCase):
@@ -163,11 +164,11 @@ class MathTester(unittest.TestCase):
 
     def test_linear_scale_range(self):
         """ Tests `linear_scale_range` function. """
-        assert oeop.linear_scale_range(0.3, input_min=-1, input_max=1, output_min=0, output_max=255) == 165.75
-        assert oeop.linear_scale_range(25.5, input_min=0, input_max=255) == 0.1
-        assert np.isnan(oeop.linear_scale_range(np.nan, input_min=0, input_max=100))
+        assert oeop.linear_scale_range(0.3, inputMin=-1, inputMax=1, outputMin=0, outputMax=255) == 165.75
+        assert oeop.linear_scale_range(25.5, inputMin=0, inputMax=255) == 0.1
+        assert np.isnan(oeop.linear_scale_range(np.nan, inputMin=0, inputMax=100))
         xr.testing.assert_equal(
-            oeop.linear_scale_range(self.test_data.xr_data_factor(25.5, 51), input_min=0, input_max=255), self.test_data.xr_data_factor(0.1, 0.2))
+            oeop.linear_scale_range(self.test_data.xr_data_factor(25.5, 51), inputMin=0, inputMax=255), self.test_data.xr_data_factor(0.1, 0.2))
 
     def test_scale(self):
         """ Tests `scale` function. """
@@ -307,20 +308,20 @@ class MathTester(unittest.TestCase):
 
     def test_clip(self):
         """ Tests `clip` function. """
-        assert oeop.clip(-5, min_x=-1, max_x=1) == -1
-        assert oeop.clip(10.001, min_x=1, max_x=10) == 10
-        assert oeop.clip(0.000001, min_x=0, max_x=0.02) == 0.000001
-        assert oeop.clip(None, min_x=0, max_x=1) is None
+        assert oeop.clip(-5, min=-1, max=1) == -1
+        assert oeop.clip(10.001, min=1, max=10) == 10
+        assert oeop.clip(0.000001, min=0, max=0.02) == 0.000001
+        assert oeop.clip(None, min=0, max=1) is None
 
         # test array clipping
-        assert np.isclose(oeop.clip([-2, -1, 0, 1, 2], min_x=-1, max_x=1), [-1, -1, 0, 1, 1], equal_nan=True).all()
-        assert np.isclose(oeop.clip([-0.1, -0.001, np.nan, 0, 0.25, 0.75, 1.001, np.nan], min_x=0, max_x=1),
+        assert np.isclose(oeop.clip([-2, -1, 0, 1, 2], min=-1, max=1), [-1, -1, 0, 1, 1], equal_nan=True).all()
+        assert np.isclose(oeop.clip([-0.1, -0.001, np.nan, 0, 0.25, 0.75, 1.001, np.nan], min=0, max=1),
                           [0, 0, np.nan, 0, 0.25, 0.75, 1, np.nan], equal_nan=True).all()
         xr.testing.assert_equal(
-            oeop.clip(self.test_data.xr_data_factor(-5, 2), min_x = 1, max_x = 8),
+            oeop.clip(self.test_data.xr_data_factor(-5, 2), min = 1, max = 8),
             self.test_data.xr_data_factor(1, 2))
         xr.testing.assert_equal(
-            oeop.clip(self.test_data.xr_data_factor(1, 9), min_x=1, max_x=8),
+            oeop.clip(self.test_data.xr_data_factor(1, 9), min=1, max=8),
             self.test_data.xr_data_factor(1, 8))
 
     def test_quantiles(self):
@@ -366,7 +367,6 @@ class MathTester(unittest.TestCase):
         assert np.isclose(oeop.cumproduct([1, 2, 3, np.nan, 3, 1]), [1, 2, 6, np.nan, 18, 18], equal_nan=True).all()
         assert np.isclose(oeop.cumproduct([1, 2, 3, np.nan, 3, 1], ignore_nodata=False),
                           [1, 2, 6, np.nan, np.nan, np.nan], equal_nan=True).all()
-        assert (oeop.cumproduct(xr.DataArray(np.array([3, 5, 2]))) == [3, 15, 30]).all()
 
     def test_cumsum(self):
         """ Tests `cumsum` function. """
@@ -374,7 +374,6 @@ class MathTester(unittest.TestCase):
         assert np.isclose(oeop.cumsum([1, 3, np.nan, 3, 1]), [1, 4, np.nan, 7, 8], equal_nan=True).all()
         assert np.isclose(oeop.cumsum([1, 3, np.nan, 3, 1], ignore_nodata=False),
                           [1, 4, np.nan, np.nan, np.nan], equal_nan=True).all()
-        assert (oeop.cumsum(xr.DataArray(np.array([3, 5, 2]))) == [3, 8, 10]).all()
 
     def test_sum(self):
         """ Tests `sum` function. """
@@ -483,6 +482,7 @@ class MathTester(unittest.TestCase):
         # xarray tests
         kernel = np.asarray([[0,0,0],[0,1,0],[0,0,0]])
         # With the given kernel the result must be the same as the input
+        # TODO: Check apply_kernel process: Check scipy.ndimage
         xr.testing.assert_equal(oeop.apply_kernel(self.test_data.xr_data_4d,kernel,border=0, factor=1),self.test_data.xr_data_4d)
         xr.testing.assert_equal(oeop.apply_kernel(self.test_data.xr_data_3d,kernel,border=0, factor=1),self.test_data.xr_data_3d)
 
