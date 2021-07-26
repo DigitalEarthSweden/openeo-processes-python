@@ -482,7 +482,6 @@ class MathTester(unittest.TestCase):
         # xarray tests
         kernel = np.asarray([[0,0,0],[0,1,0],[0,0,0]])
         # With the given kernel the result must be the same as the input
-        # TODO: Check apply_kernel process: Check scipy.ndimage
         xr.testing.assert_equal(oeop.apply_kernel(self.test_data.xr_data_4d,kernel,border=0, factor=1),self.test_data.xr_data_4d)
         xr.testing.assert_equal(oeop.apply_kernel(self.test_data.xr_data_3d,kernel,border=0, factor=1),self.test_data.xr_data_3d)
 

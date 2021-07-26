@@ -4,6 +4,7 @@ from openeo_processes.utils import process
 from os.path import splitext
 import numpy as np
 import xarray as xr
+from scipy import optimize
 
 ###############################################################################
 # Load Collection Process
@@ -363,6 +364,182 @@ class MergeCubes:
                 raise Exception(overlap_resolver, 'not found!')
 
         return merge
+
+
+
+###############################################################################
+# FitCurve process
+###############################################################################
+
+
+@process
+def fit_curve():
+    """
+    Returns class instance of `Fit Curve`.
+    For more details, please have a look at the implementations inside
+    `Fit Curve`.
+
+    Returns
+    -------
+    fitting parameters for the data cube :
+        See the process description for details regarding the dimensions and dimension properties (name, type, labels, reference system and resolution).
+    """
+    return FitCurve()
+
+
+class FitCurve:
+    """
+    Class implementing 'fit_curve' process.
+
+    Use non-linear least squares to fit a model function y = f(x, parameters) to data.
+    The process throws an InvalidValues exception if invalid values are encountered.
+    Invalid values are finite numbers (see also is_valid).
+    """
+
+    @staticmethod
+    def exec_xar(data, parameters, function, dimension):
+        """
+        Parameters
+        ----------
+        data : xr.DataArray
+            A data cube.
+        parameters : array
+            Defined the number of parameters for the model function and provides an initial guess for them. At least one parameter is required.
+        function : child process
+            The model function. It must take the parameters to fit as array through the first argument and the independent variable x as the second argument.
+            It is recommended to store the model function as a user-defined process on the back-end to be able to re-use the model function with the computed optimal values for the parameters afterwards.
+            child process parameters:
+            x : number
+                The value for the independent variable x.
+            parameters : array
+                The parameters for the model function, contains at least one parameter.
+            Child process return value : number
+                The computed value y for the given independent variable x and the parameters.
+        dimension : str
+            The name of the dimension for curve fitting.
+            Must be a dimension with labels that have a order (i.e. numerical labels or a temporal dimension).
+            Fails with a DimensionNotAvailable exception if the specified dimension does not exist.
+        Returns
+        -------
+        xr.DataArray
+            A data cube with the optimal values for the parameters.
+        """
+        data = data.dropna(dimension) # TODO: should only nan values be skipped or all values equal to zero? (cloud masking)
+        if dimension in ['time', 't', 'times']:  # time dimension must be converted into values
+            dates = data[dimension].values
+            timestep = [((x - np.datetime64('1970-01-01')) / np.timedelta64(1, 's')) for x in dates]
+            step = np.array(timestep)
+            data[dimension] = step
+        else:
+            step = dimension
+        param = len(optimize.curve_fit(function, step, step * 0)[0])  # how many parameters are calculated
+        if not len([parameters]) == param:  # how many input parameters are given
+            parameters = np.ones(param) * parameters[-1]
+        values = xr.apply_ufunc(lambda x, y: optimize.curve_fit(function, x, y, parameters)[0], step, data,
+                                vectorize=True,
+                                input_core_dims=[[dimension], [dimension]],  # Dimension along we fit the curve function
+                                output_core_dims=[['params']],
+                                dask="parallelized",
+                                output_dtypes=[np.float32],
+                                dask_gufunc_kwargs={'allow_rechunk': True, 'output_sizes': {'params': param}}
+                                )
+        return values
+
+###############################################################################
+# PredictCurve process
+###############################################################################
+
+
+@process
+def predict_curve():
+    """
+    Returns class instance of `Predict Curve`.
+    For more details, please have a look at the implementations inside
+    `Predict Curve`.
+
+    Returns
+    -------
+    A data cube with the predicted values.
+        See the process description for details regarding the dimensions and dimension properties (name, type, labels, reference system and resolution).
+    """
+    return PredictCurve()
+
+
+class PredictCurve:
+    """
+    Class implementing 'predict_curve' process.
+
+    Predict values using a model function and pre-computed parameters.
+    """
+
+    @staticmethod
+    def exec_xar(data, parameters, function, dimension, labels = None):
+        """
+        Parameters
+        ----------
+        data : xr.DataArray
+            A data cube to predict values for.
+        parameters : xr.DataArray
+            A data cube with optimal values from a result of e.g. fit_curve.
+        function : child process
+            The model function. It must take the parameters to fit as array through the first argument and the independent variable x as the second argument.
+            It is recommended to store the model function as a user-defined process on the back-end.
+            child process parameters:
+            x : number
+                The value for the independent variable x.
+            parameters : array
+                The parameters for the model function, contains at least one parameter.
+            Child process return value : number
+                The computed value y for the given independent variable x and the parameters.
+        dimension : str
+            The name of the dimension for curve fitting.
+            Must be a dimension with labels that have a order (i.e. numerical labels or a temporal dimension).
+            Fails with a DimensionNotAvailable exception if the specified dimension does not exist.
+        labels : number, date or date-time
+            The labels to predict values for. If no labels are given, predicts values only for no-data (null) values in the data cube.
+        Returns
+        -------
+        xr.DataArray
+            A data cube with the predicted values.
+        """
+        if (np.array([labels])).shape[-1] > 1:
+            test = [labels]
+        else:
+            test = labels
+        if dimension in ['time', 't', 'times']:  # time dimension must be converted into values
+            dates = data[dimension].values
+            if test == None:
+                timestep = [((x - np.datetime64('1970-01-01')) / np.timedelta64(1, 's')) for x in dates]
+                labels = np.array(timestep)
+                fill = True
+            else:
+                coords = labels
+                labels = [((x - np.datetime64('1970-01-01')) / np.timedelta64(1, 's')) for x in labels]
+                labels = np.array(labels)
+                fill = False
+        else:
+            if test == None:
+                labels = data[dimension].values
+                fill = True
+            else:
+                coords = labels
+                fill = False
+        values = xr.apply_ufunc(lambda a: function(labels, *a), parameters,
+                                vectorize=True,
+                                input_core_dims=[['params']],
+                                output_core_dims=[[dimension]],
+                                dask="parallelized",
+                                output_dtypes=[np.float32],
+                                dask_gufunc_kwargs={'allow_rechunk': True, 'output_sizes': {dimension: len(labels)}}
+                                )
+        if fill:
+            values = values.transpose(*data.dims)
+            predicted = xr.DataArray(values, coords=data.coords, dims=data.dims)
+            predicted = data.fillna(predicted)
+        else:
+            predicted = values.transpose(*data.dims)
+            predicted[dimension] = coords
+        return predicted
 
 ###############################################################################
 # Save result process
