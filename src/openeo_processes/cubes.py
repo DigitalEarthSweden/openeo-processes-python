@@ -279,9 +279,10 @@ class FitCurve:
         else:
             step = dimension
         param = len(optimize.curve_fit(function, step, step * 0)[0])  # how many parameters are calculated
-        if not len([parameters]) == param:  # how many input parameters are given
-            parameters = np.ones(param) * parameters[-1]
-        values = xr.apply_ufunc(lambda x, y: optimize.curve_fit(function, x[np.nonzero(y)], y[np.nonzero(y)], parameters)[0], step, data, # zero values not considered
+        param = np.ones(param)  # parameters are one by default
+        param[:(np.array([parameters])).shape[-1]] = parameters  # given input parameters replace default
+        values = xr.apply_ufunc(lambda x, y: optimize.curve_fit(function, x[np.nonzero(y)], y[np.nonzero(y)], param)[0],
+                                step, data,  # zero values not considered
                                 vectorize=True,
                                 input_core_dims=[[dimension], [dimension]],  # Dimension along we fit the curve function
                                 output_core_dims=[['params']],
