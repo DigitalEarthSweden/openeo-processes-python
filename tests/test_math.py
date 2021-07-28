@@ -253,8 +253,8 @@ class MathTester(unittest.TestCase):
         assert oeop.min([5, 2.5, np.nan, -0.7]) == -0.7
         assert np.isnan(oeop.min([1, 0, 3, np.nan, 2], ignore_nodata=False))
         assert np.isnan(oeop.min([np.nan, np.nan]))
-        assert (oeop.min(self.test_data.xr_data_factor(3, 5), dimension = 't') == 3).all()
-        assert (oeop.min(self.test_data.xr_data_factor(np.nan, 5), dimension='t') == 5).all()
+        assert (oeop.min(self.test_data.xr_data_factor(3, 5), dimension = 'time') == 3).all()
+        assert (oeop.min(self.test_data.xr_data_factor(np.nan, 5), dimension='time') == 5).all()
 
     def test_max(self):
         """ Tests `max` function. """
@@ -262,8 +262,8 @@ class MathTester(unittest.TestCase):
         assert oeop.max([5, 2.5, np.nan, -0.7]) == 5
         assert np.isnan(oeop.max([1, 0, 3, np.nan, 2], ignore_nodata=False))
         assert np.isnan(oeop.max([np.nan, np.nan]))
-        assert (oeop.max(self.test_data.xr_data_factor(3, 5), dimension = 't') == 5).all()
-        assert (oeop.max(self.test_data.xr_data_factor(np.nan, 5), dimension='t') == (oeop.max(self.test_data.xr_data_factor(3, 5), dimension = 't'))).all()
+        assert (oeop.max(self.test_data.xr_data_factor(3, 5), dimension = 'time') == 5).all()
+        assert (oeop.max(self.test_data.xr_data_factor(np.nan, 5), dimension='time') == (oeop.max(self.test_data.xr_data_factor(3, 5), dimension = 'time'))).all()
 
     def test_median(self):
         """ Tests `median` function. """
@@ -340,9 +340,9 @@ class MathTester(unittest.TestCase):
         quantiles_5 = oeop.quantiles(data=[], probabilities=[0.1, 0.5])
         assert np.all([np.isnan(quantile) for quantile in quantiles_5]) and len(quantiles_5) == 2
         assert (oeop.quantiles(self.test_data.xr_data_factor(1, 2), dimension = None, q = 2) == xr.DataArray(np.array([1.5, 1.5, 1.5]))).all()
-        assert (oeop.quantiles(self.test_data.xr_data_factor(1, 2), dimension='t', q=2) == xr.DataArray(
+        assert (oeop.quantiles(self.test_data.xr_data_factor(1, 2), dimension='time', q=2) == xr.DataArray(
             np.array([1.5, 1.5, 1.5]))).all()
-        assert (oeop.quantiles(self.test_data.xr_data_factor(np.nan, 2), dimension='t', q=2) == xr.DataArray(
+        assert (oeop.quantiles(self.test_data.xr_data_factor(np.nan, 2), dimension='time', q=2) == xr.DataArray(
             np.array([2, 2, 2]))).all()
 
     def test_cummin(self):
