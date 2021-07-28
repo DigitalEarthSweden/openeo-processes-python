@@ -1,11 +1,10 @@
-
 import rioxarray  # needed by save_result even if not directly called
 from openeo_processes.utils import process
 from os.path import splitext
 import numpy as np
 import xarray as xr
 from scipy import optimize
-
+import odc.algo
 ###############################################################################
 # Load Collection Process
 ###############################################################################
@@ -34,10 +33,9 @@ class LoadCollection:
     """
 
     @staticmethod
-    def exec_odc(odc_cube, product: str, x: tuple, y: tuple, time: list,
-                 dask_chunks: dict, measurements: list = [],
-                 crs: str = "EPSG:4326"):
-
+    def exec_odc(odc_cube, product: str, dask_chunks: dict,
+                 x: tuple = (), y: tuple = (), time: list = [],
+                 measurements: list = [], crs: str = "EPSG:4326"):
         return load_result(odc_cube, product, dask_chunks, x, y, time,
                            measurements, crs)
 
@@ -237,7 +235,7 @@ def save_result():
 
 class SaveResult:
     """
-    Class implementing all 'reduce_dimension' processes.
+    Class implementing 'save_result' processe.
 
     """
 
@@ -257,9 +255,36 @@ class SaveResult:
             data format (default: GTiff)
 
         """
-
+        
+        def refactor_data(data):
+            # The following code is required to recreate a Dataset from the final result as Dataarray, to get a well formatted netCDF
+            if 'time' in data.coords:
+                tmp = xr.Dataset(coords={'t':data.time.values,'y':data.y,'x':data.x})
+                if 'bands' in data.coords:
+                    try:
+                        for var in data['bands'].values:
+                            tmp[str(var)] = (('t','y','x'),data.loc[dict(bands=var)])
+                    except Exception as e:
+                        print(e)
+                        tmp[str((data['bands'].values))] = (('t','y','x'),data)
+                else:
+                    tmp['result'] = (('t','y','x'),data)
+            else:
+                tmp = xr.Dataset(coords={'y':data.y,'x':data.x})
+                if 'bands' in data.coords:
+                    try:
+                        for var in data['bands'].values:
+                            tmp[str(var)] = (('y','x'),data.loc[dict(bands=var)])
+                    except Exception as e:
+                        print(e)
+                        tmp[str((data['bands'].values))] = (('y','x'),data)
+                else:
+                    tmp['result'] = (('y','x'),data)
+            tmp.attrs = data.attrs
+            return tmp
+        
         formats = ('GTiff', 'netCDF')
-        if format == 'netCDF':
+        if format.lower() == 'netcdf':
             if not splitext(output_filepath)[1]:
                 output_filepath = output_filepath + '.nc'
             # start workaround
@@ -268,12 +293,82 @@ class SaveResult:
             if hasattr(data, 'time') and hasattr(data.time, 'units'):
                 data.time.attrs.pop('units', None)
             # end workaround
+            
+            data = refactor_data(data)
             data.to_netcdf(path=output_filepath)
-        elif format == 'GTiff':
+
+        elif format.lower() in ['gtiff','geotiff']:
             if not splitext(output_filepath)[1]:
                 output_filepath = output_filepath + '.tif'
             # TODO
             # Add check, this works only for 2D or 3D DataArrays, else loop is needed
-            data.rio.to_raster(raster_path=output_filepath, driver=format, **options)
+            
+            data = refactor_data(data)
+            if len(data.dims) > 3:
+                if len(data.t)==1:
+                    # We keep the time variable as band in the GeoTiff, multiple band/variables of the same timestamp
+                    data = data.squeeze('t')
+                else:
+                    raise Exception("[!] Not possible to write a 4-dimensional GeoTiff, use NetCDF instead.")
+            
+            data.rio.to_raster(raster_path=output_filepath,**options)
+
+            
         else:
             raise ValueError(f"Error when saving to file. Format '{format}' is not in {formats}.")
+
+            
+###############################################################################
+# Resample cube temporal process
+###############################################################################
+
+
+@process
+def resample_cube_spatial():
+    """
+    Returns class instance of `resample_cube_spatial`.
+    For more details, please have a look at the implementations inside
+    `resample_cube_spatial`.
+
+    Returns
+    -------
+    save_result :
+        Class instance implementing 'resample_cube_spatial' process.
+
+    """
+    return ResampleCubeSpatial()
+
+
+class ResampleCubeSpatial:
+    """
+    Class implementing 'resample_cube_spatial' processe.
+
+    """
+
+    @staticmethod
+    def exec_xar(data, target, method, options={}):
+        """
+        Save data to disk in specified format.
+
+        Parameters
+        ----------
+        data : xr.DataArray
+           A data cube.
+        target: str,
+          A data cube that describes the spatial target resolution.
+        method: str,
+          Resampling method. Methods are inspired by GDAL, see [gdalwarp](https://www.gdal.org/gdalwarp.html) for more information.
+          "near","bilinear","cubic","cubicspline","lanczos","average","mode","max","min","med","q1","q3"
+          (default: near)
+
+        """
+        try:
+            methods_list = ["near","bilinear","cubic","cubicspline","lanczos","average","mode","max","min","med","q1","q3"]
+            if method is None or method == 'near':
+                method = 'nearest'
+            elif method not in methods_list:
+                raise Exception(f"Selected resampling method \"{method}\" is not available! Please select one of "
+                                f"[{', '.join(methods_list)}]")
+            return odc.algo._warp.xr_reproject(data,target.geobox,resampling=method)
+        except Exception as e:
+            raise e
