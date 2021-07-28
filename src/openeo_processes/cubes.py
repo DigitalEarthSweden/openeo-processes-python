@@ -92,6 +92,21 @@ class LoadResult:
             odc_params['measurements'] = list(measurements)
 
         datacube = odc_cube.load(**odc_params)
+
+        # Set no-data values to nan
+        new_data_vars = {}
+        for name, data_var in datacube.data_vars.items():
+            no_data = data_var.attrs["nodata"]
+            new_attrs = data_var.attrs
+            new_attrs["nodata"] = "nan"
+            new_data_vars[name] = xr.DataArray(
+                data=data_var.where(data_var != no_data),
+                coords=data_var.coords,
+                dims=data_var.dims,
+                attrs=new_attrs,
+            )
+        datacube = xr.Dataset(data_vars=new_data_vars, coords=datacube.coords, attrs=datacube.attrs)
+
         # Convert to xr.DataArray
         # TODO: add conversion with multiple and custom dimensions
         datacube = datacube.to_array(dim='bands')
