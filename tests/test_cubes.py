@@ -9,6 +9,7 @@ import pytest
 import openeo_processes as oeop
 import xarray as xr
 import numpy as np
+import pandas as pd
 
 
 @pytest.mark.usefixtures("test_data")
