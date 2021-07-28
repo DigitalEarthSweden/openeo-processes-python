@@ -2,10 +2,9 @@ import rioxarray  # needed by save_result even if not directly called
 from openeo_processes.utils import process
 from os.path import splitext
 import xarray as xr
+from scipy import optimize
 import odc.algo
 import numpy as np
-import pandas as pd
-from scipy import optimize
 
 ###############################################################################
 # Load Collection Process
