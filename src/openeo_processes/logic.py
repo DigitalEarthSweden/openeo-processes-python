@@ -1,6 +1,7 @@
 import numpy as np
 from openeo_processes.utils import process
 from openeo_processes.comparison import is_empty
+import xarray as xr
 
 
 ########################################################################################################################
@@ -73,8 +74,30 @@ class And:
         return x & y
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x, y):
+        """
+        Checks if both arrays are true.
+        Evaluates parameter `x` before `y` and stops once the outcome is unambiguous.
+        If any argument is np.nan, the result will be np.nan if the outcome is ambiguous.
+
+        Parameters
+        ----------
+        x : xr.DataArray or bool
+            A boolean value.
+        y : xr.DataArray or bool
+            A boolean value.
+
+        Returns
+        -------
+        xr.DataArray :
+            Boolean result of the logical AND.
+        """
+        x_nan = x.where(x == True, False)  # Set NaN to False
+        y_nan = y.where(y == True, False)
+        logical_and = xr.ufuncs.logical_and(x, y)
+        logical_and = logical_and.where(x == x_nan, np.nan)
+        logical_and = logical_and.where(y == y_nan, np.nan)
+        return logical_and
 
     @staticmethod
     def exec_da():
@@ -150,8 +173,29 @@ class Or:
         return x | y
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x, y):
+        """
+        Checks if at least one of the array values is True. Evaluates parameter `x` before `y` and stops once the
+        outcome is unambiguous. If a component is np.nan, the result will be np.nan if the outcome is ambiguous.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            A boolean value.
+        y : xr.DataArray
+            A boolean value.
+
+        Returns
+        -------
+        xr.DataArray:
+            Boolean result of the logical OR.
+        """
+        x_nan = x.where(x == True, False)  # Set NaN to False
+        y_nan = y.where(y == True, False)
+        logical_or = xr.ufuncs.logical_or(x, y)
+        logical_or = logical_or.where(x == x_nan, np.nan)
+        logical_or = logical_or.where(y == y_nan, np.nan)
+        return logical_or
 
     @staticmethod
     def exec_da():
@@ -229,8 +273,29 @@ class Xor:
             return (x + y) == 1
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x, y):
+        """
+        Checks if exactly one of the array values is true. If a component is np.nan, the result will be np.nan if the
+        outcome is ambiguous.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            A boolean value.
+        y : xr.DataArray
+            A boolean value.
+
+        Returns
+        -------
+        xr.DataArray :
+            Boolean result of the logical XOR.
+        """
+        x_nan = x.where(x == True, False)  # Set NaN to False
+        y_nan = y.where(y == True, False)
+        logical_xor = xr.ufuncs.logical_xor(x, y)
+        logical_xor = logical_xor.where(x == x_nan, np.nan)
+        logical_xor = logical_xor.where(y == y_nan, np.nan)
+        return logical_xor
 
     @staticmethod
     def exec_da():
@@ -300,8 +365,22 @@ class Not:
         return ~x
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x):
+        """
+        Inverts booleans so that True/1 gets False/0 and False/0 gets True/1.
+        The no-data value np.nan is passed through and therefore gets propagated.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Boolean values to invert.
+
+        Returns
+        -------
+        xr.DataArray :
+            Inverted boolean values.
+        """
+        return xr.ufuncs.logical_not(x)
 
     @staticmethod
     def exec_da():
@@ -380,8 +459,28 @@ class If:
         return np.where(value, accept, reject)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(value, accept, reject=np.nan):
+        """
+        If the array value passed is True, returns the value of the `accept` parameter,
+        otherwise returns the value of the `reject` parameter.
+
+        Parameters
+        ----------
+        value : xr.DataArray
+            A boolean array.
+        accept : object
+            A value that is returned if the boolean value is True.
+        reject : object, optional
+            A value that is returned if the boolean value is not True. Defaults to None.
+
+        Returns
+        -------
+        xr.DataArray :
+            Either the `accept` or `reject` argument depending on the given boolean value.
+        """
+        p = value.where(value == 1, reject)
+        p = p.where(value == 0, accept)
+        return p
 
     @staticmethod
     def exec_da():
@@ -462,8 +561,47 @@ class Any:
         return data_any
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(data, ignore_nodata = True, dimension = None, axis = None):
+        """
+        Checks if any (i.e. at least one) value is True. Evaluates all values from the first to the last element and
+        stops once the outcome is unambiguous. If only one value is given, the process evaluates to the given value.
+        If no value is given (i.e. the array is empty) the process returns None.
+        By default all NaN values are ignored so that the process returns np.nan if all values are NaN,
+        True if at least one of the other values is True and False otherwise.
+        Setting the `ignore_nodata` flag to False considers NaN values so that np.nan is a valid logical object.
+        If a component is np.nan, the result will be np.nan if the outcome is ambiguous.
+
+        Parameters
+        ----------
+        data : xr.DataArray
+            A boolean array. An empty array resolves always with None.
+        ignore_nodata : bool, optional
+            Indicates whether no-data values are ignored or not. Ignores them by default (=True).
+            Setting this flag to False considers no-data values so that np.nan is returned if any value is such a value.
+        dimension : str, optional
+            Defines the dimension to evaluate 'any' along (default is None).
+        axis : int, optional
+            Defines the axis to evaluate 'any' along.
+            Only one of the ‘dimension’ and ‘axis’ arguments can be supplied. If neither are supplied, then 'any' is calculated over axes
+
+        Returns
+        -------
+        xr.DataArray :
+            Boolean result of the logical operation.
+        """
+        if len(data) == 0:
+            return xr.DataArray(np.nan)
+
+        data_nan = data.where(data == True, False) # Set NaN to False
+        if ignore_nodata:
+            return data_nan.any(dim=dimension, axis=axis)
+        else:
+            data = data.any(dim=dimension, axis=axis)
+            data_nan = data_nan.any(dim=dimension, axis=axis)
+            if (data == data_nan).all(): # See if there are NaNs, that were set to False
+                return data
+            else:
+                return data.where(data == data_nan, np.nan)
 
     @staticmethod
     def exec_da():
@@ -544,8 +682,47 @@ class All:
         return data_all
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(data, ignore_nodata = True, dimension = None, axis = None):
+        """
+        Checks if all of the values are True. Evaluates all values from the first to the last element and stops once
+        the outcome is unambiguous. If only one value is given, the process evaluates to the given value. If no value
+        is given (i.e. the array is empty) the process returns None. By default all no-data values are ignored so
+        that the process returns np.nan if all values are no-data, True if all other values are True and False
+        otherwise. Setting the `ignore_nodata` flag to False considers no-data values so that np.nan is a valid
+        logical object. If a component is np.nan, the result will be np.nan if the outcome is ambiguous.
+
+        Parameters
+        ----------
+        data : xr.DataArray
+            A boolean array. An empty array resolves always with None.
+        ignore_nodata : bool, optional
+            Indicates whether no-data values are ignored or not. Ignores them by default (=True).
+            Setting this flag to False considers no-data values so that np.nan is returned if any value is such a value.
+        dimension : int, optional
+            Defines the dimension to evaluate 'all' along (default is 0).
+        axis : int, optional
+            Defines the axis to evaluate 'all' along.
+            Only one of the ‘dimension’ and ‘axis’ arguments can be supplied. If neither are supplied, then 'all' is calculated over axes
+
+
+        Returns
+        -------
+        xr.DataArray :
+            Boolean result of the logical operation.
+
+        """
+        if len(data) == 0:
+            return xr.DataArray(np.nan)
+        data_nan = data.where(data == True, False)
+        if ignore_nodata:
+            return data.all(dim=dimension, axis=axis) # all ignores NaNs
+        else:
+            data = data.all(dim=dimension, axis=axis)
+            data_nan = data_nan.all(dim=dimension, axis=axis)
+            if (data == data_nan).all(): # See if there are NaNs, that were set to False
+                return data
+            else:
+                return data.where(data == data_nan, np.nan)
 
     @staticmethod
     def exec_da():

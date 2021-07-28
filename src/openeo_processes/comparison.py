@@ -377,8 +377,59 @@ class Eq:
             return ar_eq
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x, y, delta=False, case_sensitive=True, reduce=False): # TODO: add equal checks for date strings in xar
+        """
+        Compares whether `x` is strictly equal to `y`.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            First operand.
+        y : xr.DataArray
+            Second operand.
+        delta : float, optional
+            Only applicable for comparing two arrays containing numbers. If this optional parameter is set to a
+            positive non-zero number the equality of two numbers is checked against a delta value. This is especially
+            useful to circumvent problems with floating point inaccuracy in machine-based computation.
+        case_sensitive : bool, optional
+            Only applicable for comparing two string arrays. Case sensitive comparison can be disabled by setting this
+            parameter to False.
+        reduce : bool, optional
+            If True, one value will be returned, i.e. if the arrays are equal.
+            If False, each value in `x` will be compared with the respective value in `y`. Defaults to False.
+
+        Returns
+        -------
+        bool or xr.DataArray :
+            Returns True if `x` is equal to `y`, np.nan if any operand is np.nan, otherwise False.
+
+        """
+        if x is None or y is None:
+            return None
+
+        if (x.dtype in [float, int]) and (y.dtype in [float, int]):  # both arrays only contain numbers
+            if type(delta) in [float, int]:
+                ar_eq = (abs(x-y) <= delta)
+            else:
+                ar_eq = x == y
+        elif x.dtype == '<U32' and (y.dtype == '<U32'):  # comparison of strings or dates
+            # try to convert the string into a date
+            x_time = None # str2time still missing
+            y_time = None
+            if x_time is None or y_time is None: # comparison of strings
+                if case_sensitive:
+                    ar_eq = x == y
+                else:
+                    ar_eq = x.str.lower() == y.str.lower()
+            else:
+                ar_eq = x_time == y_time  # comparison of dates
+        else:
+            ar_eq = x == y
+
+        if reduce:
+            return ar_eq.all()
+        else:
+            return ar_eq
 
     @staticmethod
     def exec_da():
@@ -474,7 +525,7 @@ class Neq:
         Returns
         -------
         bool or np.ndarray :
-            Returns True if `x` is equal to `y`, np.nan if any operand is np.nan, otherwise False.
+            Returns True if `x` is not equal to `y`, np.nan if any operand is np.nan, otherwise False.
 
         """
         eq_val = Eq().exec_np(x, y, delta=delta, case_sensitive=case_sensitive, reduce=reduce)
@@ -484,8 +535,38 @@ class Neq:
             return ~eq_val
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x, y, delta=None, case_sensitive=True, reduce=False):  # TODO: add equal checks for date strings
+        """
+        Compares whether `x` is strictly equal to `y`.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            First operand.
+        y : xr.DataArray
+            Second operand.
+        delta : float, optional
+            Only applicable for comparing two arrays containing numbers. If this optional parameter is set to a
+            positive non-zero number the equality of two numbers is checked against a delta value. This is especially
+            useful to circumvent problems with floating point inaccuracy in machine-based computation.
+        case_sensitive : bool, optional
+            Only applicable for comparing two string arrays. Case sensitive comparison can be disabled by setting this
+            parameter to False.
+        reduce : bool, optional
+            If True, one value will be returned, i.e. if the arrays are equal.
+            If False, each value in `x` will be compared with the respective value in `y`. Defaults to False.
+
+        Returns
+        -------
+        bool or xr.DataArray :
+            Returns True if `x` is not equal to `y`, np.nan if any operand is np.nan, otherwise False.
+
+        """
+        eq_val = Eq().exec_xar(x, y, delta=delta, case_sensitive=case_sensitive, reduce=reduce)
+        if eq_val is None:
+            return None
+        else:
+            return xr.ufuncs.logical_not(eq_val)
 
     @staticmethod
     def exec_da():
@@ -730,8 +811,41 @@ class Gte:
                 return np.zeros(x.shape, dtype=np.bool)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x, y, reduce = False):
+        """
+        Compares whether `x` is strictly greater than or equal to `y`.
+        Remarks:
+            - If any operand is None, the return value is None.
+            - If any operand is not a number or temporal string (date, time or date-time), the process returns False.
+            - Temporal strings can not be compared based on their string representation due to the time zone /
+            time-offset representations.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            First operand.
+        y : xr.DataArray
+            Second operand.
+        reduce : bool, optional
+            If True, one value will be returned.
+            If False, each value in `x` will be compared with the respective value in `y`. Defaults to False.
+
+        Returns
+        -------
+        bool :
+            Returns True if `x` is strictly greater than or equal to `y`, None if any operand is None, otherwise False.
+
+        """
+        if x is None or y is None:
+            return None
+        elif isinstance(y, xr.DataArray) or isinstance(y, int) or isinstance(y, float):
+            gte_ar = ((x-y) >= 0)
+            if reduce:
+                return gte_ar.all()
+            else:
+                return gte_ar
+        else:
+            return False
 
     @staticmethod
     def exec_da():
@@ -836,8 +950,42 @@ class Lt:
                 return np.zeros(x.shape, dtype=np.bool)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x, y, reduce = False):
+        """
+        Compares whether `x` is strictly lower than `y`.
+        Remarks:
+            - If any operand is None, the return value is None.
+            - If any operand is not a number or temporal string (date, time or date-time), the process returns False.
+            - Temporal strings can not be compared based on their string representation due to the time zone /
+            time-offset representations.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            First operand.
+        y : xr.DataArray
+            Second operand.
+        reduce : bool, optional
+            If True, one value will be returned.
+            If False, each value in `x` will be compared with the respective value in `y`. Defaults to False.
+
+        Returns
+        -------
+        bool :
+            Returns True if `x` is strictly lower than `y`, None if any operand is None, otherwise False.
+
+        """
+        ## x has to be a datacube, whereas y can be another datacube, an integer or a float
+        if x is None or y is None:
+            return None
+        elif isinstance(y, xr.DataArray) or isinstance(y, int) or isinstance(y, float):
+            lt_ar = x < y
+            if reduce:
+                return lt_ar.all()
+            else:
+                return lt_ar
+        else:
+            return False
 
     @staticmethod
     def exec_da():
@@ -942,8 +1090,42 @@ class Lte:
                 return np.zeros(x.shape, dtype=np.bool)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x, y, reduce = False):
+        """
+        Compares whether `x` is strictly lower than or equal to `y`.
+        Remarks:
+            - If any operand is None, the return value is None.
+            - If any operand is not a number or temporal string (date, time or date-time), the process returns False.
+            - Temporal strings can not be compared based on their string representation due to the time zone /
+            time-offset representations.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            First operand.
+        y : xr.DataArray
+            Second operand.
+        reduce : bool, optional
+            If True, one value will be returned.
+            If False, each value in `x` will be compared with the respective value in `y`. Defaults to False.
+
+        Returns
+        -------
+        bool :
+            Returns True if `x` is strictly lower than or equal to `y`, None if any operand is None, otherwise False.
+
+        """
+        ## x has to be a datacube, whereas y can be another datacube, an integer or a float
+        if x is None or y is None:
+            return None
+        elif isinstance(y, xr.DataArray) or isinstance(y, int) or isinstance(y, float):
+            lte_ar = x <= y
+            if reduce:
+                return lte_ar.all()
+            else:
+                return lte_ar
+        else:
+            return False
 
     @staticmethod
     def exec_da():
@@ -1065,8 +1247,43 @@ class Between:
             return Gte.exec_np(x, min, reduce=reduce) & Lte.exec_np(x, max, reduce=reduce)
 
     @staticmethod
-    def exec_xar():
-        pass
+    def exec_xar(x, min, max, exclude_max=False, reduce=False):
+        """
+        By default this process checks whether `x` is greater than or equal to `min` and lower than or equal to `max`.
+        All definitions from and_, gte and lte apply here as well. If `exclude_max` is set to True the upper bound is
+        excluded so that the process checks whether `x` is greater than or equal to `min` and lower than `max`.
+        Lower and upper bounds are not allowed to be swapped. `min` must be lower than or equal to `max` or otherwise
+        the process always returns False.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            The array values to check.
+        min : float or int or datetime.datetime
+            Lower boundary (inclusive) to check against.
+        max : float or int or datetime.datetime
+            Upper boundary (inclusive) to check against.
+        exclude_max : bool, optional
+            Exclude the upper boundary `max` if set to True. Defaults to False.
+        reduce : bool, optional
+            If True, one value will be returned.
+            If False, each value in `x` evaluated and returned. Defaults to False.
+
+        Returns
+        -------
+        bool or xr.DataArray:
+            True if `x` is between the specified bounds, otherwise False.
+        """
+        if x is None or min is None or max is None:
+            return None
+
+        if Lt().exec_num(max, min):
+            return False
+
+        if exclude_max:
+            return xr.ufuncs.logical_and(Gte.exec_xar(x, min, reduce=reduce) , Lt.exec_xar(x, max, reduce=reduce))
+        else:
+            return xr.ufuncs.logical_and(Gte.exec_xar(x, min, reduce=reduce) , Lte.exec_xar(x, max, reduce=reduce))
 
     @staticmethod
     def exec_da():
