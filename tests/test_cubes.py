@@ -7,7 +7,9 @@ import os
 import unittest
 import pytest
 import openeo_processes as oeop
+import numpy as np
 import xarray as xr
+import pandas as pd
 
 
 @pytest.mark.usefixtures("test_data")
@@ -25,6 +27,8 @@ class CubesTester(unittest.TestCase):
             list(reduced[:, 0, 0].data),
             [14, 140]
             )
+
+
 
     def test_save_result(self):
         """ Tests `reduce_dimension` function. """

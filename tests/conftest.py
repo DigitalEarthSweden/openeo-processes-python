@@ -53,4 +53,14 @@ def test_data(request):
                                            coords=self.coords_3d)
             self.xr_data_3d.attrs['crs'] = 'EPSG:4326'
 
+        def xr_data_factor(self, factor_1=1.0, factor_2=1.0):
+            data = np.ones((3, 2, self.steps['y'], self.steps['x']))
+            data[0, 0] *= factor_1
+            data[:, 1] *= factor_2
+            xdata = xr.DataArray(data=data[0, :],
+                                 dims=self.coords_3d.keys(),
+                                 coords=self.coords_3d)
+            xdata.attrs['crs'] = 'EPSG:4326'  # create a data array with variable values
+            return xdata
+
     request.cls.test_data = TestDataDriver()

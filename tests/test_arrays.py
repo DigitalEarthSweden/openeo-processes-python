@@ -8,6 +8,7 @@ import openeo_processes as oeop
 import pytest
 import xarray as xr
 from unittest import TestCase
+import math
 
 
 @pytest.mark.usefixtures("test_data")
@@ -24,6 +25,10 @@ class ArrayTester(TestCase):
         assert oeop.array_contains([[1, 2], [3, 4]], value=[1, 2])
         assert not oeop.array_contains([[1, 2], [3, 4]], value=2)
         assert oeop.array_contains([{"a": "b"}, {"c": "d"}], value={"a": "b"})
+        assert oeop.array_contains(self.test_data.xr_data_factor(3, 5), value = 5)
+        assert not oeop.array_contains(self.test_data.xr_data_factor(3, 5), value= 1)
+        assert oeop.array_contains(self.test_data.xr_data_factor(np.nan, 5), value=np.NaN)
+        assert oeop.array_contains(self.test_data.xr_data_factor(3, 5), value= [3, 5]).all()
 
     def test_array_element(self):
         """ Tests `array_element` function. """
@@ -71,26 +76,41 @@ class ArrayTester(TestCase):
         assert oeop.count([False, np.nan], condition=True) == 2
         assert oeop.count([0, 1, 2, 3, 4, 5, np.nan], condition=oeop.gt, context={'y': 2}) == 3
         assert oeop.count([0, 1, 2, 3, 4, 5, np.nan], condition=oeop.lte, context={'y': 2}) == 3
+        assert oeop.count(xr.DataArray(np.array([0, 1, 2, 3, 4, 5, np.nan])), condition=oeop.lte, context={'y': 2}) == 3
+        assert oeop.count(xr.DataArray(np.array([0, 1, 2, 3, 4, 5, np.nan])), condition=oeop.gt, context={'y': 2}) == 3
+        assert oeop.count(xr.DataArray(np.array([0, 1, 2, 3, 4, 5, np.nan])), condition=oeop.between, context={'min': 2, 'max': 4}) == 3
+        assert oeop.count(self.test_data.xr_data_factor(3, 5), condition=oeop.gte, context={'y': 5}) == 15
 
-    # TODO: add test
     def test_array_apply(self):
         """ Tests `array_apply` function. """
-        pass
+        assert oeop.array_apply([1, 0, 3, 2], process=oeop.gt, context={'y':-1, 'reduce':True})
+        assert oeop.array_apply(self.test_data.xr_data_factor(3, 5), process=oeop.gt, context={'y': 1, 'reduce': True})
+        assert oeop.array_apply(self.test_data.xr_data_factor(3, 5), process=oeop.gt, context={'y': 1}).all()
 
-    # TODO: add test
     def test_array_filter(self):
         """ Tests `array_filter` function. """
-        pass
+        assert oeop.array_filter([1, 0, 3, 2], condition=oeop.lte, context={'y':0.5}) == 0
+        assert (oeop.array_filter([1, 0, 3, 2, np.nan, 3], condition=oeop.gt, context={'y': 1}) == [3, 2, 3]).all()
+        assert (oeop.array_filter([0, 1, 2, 3, 4, 5, np.nan], condition=oeop.gt, context={'y': 2}) == [3, 4, 5]).all()
+        xr.testing.assert_equal(oeop.array_filter(self.test_data.xr_data_factor(3, 5), condition=oeop.lte, context={'y': 4}),
+                                self.test_data.xr_data_factor(3, 5)[:1, :, :])
 
-    # TODO: add test
     def test_array_find(self):
         """ Tests `array_find` function. """
-        pass
+        assert oeop.array_find([1, 0, 3, 2], value= 3) == 2
+        assert np.isnan(oeop.array_find([1, 0, 3, 2, np.nan, 3], value = np.nan))
+        assert (oeop.array_find(self.test_data.xr_data_factor(3,5), value = 5) == 15)
+        assert math.isnan(oeop.array_find(self.test_data.xr_data_factor(3,5), value = 4))
+        assert (oeop.array_find(self.test_data.xr_data_factor(3,5), value = 5, dimension = 'time') == 1).all()
 
-    # TODO: add test
     def test_array_labels(self):
         """ Tests `array_labels` function. """
-        pass
+        assert (oeop.array_labels([1, 0, 3, 2]) == np.array([0, 1, 2, 3])).all()
+        assert (oeop.array_labels([[1, 0, 3, 2]], dimension = 0) == np.array([0]))
+        assert (oeop.array_labels(self.test_data.xr_data_factor(3,5), dimension = 0) == xr.DataArray(np.arange(2))).all()
+        assert (oeop.array_labels(self.test_data.xr_data_factor(3,5), dimension = 'x') == xr.DataArray(np.arange(3))).all()
+        assert (oeop.array_labels(self.test_data.xr_data_factor(3,5), dimension = 'y') == xr.DataArray(np.arange(5))).all()
+
 
     def test_first(self):
         """ Tests `first` function. """
@@ -108,6 +128,8 @@ class ArrayTester(TestCase):
         first_elem_ref = np.array([[[np.nan, 2.], [1., 2.]]])
         first_elem = oeop.first(test_arr, ignore_nodata=False)
         assert np.isclose(first_elem, first_elem_ref, equal_nan=True).all()
+        xr.testing.assert_equal( oeop.first(self.test_data.xr_data_factor(3,5), dimension = 1, ignore_nodata = True) , self.test_data.xr_data_factor(3,5)[:,0,:])
+        xr.testing.assert_equal( oeop.first(self.test_data.xr_data_factor(3,5), dimension = 'x', ignore_nodata = False) , self.test_data.xr_data_factor(3,5)[:,:,0])
 
     def test_last(self):
         """ Tests `last` function. """
@@ -125,6 +147,12 @@ class ArrayTester(TestCase):
         last_elem_ref = np.array([[[1., 2.], [1., np.nan]]])
         last_elem = oeop.last(test_arr, ignore_nodata=False)
         assert np.isclose(last_elem, last_elem_ref, equal_nan=True).all()
+        xr.testing.assert_equal(oeop.last(self.test_data.xr_data_factor(3, 5), dimension='time', ignore_nodata=True),
+                                self.test_data.xr_data_factor(3, 5)[-1, :, :])
+        xr.testing.assert_equal(oeop.last(self.test_data.xr_data_factor(3, 5), dimension='x', ignore_nodata=False),
+                                self.test_data.xr_data_factor(3, 5)[:, :, -1])
+        assert (oeop.last(self.test_data.xr_data_factor(3, np.nan), dimension='time', ignore_nodata=True).values ==
+                (self.test_data.xr_data_factor(3, 5)[0, :, :]).values).all()
 
     def test_order(self):
         """ Tests `order` function. """
@@ -136,12 +164,20 @@ class ArrayTester(TestCase):
                              [9, 10, 7, 4, 0, 5, 8, 2, 1, 3, 6])
         self.assertListEqual(oeop.order([6, -1, 2, np.nan, 7, 4, np.nan, 8, 3, 9, 9], asc=False, nodata=False).tolist(),
                              [6, 3, 9, 10, 7, 4, 0, 5, 8, 2, 1])
+        xr.testing.assert_equal(oeop.order(self.test_data.xr_data_factor(3, 5), dimension='time'),
+                                self.test_data.xr_data_factor(0, 1))
+        xr.testing.assert_equal(oeop.order(self.test_data.xr_data_factor(3, 5), dimension='time', asc=False),
+                                self.test_data.xr_data_factor(1, 0))
+        xr.testing.assert_equal(oeop.order(self.test_data.xr_data_factor(3, np.nan), dimension='time', nodata=False),
+                                self.test_data.xr_data_factor(1, 0))
 
     def test_rearrange(self):
         """ Tests `rearrange` function. """
         self.assertListEqual(oeop.rearrange([5, 4, 3], [2, 1, 0]).tolist(), [3, 4, 5])
         self.assertListEqual(oeop.rearrange([5, 4, 3, 2], [0, 2, 1, 3]).tolist(), [5, 3, 4, 2])
         self.assertListEqual(oeop.rearrange([5, 4, 3, 2], [1, 3]).tolist(), [4, 2])
+        xr.testing.assert_equal(oeop.rearrange(self.test_data.xr_data_factor(3, 5), [1,0]),
+                                xr.concat([self.test_data.xr_data_factor(3, 5)[1], self.test_data.xr_data_factor(3, 5)[0]], 'time'))
 
     def test_sort(self):
         """ Tests `sort` function. """
@@ -149,8 +185,15 @@ class ArrayTester(TestCase):
                              [-1, 2, 3, 4, 6, 7, 8, 9, 9])
         assert np.isclose(oeop.sort([6, -1, 2, np.nan, 7, 4, np.nan, 8, 3, 9, 9], asc=False, nodata=True),
                           [9, 9, 8, 7, 6, 4, 3, 2, -1, np.nan, np.nan], equal_nan=True).all()
+        xr.testing.assert_equal(oeop.sort(self.test_data.xr_data_factor(5, 3), dimension='time'),
+                                self.test_data.xr_data_factor(3, 5))
+        xr.testing.assert_equal(oeop.sort(self.test_data.xr_data_factor(3, 5), dimension='time', asc=False ),
+                                self.test_data.xr_data_factor(5, 3))
+        xr.testing.assert_equal(oeop.sort(self.test_data.xr_data_factor(np.nan, 5), dimension='time', nodata=True),
+                                self.test_data.xr_data_factor(5, np.nan))
 
-    # TODO: add test
     def test_mask(self):
         """ Tests `mask` function. """
-        pass
+        assert (oeop.mask(np.array([[1,3,6],[2,2,2]]), np.array([[True,False,True],[False,False,True]]), 999) == np.array([[999,3,999],[2,2,999]])).all()
+        xr.testing.assert_equal(oeop.mask(self.test_data.xr_data_factor(1, 5),self.test_data.xr_data_factor(True, False), replacement = 999),
+                                self.test_data.xr_data_factor(999, 5))

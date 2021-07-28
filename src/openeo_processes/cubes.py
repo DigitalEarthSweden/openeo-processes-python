@@ -1,9 +1,10 @@
 import rioxarray  # needed by save_result even if not directly called
 from openeo_processes.utils import process
 from os.path import splitext
+import numpy as np
 import xarray as xr
+from scipy import optimize
 import odc.algo
-
 ###############################################################################
 # Load Collection Process
 ###############################################################################
@@ -208,6 +209,8 @@ class Apply:
         elif isinstance(process, dict):
             # No need to map this
             return data
+
+
 
 ###############################################################################
 # Save result process

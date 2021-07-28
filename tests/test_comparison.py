@@ -3,6 +3,12 @@ import unittest
 import numpy as np
 import openeo_processes as oeop
 import pytest
+import xarray as xr
+
+def test_is_empty():
+    assert oeop.is_empty([])
+    assert oeop.is_empty(np.array([]))
+    assert oeop.is_empty(xr.DataArray([]))
 
 
 @pytest.mark.parametrize(["value", "expected"], [
@@ -55,7 +61,7 @@ def test_is_valid(value, expected):
     """ Tests `is_valid` function. """
     assert oeop.is_valid(value) == expected
 
-
+@pytest.mark.usefixtures("test_data")
 class ComparisonTester(unittest.TestCase):
     """ Tests all comparison functions. """
 
@@ -73,6 +79,8 @@ class ComparisonTester(unittest.TestCase):
         assert oeop.eq("00:00:00+00:00", "00:00:00Z")
         assert not oeop.eq("2018-01-01T12:00:00Z", "2018-01-01T12:00:00")
         assert oeop.eq("2018-01-01T00:00:00Z", "2018-01-01T01:00:00+01:00")
+        assert oeop.eq(self.test_data.xr_data_factor(3, 5), self.test_data.xr_data_factor(3, 5), reduce=True)
+        assert oeop.eq(self.test_data.xr_data_factor(3, 5), self.test_data.xr_data_factor(4.4, 6.2), delta = 1.401 , reduce = True)
 
     def test_neq(self):
         """ Tests `neq` function. """
@@ -88,6 +96,8 @@ class ComparisonTester(unittest.TestCase):
         assert not oeop.neq("00:00:00+00:00", "00:00:00Z")
         assert oeop.neq("2018-01-01T12:00:00Z", "2018-01-01T12:00:00")
         assert not oeop.neq("2018-01-01T00:00:00Z", "2018-01-01T01:00:00+01:00")
+        assert oeop.neq(self.test_data.xr_data_factor(3, 5), self.test_data.xr_data_factor(4.45, 6.2), delta=1.4,
+                       reduce=True)
 
     def test_gt(self):
         """ Tests `gt` function. """
@@ -98,6 +108,7 @@ class ComparisonTester(unittest.TestCase):
         assert oeop.gt("00:00:00Z", "00:00:00+01:00")
         assert not oeop.gt("1950-01-01T00:00:00Z", "2018-01-01T12:00:00Z")
         assert not oeop.gt("2018-01-01T12:00:00+00:00", "2018-01-01T12:00:00Z")
+        assert oeop.gt(self.test_data.xr_data_factor(3, 5), self.test_data.xr_data_factor(2.4, 4.2), reduce=True)
 
     def test_gte(self):
         """ Tests `gte` function. """
@@ -108,6 +119,7 @@ class ComparisonTester(unittest.TestCase):
         assert oeop.gte("00:00:00Z", "00:00:00+01:00")
         assert not oeop.gte("1950-01-01T00:00:00Z", "2018-01-01T12:00:00Z")
         assert oeop.gte("2018-01-01T12:00:00+00:00", "2018-01-01T12:00:00Z")
+        assert oeop.gte(self.test_data.xr_data_factor(3, 5.4), self.test_data.xr_data_factor(2.4, 5.4), reduce=True)
 
     def test_lt(self):
         """ Tests `lt` function. """
@@ -118,6 +130,7 @@ class ComparisonTester(unittest.TestCase):
         assert oeop.lt("00:00:00+01:00", "00:00:00Z")
         assert oeop.lt("1950-01-01T00:00:00Z", "2018-01-01T12:00:00Z")
         assert not oeop.lt("2018-01-01T12:00:00+00:00", "2018-01-01T12:00:00Z")
+        assert oeop.lt(self.test_data.xr_data_factor(3, 5.4), self.test_data.xr_data_factor(4.4, 5.5), reduce=True)
 
     def test_lte(self):
         """ Tests `lte` function. """
@@ -128,6 +141,8 @@ class ComparisonTester(unittest.TestCase):
         assert oeop.lte("00:00:00+01:00", "00:00:00Z")
         assert oeop.lte("1950-01-01T00:00:00Z", "2018-01-01T12:00:00Z")
         assert oeop.lte("2018-01-01T12:00:00+00:00", "2018-01-01T12:00:00Z")
+        assert oeop.lte(self.test_data.xr_data_factor(3, 5.4), self.test_data.xr_data_factor(4.4, 5.4), reduce=True)
+        assert oeop.lte(self.test_data.xr_data_factor(3, 5.4), 5.4, reduce=True)
 
     def test_between(self):
         """ Tests `between` function. """
@@ -138,6 +153,8 @@ class ComparisonTester(unittest.TestCase):
         assert oeop.between("2018-07-23T17:22:45Z", min="2018-01-01T00:00:00Z", max="2018-12-31T23:59:59Z")
         assert not oeop.between("2000-01-01", min="2018-01-01", max="2020-01-01")
         assert not oeop.between("2018-12-31T17:22:45Z", min="2018-01-01", max="2018-12-31", exclude_max=True)
+        assert oeop.between(self.test_data.xr_data_factor(3, 5.4), min = 2, max = 5.4, reduce=True)
+        assert not oeop.between(self.test_data.xr_data_factor(3, 5.4), min = 3, max = 5.4, exclude_max = True, reduce=True)
 
 if __name__ == '__main__':
     unittest.main()
