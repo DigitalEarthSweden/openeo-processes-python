@@ -101,7 +101,7 @@ class ArrayTester(TestCase):
         assert np.isnan(oeop.array_find([1, 0, 3, 2, np.nan, 3], value = np.nan))
         assert (oeop.array_find(self.test_data.xr_data_factor(3,5), value = 5) == 15)
         assert math.isnan(oeop.array_find(self.test_data.xr_data_factor(3,5), value = 4))
-        assert (oeop.array_find(self.test_data.xr_data_factor(3,5), value = 5, dimension = 't') == 1).all()
+        assert (oeop.array_find(self.test_data.xr_data_factor(3,5), value = 5, dimension = 'time') == 1).all()
 
     def test_array_labels(self):
         """ Tests `array_labels` function. """
@@ -147,11 +147,11 @@ class ArrayTester(TestCase):
         last_elem_ref = np.array([[[1., 2.], [1., np.nan]]])
         last_elem = oeop.last(test_arr, ignore_nodata=False)
         assert np.isclose(last_elem, last_elem_ref, equal_nan=True).all()
-        xr.testing.assert_equal(oeop.last(self.test_data.xr_data_factor(3, 5), dimension='t', ignore_nodata=True),
+        xr.testing.assert_equal(oeop.last(self.test_data.xr_data_factor(3, 5), dimension='time', ignore_nodata=True),
                                 self.test_data.xr_data_factor(3, 5)[-1, :, :])
         xr.testing.assert_equal(oeop.last(self.test_data.xr_data_factor(3, 5), dimension='x', ignore_nodata=False),
                                 self.test_data.xr_data_factor(3, 5)[:, :, -1])
-        assert (oeop.last(self.test_data.xr_data_factor(3, np.nan), dimension='t', ignore_nodata=True).values ==
+        assert (oeop.last(self.test_data.xr_data_factor(3, np.nan), dimension='time', ignore_nodata=True).values ==
                 (self.test_data.xr_data_factor(3, 5)[0, :, :]).values).all()
 
     def test_order(self):
@@ -164,11 +164,11 @@ class ArrayTester(TestCase):
                              [9, 10, 7, 4, 0, 5, 8, 2, 1, 3, 6])
         self.assertListEqual(oeop.order([6, -1, 2, np.nan, 7, 4, np.nan, 8, 3, 9, 9], asc=False, nodata=False).tolist(),
                              [6, 3, 9, 10, 7, 4, 0, 5, 8, 2, 1])
-        xr.testing.assert_equal(oeop.order(self.test_data.xr_data_factor(3, 5), dimension='t'),
+        xr.testing.assert_equal(oeop.order(self.test_data.xr_data_factor(3, 5), dimension='time'),
                                 self.test_data.xr_data_factor(0, 1))
-        xr.testing.assert_equal(oeop.order(self.test_data.xr_data_factor(3, 5), dimension='t', asc=False),
+        xr.testing.assert_equal(oeop.order(self.test_data.xr_data_factor(3, 5), dimension='time', asc=False),
                                 self.test_data.xr_data_factor(1, 0))
-        xr.testing.assert_equal(oeop.order(self.test_data.xr_data_factor(3, np.nan), dimension='t', nodata=False),
+        xr.testing.assert_equal(oeop.order(self.test_data.xr_data_factor(3, np.nan), dimension='time', nodata=False),
                                 self.test_data.xr_data_factor(1, 0))
 
     def test_rearrange(self):
@@ -177,7 +177,7 @@ class ArrayTester(TestCase):
         self.assertListEqual(oeop.rearrange([5, 4, 3, 2], [0, 2, 1, 3]).tolist(), [5, 3, 4, 2])
         self.assertListEqual(oeop.rearrange([5, 4, 3, 2], [1, 3]).tolist(), [4, 2])
         xr.testing.assert_equal(oeop.rearrange(self.test_data.xr_data_factor(3, 5), [1,0]),
-                                xr.concat([self.test_data.xr_data_factor(3, 5)[1], self.test_data.xr_data_factor(3, 5)[0]], 't'))
+                                xr.concat([self.test_data.xr_data_factor(3, 5)[1], self.test_data.xr_data_factor(3, 5)[0]], 'time'))
 
     def test_sort(self):
         """ Tests `sort` function. """
@@ -185,11 +185,11 @@ class ArrayTester(TestCase):
                              [-1, 2, 3, 4, 6, 7, 8, 9, 9])
         assert np.isclose(oeop.sort([6, -1, 2, np.nan, 7, 4, np.nan, 8, 3, 9, 9], asc=False, nodata=True),
                           [9, 9, 8, 7, 6, 4, 3, 2, -1, np.nan, np.nan], equal_nan=True).all()
-        xr.testing.assert_equal(oeop.sort(self.test_data.xr_data_factor(5, 3), dimension='t'),
+        xr.testing.assert_equal(oeop.sort(self.test_data.xr_data_factor(5, 3), dimension='time'),
                                 self.test_data.xr_data_factor(3, 5))
-        xr.testing.assert_equal(oeop.sort(self.test_data.xr_data_factor(3, 5), dimension='t', asc=False ),
+        xr.testing.assert_equal(oeop.sort(self.test_data.xr_data_factor(3, 5), dimension='time', asc=False ),
                                 self.test_data.xr_data_factor(5, 3))
-        xr.testing.assert_equal(oeop.sort(self.test_data.xr_data_factor(np.nan, 5), dimension='t', nodata=True),
+        xr.testing.assert_equal(oeop.sort(self.test_data.xr_data_factor(np.nan, 5), dimension='time', nodata=True),
                                 self.test_data.xr_data_factor(5, np.nan))
 
     def test_mask(self):
