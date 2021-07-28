@@ -41,13 +41,13 @@ class CubesTester(unittest.TestCase):
                                    self.test_data.xr_data_factor(2, 7)[:, 3:])
         assert (merged2.dims == self.test_data.xr_data_factor(5, 7).dims)
         xr.testing.assert_equal(
-            oeop.merge_cubes(self.test_data.xr_data_factor(5, 9).isel(t=0),
-                             self.test_data.xr_data_factor(2, 3).isel(t=1)),
+            oeop.merge_cubes(self.test_data.xr_data_factor(5, 9).isel(time=0),
+                             self.test_data.xr_data_factor(2, 3).isel(time=1)),
             self.test_data.xr_data_factor(5, 3))
         xr.testing.assert_equal(
-            oeop.merge_cubes(self.test_data.xr_data_factor(5, 9).isel(t=0),
-                             self.test_data.xr_data_factor(2, 3).isel(t=0), oeop.add),
-            self.test_data.xr_data_factor(7, 3).isel(t=0))
+            oeop.merge_cubes(self.test_data.xr_data_factor(5, 9).isel(time=0),
+                             self.test_data.xr_data_factor(2, 3).isel(time=0), oeop.add),
+            self.test_data.xr_data_factor(7, 3).isel(time=0))
         merged3 = oeop.merge_cubes(self.test_data.xr_data_factor(5, 9), self.test_data.xr_data_factor(2, 3))
         assert (merged3.shape == (2, 2, 5, 3))  # added first dimension, so shape is now longer
 

@@ -240,7 +240,7 @@ class MergeCubes:
     """
 
     @staticmethod
-    def exec_xar(cube1, cube2, overlap_resolver, context={}):
+    def exec_xar(cube1, cube2, overlap_resolver = None, context={}):
         """
         Parameters
         ----------
