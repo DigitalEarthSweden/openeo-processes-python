@@ -584,7 +584,7 @@ def save_result():
 
 class SaveResult:
     """
-    Class implementing 'save_result' processe.
+    Class implementing 'save_result' processes.
 
     """
 
@@ -623,7 +623,9 @@ class SaveResult:
                 if 'bands' in data.coords:
                     try:
                         for var in data['bands'].values:
-                            tmp[str(var)] = (('y','x'),data.loc[dict(bands=var)])
+                            # Set no data value from np.nan to -9999 - easier to handle in stored files
+                            data_var = data.loc[dict(bands=var)].where(data.loc[dict(bands=var)] != np.nan, -9999)
+                            tmp[str(var)] = (('y','x'), data_var)
                     except Exception as e:
                         print(e)
                         tmp[str((data['bands'].values))] = (('y','x'),data)
@@ -651,10 +653,9 @@ class SaveResult:
                 output_filepath = output_filepath + '.tif'
             # TODO
             # Add check, this works only for 2D or 3D DataArrays, else loop is needed
-            
             data = refactor_data(data)
             if len(data.dims) > 3:
-                if len(data.t)==1:
+                if len(data.t) == 1:
                     # We keep the time variable as band in the GeoTiff, multiple band/variables of the same timestamp
                     data = data.squeeze('t')
                 else:
