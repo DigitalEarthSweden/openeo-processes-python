@@ -1,5 +1,6 @@
 import rioxarray  # needed by save_result even if not directly called
 from openeo_processes.utils import process
+from openeo_processes.extension.odc import write_odc_product
 from os.path import splitext
 import numpy as np
 import xarray as xr
@@ -607,6 +608,7 @@ class SaveResult:
         
         def refactor_data(data):
             # The following code is required to recreate a Dataset from the final result as Dataarray, to get a well formatted netCDF
+
             if 'time' in data.coords:
                 tmp = xr.Dataset(coords={'t':data.time.values,'y':data.y,'x':data.x})
                 if 'bands' in data.coords:
@@ -662,12 +664,11 @@ class SaveResult:
                     raise Exception("[!] Not possible to write a 4-dimensional GeoTiff, use NetCDF instead.")
             
             data.rio.to_raster(raster_path=output_filepath,**options)
-
-            
         else:
             raise ValueError(f"Error when saving to file. Format '{format}' is not in {formats}.")
 
-            
+        write_odc_product(data, output_filepath)
+
 ###############################################################################
 # Resample cube spatial process
 ###############################################################################

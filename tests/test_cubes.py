@@ -57,33 +57,40 @@ class CubesTester(unittest.TestCase):
         # TODO improve file check
         # xarray tests
         out_filename = "out.tif"
-        reduced = oeop.reduce_dimension(self.test_data.xr_data_3d, reducer=oeop.min, dimension='time')
+        out_product = "product.yml"
+        reduced = oeop.reduce_dimension(self.test_data.xr_odc_data_3d, reducer=oeop.min, dimension='time')
         oeop.save_result(reduced, out_filename)
         assert os.path.exists(out_filename)
+        assert os.path.exists(out_product)
         os.remove(out_filename)
+        os.remove(out_product)
         
-        reduced = oeop.reduce_dimension(self.test_data.xr_data_4d, reducer=oeop.min, dimension='time')
-        print('reduced:',reduced)
-        oeop.save_result(reduced, out_filename)
-        assert os.path.exists(out_filename)
-        os.remove(out_filename)
-        
-        out_filename = "out.nc"
-        oeop.save_result(self.test_data.xr_data_3d, out_filename, format='netCDF')
-        assert os.path.exists(out_filename)
-        os.remove(out_filename)
+        # reduced = oeop.reduce_dimension(self.test_data.xr_data_4d, reducer=oeop.min, dimension='time')
+        # print('reduced:',reduced)
+        # oeop.save_result(reduced, out_filename)
+        # assert os.path.exists(out_filename)
+        # assert os.path.exists(out_filename)
+        # os.remove(out_filename)
+        # os.remove(out_product)
 
-        oeop.save_result(self.test_data.xr_data_3d, format='netCDF')
+        out_filename = "out.nc"
+        oeop.save_result(self.test_data.xr_odc_data_3d, out_filename, format='netCDF')
+        assert os.path.exists(out_filename)
+        assert os.path.exists(out_filename)
+        os.remove(out_filename)
+        os.remove(out_product)
+
+        oeop.save_result(self.test_data.xr_odc_data_3d, format='netCDF')
         assert os.path.exists('out.nc')
+        assert os.path.exists(out_filename)
         os.remove('out.nc')
-        
-        oeop.save_result(self.test_data.xr_data_4d, out_filename, format='netCDF')
-        assert os.path.exists('out.nc')
-        os.remove('out.nc')
-        
-        oeop.save_result(self.test_data.xr_data_4d, format='netCDF')
-        assert os.path.exists('out.nc')
-        os.remove('out.nc')
+        os.remove(out_product)
+
+        # oeop.save_result(self.test_data.xr_data_4d, format='netCDF')
+        # assert os.path.exists('out.nc')
+        # assert os.path.exists(out_filename)
+        # os.remove('out.nc')
+        # os.remove(out_product)
 
     def test_fit_curve(self):
         """Tests 'fit_curve' function. """

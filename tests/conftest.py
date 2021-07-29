@@ -1,7 +1,9 @@
 from datetime import datetime
+
 import numpy as np
 import pytest
 import xarray as xr
+from datacube.testutils import mk_sample_xr_dataset
 
 
 @pytest.fixture(scope="class")
@@ -52,6 +54,7 @@ def test_data(request):
                                            dims=self.coords_3d.keys(),
                                            coords=self.coords_3d)
             self.xr_data_3d.attrs['crs'] = 'EPSG:4326'
+            self.xr_odc_data_3d = mk_sample_xr_dataset(nodata=np.nan).to_array(dim="bands")
 
         def xr_data_factor(self, factor_1=1.0, factor_2=1.0):
             data = np.ones((3, 2, self.steps['y'], self.steps['x']))
