@@ -110,9 +110,13 @@ class LoadResult:
 
         # Convert to xr.DataArray
         # TODO: add conversion with multiple and custom dimensions
-        datacube = datacube.to_array(dim='bands')
+        dataarray = datacube.to_array(dim='bands')
+        # If data is in geographic coordinate system coords are called longitude/latitude
+        # for consistency and easier handling in other processes rename them to x/y
+        if "longitude" in dataarray.coords and "latitude" in dataarray.coords:
+            dataarray.rename({"longitude": "x", "latitude": "y"})
 
-        return datacube
+        return dataarray
 
 
 ###############################################################################
