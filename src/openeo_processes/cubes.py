@@ -1,6 +1,7 @@
 import rioxarray  # needed by save_result even if not directly called
 from openeo_processes.utils import process
 from os.path import splitext
+import numpy as np
 import xarray as xr
 from scipy import optimize
 import odc.algo
@@ -98,7 +99,7 @@ class LoadResult:
         for name, data_var in datacube.data_vars.items():
             no_data = data_var.attrs["nodata"]
             new_attrs = data_var.attrs
-            new_attrs["nodata"] = "nan"
+            new_attrs["nodata"] = np.nan
             new_data_vars[name] = xr.DataArray(
                 data=data_var.where(data_var != no_data),
                 coords=data_var.coords,
