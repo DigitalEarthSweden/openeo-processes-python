@@ -102,6 +102,9 @@ class ArrayTester(TestCase):
         assert (oeop.array_find(self.test_data.xr_data_factor(3,5), value = 5) == 15)
         assert math.isnan(oeop.array_find(self.test_data.xr_data_factor(3,5), value = 4))
         assert (oeop.array_find(self.test_data.xr_data_factor(3,5), value = 5, dimension = 'time') == 1).all()
+        assert (oeop.array_find(self.test_data.xr_data_factor(3, 5), value=3, dimension='time') == 0).all()
+        assert (oeop.array_find(self.test_data.xr_data_factor(-3, -5), value=(-5), dimension='time') == 1).all()
+        assert np.isnan(oeop.array_find(self.test_data.xr_data_factor(-3, -5), value=(0), dimension='time').values).all()
 
     def test_array_labels(self):
         """ Tests `array_labels` function. """
