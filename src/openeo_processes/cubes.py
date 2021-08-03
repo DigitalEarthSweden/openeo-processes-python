@@ -286,12 +286,12 @@ class MergeCubes:
                     for d in cube1.dims:
                         dimensions.append(d)
                         coords.append(cube1[d])
-                    merge = xr.DataArray(values, coords=coords, dims=dimensions)
+                    merge = xr.DataArray(values, coords=coords, dims=dimensions, attrs=cube1.attrs)
                 else:
                     if callable(overlap_resolver):  # overlap resolver, for example add
                         values = overlap_resolver(cube1, cube2, **context)
                         merge = xr.DataArray(values, coords=cube1.coords,
-                                             dims=cube1.dims)  # define dimensions like in cube1
+                                             dims=cube1.dims, attrs=cube1.attrs)  # define dimensions like in cube1
                     else:
                         raise Exception('OverlapResolverMissing')
             else:  # WIP
@@ -353,7 +353,7 @@ class MergeCubes:
                     for l in range(length):
                         values.append(overlap_resolver(c2[l], c1, **context).values)
                     merge = xr.DataArray(values, coords=c2.coords,
-                                         dims=c2.dims)  # define dimensions like in larger cube
+                                         dims=c2.dims, attrs=c2.attrs)  # define dimensions like in larger cube
                     merge = merge.transpose(*dims_l)
             else:
                 raise Exception('OverlapResolverMissing')
@@ -594,7 +594,7 @@ class ResampleCubeTemporal:
             t = []
             for i in index:
                 t.append(target[dimension].values[int(i)])
-            new_data = xr.DataArray(data.values, coords=data.coords, dims=data.dims)
+            new_data = xr.DataArray(data.values, coords=data.coords, dims=data.dims, attrs=data.attrs, name=data.name)
             new_data[dimension] = t
             filter_values = data[dimension].values
         else:
@@ -609,7 +609,7 @@ class ResampleCubeTemporal:
             for i in index:
                 v.append(data_t.values[int(i)])
                 c.append(data_t[dimension].values[int(i)])
-            new_data = xr.DataArray(v, dims=data_t.dims)
+            new_data = xr.DataArray(v, dims=data_t.dims, attrs=data.attrs, name=data.name)
             new_data = new_data.transpose(*data.dims)
             for d in new_data.dims:
                 if d == dimension:
