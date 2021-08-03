@@ -116,11 +116,28 @@ class CubesTester(unittest.TestCase):
         predicted = oeop.predict_curve(xdata, params, func, dimension='time',
                                        labels=pd.date_range("2002-01-01", periods=24, freq='M'))
         assert xdata.dims == predicted.dims
-        assert (predicted < 1.5).all()
+        assert (predicted < 1.8).all()
         predicted = oeop.predict_curve(xdata, params, func, dimension='time',
                                        labels=pd.date_range("2000-01-01", periods=24, freq='M'))
-        assert (np.isclose(xdata, predicted, atol=0.3)).all()
+        assert (np.isclose(xdata, predicted, atol=0.5)).all()
 
+
+
+    def test_resample_cube_temporal(self):
+        """ Tests `reduce_dimension` function. """
+        xdata = xr.DataArray(np.array([[1, 3], [7, 8]]),
+                             coords=[["NY", "LA"], pd.date_range("2000-01-01", "2000-02-01", periods=2)],
+                             dims=["space", "time"])
+        target = xr.DataArray(np.array([[1, 3], [7, 8]]),
+                              coords=[["NY", "LA"], pd.date_range("2000-01-10", "2000-02-10", periods=2)],
+                              dims=["space", "time"])
+        resample = oeop.resample_cube_temporal(xdata, target, dimension='time')
+        xr.testing.assert_equal(resample, target)
+        xdata2 = xr.DataArray(np.array([[1, 3, 4], [7, 8, 10]]),
+                             coords=[["NY", "LA"], pd.date_range("2000-01-01", "2000-03-01", periods=3)],
+                             dims=["space", "time"])
+        resample2 = oeop.resample_cube_temporal(xdata2, target, dimension='time', valid_within=15)
+        xr.testing.assert_equal(resample2, target)
 
 if __name__ == "__main__":
     unittest.main()

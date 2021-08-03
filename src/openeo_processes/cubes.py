@@ -286,12 +286,12 @@ class MergeCubes:
                     for d in cube1.dims:
                         dimensions.append(d)
                         coords.append(cube1[d])
-                    merge = xr.DataArray(values, coords=coords, dims=dimensions)
+                    merge = xr.DataArray(values, coords=coords, dims=dimensions, attrs=cube1.attrs)
                 else:
                     if callable(overlap_resolver):  # overlap resolver, for example add
                         values = overlap_resolver(cube1, cube2, **context)
                         merge = xr.DataArray(values, coords=cube1.coords,
-                                             dims=cube1.dims)  # define dimensions like in cube1
+                                             dims=cube1.dims, attrs=cube1.attrs)  # define dimensions like in cube1
                     else:
                         raise Exception('OverlapResolverMissing')
             else:  # WIP
@@ -353,7 +353,7 @@ class MergeCubes:
                     for l in range(length):
                         values.append(overlap_resolver(c2[l], c1, **context).values)
                     merge = xr.DataArray(values, coords=c2.coords,
-                                         dims=c2.dims)  # define dimensions like in larger cube
+                                         dims=c2.dims, attrs=c2.attrs)  # define dimensions like in larger cube
                     merge = merge.transpose(*dims_l)
             else:
                 raise Exception('OverlapResolverMissing')
@@ -529,7 +529,7 @@ class PredictCurve:
                                 )
         if test == None:
             values = values.transpose(*data.dims)
-            predicted = xr.DataArray(values, coords=data.coords, dims=data.dims)
+            predicted = xr.DataArray(values, coords=data.coords, dims=data.dims, attrs=data.attrs, name=data.name)
             predicted = predicted.where(data==0, data)
         else:
             predicted = values.transpose(*data.dims)
@@ -644,7 +644,7 @@ class SaveResult:
 
             
 ###############################################################################
-# Resample cube temporal process
+# Resample cube spatial process
 ###############################################################################
 
 
@@ -697,3 +697,111 @@ class ResampleCubeSpatial:
             return odc.algo._warp.xr_reproject(data,target.geobox,resampling=method)
         except Exception as e:
             raise e
+
+
+###############################################################################
+# Resample cube temporal process
+###############################################################################
+
+
+@process
+def resample_cube_temporal():
+    """
+    Returns class instance of `resample_cube_temporal`.
+    For more details, please have a look at the implementations inside
+    `resample_cube_temporal`.
+
+    Returns
+    -------
+    save_result :
+        Class instance implementing 'resample_cube_temporal' process.
+
+    """
+    return ResampleCubeTemporal()
+
+
+class ResampleCubeTemporal:
+    """
+    Class implementing 'resample_cube_temporal' process.
+
+    """
+
+    @staticmethod
+    def exec_xar(data, target, dimension = None, valid_within = None):
+        """
+        Resamples one or more given temporal dimensions from a source data cube to align with the corresponding dimensions of the given target data cube using the nearest neighbor method.
+        Returns a new data cube with the resampled dimensions. By default, this process simply takes the nearest neighbor independent of the value (including values such as no-data / null).
+        Depending on the data cubes this may lead to values being assigned to two target timestamps.
+        To only consider valid values in a specific range around the target timestamps, use the parameter valid_within.
+        The rare case of ties is resolved by choosing the earlier timestamps.
+
+        Parameters
+        ----------
+        data : xr.DataArray
+           A data cube.
+        target : str,
+           A data cube that describes the temporal target resolution.
+        dimension : str, null
+           The name of the temporal dimension to resample, which must exist with this name in both data cubes.
+           If the dimension is not set or is set to null, the process resamples all temporal dimensions that exist with the same names in both data cubes.
+           The following exceptions may occur:
+           A dimension is given, but it does not exist in any of the data cubes: DimensionNotAvailable
+           A dimension is given, but one of them is not temporal: DimensionMismatch
+           No specific dimension name is given and there are no temporal dimensions with the same name in the data: DimensionMismatch
+        valid_within : number, null
+           Setting this parameter to a numerical value enables that the process searches for valid values within the given period of days before and after the target timestamps.
+           Valid values are determined based on the function is_valid.
+           For example, the limit of 7 for the target timestamps 2020-01-15 12:00:00 looks for a nearest neighbor after 2020-01-08 12:00:00 and before 2020-01-22 12:00:00.
+           If no valid value is found within the given period, the value will be set to no-data (null).
+
+        """
+        if dimension == None:
+            if 'time' in data.dims:
+                dimension = 'time'
+        elif dimension in ['time', 't', 'temporal', 'times']:
+            dimension = dimension
+        else:
+            raise Exception('DimensionNotAvailable')
+        if len(data[dimension].values) >= len(target[dimension].values):
+            index = np.array([])
+            for d in data[dimension].values:
+                difference = (np.abs(d - target[dimension].values))
+                nearest = np.argwhere(difference == np.min(difference))
+                index = np.append(index, nearest)
+            t = []
+            for i in index:
+                t.append(target[dimension].values[int(i)])
+            new_data = xr.DataArray(data.values, coords=data.coords, dims=data.dims, attrs=data.attrs, name=data.name)
+            new_data[dimension] = t
+            filter_values = data[dimension].values
+        else:
+            index = np.array([])
+            for d in target[dimension].values:
+                difference = (np.abs(d - data[dimension].values))
+                nearest = np.argwhere(difference == np.min(difference))
+                index = np.append(index, nearest)
+            v = []
+            c = []
+            data_t = data.transpose(dimension, ...)
+            for i in index:
+                v.append(data_t.values[int(i)])
+                c.append(data_t[dimension].values[int(i)])
+            new_data = xr.DataArray(v, dims=data_t.dims, attrs=data.attrs, name=data.name)
+            new_data = new_data.transpose(*data.dims)
+            for d in new_data.dims:
+                if d == dimension:
+                    new_data[d] = c
+                else:
+                    new_data[d] = data[d].values
+            filter_values = new_data[dimension].values
+            new_data[dimension] = target[dimension].values
+        if valid_within == None:
+            new_data = new_data
+        else:
+            minimum = np.timedelta64(valid_within, 'D')
+            filter = (np.abs(filter_values - new_data[dimension].values) <= minimum)
+            new_data_t = new_data.transpose(dimension, ...)
+            new_data_t = new_data_t[filter]
+            new_data = new_data_t.transpose(*new_data.dims)
+        return new_data
+

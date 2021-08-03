@@ -1197,7 +1197,7 @@ class Order:
                 order[i] = data_t.argmax(dimension_str)
                 data_t[data_t.argmax(dimension_str)] = data_t.min() - 2
                 i += 1
-        order = xr.DataArray(order, coords=data_t.coords, dims=data_t.dims)
+        order = xr.DataArray(order, coords=data_t.coords, dims=data_t.dims, attrs=data.attrs, name=data.name)
         order = order.transpose(*data.dims)
         return order
 
@@ -1416,7 +1416,7 @@ class Sort:
                 sort[i] = data_t.max(dimension_str)
                 data_t[data_t.argmax(dimension_str)] = data_t.min() - 2
                 i += 1
-        sort = xr.DataArray(sort, coords=data_t.coords, dims=data_t.dims)
+        sort = xr.DataArray(sort, coords=data_t.coords, dims=data_t.dims, attrs=data.attrs, name=data.name)
         sort = sort.where(sort != data.max() + 1, np.nan)
         sort = sort.where(sort != data.min() - 1, np.nan)
         sort = sort.transpose(*data.dims)
