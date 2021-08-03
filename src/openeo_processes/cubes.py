@@ -529,7 +529,7 @@ class PredictCurve:
                                 )
         if test == None:
             values = values.transpose(*data.dims)
-            predicted = xr.DataArray(values, coords=data.coords, dims=data.dims)
+            predicted = xr.DataArray(values, coords=data.coords, dims=data.dims, attrs=data.attrs, name=data.name)
             predicted = predicted.where(data==0, data)
         else:
             predicted = values.transpose(*data.dims)
