@@ -116,10 +116,10 @@ class CubesTester(unittest.TestCase):
         predicted = oeop.predict_curve(xdata, params, func, dimension='time',
                                        labels=pd.date_range("2002-01-01", periods=24, freq='M'))
         assert xdata.dims == predicted.dims
-        assert (predicted < 1.5).all()
+        assert (predicted < 1.8).all()
         predicted = oeop.predict_curve(xdata, params, func, dimension='time',
                                        labels=pd.date_range("2000-01-01", periods=24, freq='M'))
-        assert (np.isclose(xdata, predicted, atol=0.3)).all()
+        assert (np.isclose(xdata, predicted, atol=0.5)).all()
 
 
 
