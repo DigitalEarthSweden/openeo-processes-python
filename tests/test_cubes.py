@@ -85,6 +85,42 @@ class CubesTester(unittest.TestCase):
         assert os.path.exists('out.nc')
         os.remove('out.nc')
 
+    def test_fit_curve(self):
+        """Tests 'fit_curve' function. """
+        rang = np.linspace(0, 4 * np.pi, 24)
+        rang = [np.cos(rang) + 0.5 * np.sin(rang) + np.random.rand(24) * 0.1,
+                np.cos(rang) + 0.5 * np.sin(rang) + np.random.rand(
+                    24) * 0.2]  # define data with y = 0 + 1 * cos() + 0.5 *sin()
+        xdata = xr.DataArray(rang, coords=[["NY", "LA"], pd.date_range("2000-01-01", periods=24, freq='M')],
+                             dims=["space", "time"])
+
+        def func(x, a, b, c):
+            return a + b * np.cos(2 * np.pi / 31557600 * x) + c * np.sin(2 * np.pi / 31557600 * x)
+
+        params = (oeop.fit_curve(xdata, parameters=(0, 1), function=func, dimension='time'))
+        assert (np.isclose(params, [0, 1, 0.5], atol=0.3)).all()  # output should be close to 0, 1, 0.5
+
+    def test_predict_curve(self):
+        """Tests 'predict_curve' function. """
+        rang = np.linspace(0, 4 * np.pi, 24)
+        rang = [np.cos(rang) + 0.5 * np.sin(rang) + np.random.rand(24) * 0.1,
+                np.cos(rang) + 0.5 * np.sin(rang) + np.random.rand(
+                    24) * 0.2]  # define data with y = 0 + 1 * cos() + 0.5 *sin()
+        xdata = xr.DataArray(rang, coords=[["NY", "LA"], pd.date_range("2000-01-01", periods=24, freq='M')],
+                             dims=["space", "time"])
+
+        def func(x, a, b, c):
+            return a + b * np.cos(2 * np.pi / 31557600 * x) + c * np.sin(2 * np.pi / 31557600 * x)
+
+        params = (oeop.fit_curve(xdata, parameters=(0, 1), function=func, dimension='time'))
+        predicted = oeop.predict_curve(xdata, params, func, dimension='time',
+                                       labels=pd.date_range("2002-01-01", periods=24, freq='M'))
+        assert xdata.dims == predicted.dims
+        assert (predicted < 1.5).all()
+        predicted = oeop.predict_curve(xdata, params, func, dimension='time',
+                                       labels=pd.date_range("2000-01-01", periods=24, freq='M'))
+        assert (np.isclose(xdata, predicted, atol=0.3)).all()
+
 
 
     def test_resample_cube_temporal(self):

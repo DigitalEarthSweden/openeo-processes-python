@@ -729,7 +729,7 @@ class ArrayFind:
         -----
         Own implementation, since np.argmax does not treat 'no matches' right.
         """
-        data = data.where(data == value, False)
+        data = data.where(data == value, value-1)
         find = (data.argmax(dim=dimension))
         find_in = data.isin(value).sum(dimension)
         find = find.where(find_in > 0, np.nan)
