@@ -139,5 +139,22 @@ class CubesTester(unittest.TestCase):
         resample2 = oeop.resample_cube_temporal(xdata2, target, dimension='time', valid_within=15)
         xr.testing.assert_equal(resample2, target)
 
+    def test_create_raster_cube(self):
+        """Tests 'create_raster_cube' function. """
+        assert len(oeop.create_raster_cube()) == 0
+
+    def test_add_dimension(self):
+        """Tests 'add_dimension' function. """
+        assert oeop.add_dimension(self.test_data.xr_data_factor(), 'cubes', 'Cube01').shape == (1, 2, 5, 3)
+
+    def test_dimension_labels(self):
+        """Tests 'dimension_labels' function. """
+        assert (oeop.dimension_labels(self.test_data.xr_data_factor(), 'x') == [118.9, 119.9, 120.9]).all()
+
+    def test_drop_dimension(self):
+        """Tests 'drop_dimension' function. """
+        data = oeop.add_dimension(self.test_data.xr_data_factor(), 'cubes', 'Cube01')
+        xr.testing.assert_equal(oeop.drop_dimension(data, 'cubes'), self.test_data.xr_data_factor())
+
 if __name__ == "__main__":
     unittest.main()

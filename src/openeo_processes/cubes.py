@@ -278,7 +278,7 @@ class MergeCubes:
                 merge = xr.concat([cube1, cube2], dim=dimension)
                 merge = merge.sortby(dimension)
             elif matching == len(cube1.coords):  # all dimensions match
-                if overlap_resolver == None:  # no overlap resolver, so a new dimension is added
+                if overlap_resolver is None:  # no overlap resolver, so a new dimension is added
                     values = np.array([cube1.values, cube2.values])
                     cubes = ["Cube01", "Cube02"]
                     coords = [cubes]
@@ -507,7 +507,7 @@ class PredictCurve:
             test = labels
         if dimension in ['time', 't', 'times']:  # time dimension must be converted into values
             dates = data[dimension].values
-            if test == None:
+            if test is None:
                 timestep = [((x - np.datetime64('1970-01-01')) / np.timedelta64(1, 's')) for x in dates]
                 labels = np.array(timestep)
             else:
@@ -515,7 +515,7 @@ class PredictCurve:
                 labels = [((x - np.datetime64('1970-01-01')) / np.timedelta64(1, 's')) for x in labels]
                 labels = np.array(labels)
         else:
-            if test == None:
+            if test is None:
                 labels = data[dimension].values
             else:
                 coords = labels
@@ -527,7 +527,7 @@ class PredictCurve:
                                 output_dtypes=[np.float32],
                                 dask_gufunc_kwargs={'allow_rechunk': True, 'output_sizes': {dimension: len(labels)}}
                                 )
-        if test == None:
+        if test is None:
             values = values.transpose(*data.dims)
             predicted = xr.DataArray(values, coords=data.coords, dims=data.dims, attrs=data.attrs, name=data.name)
             predicted = predicted.where(data==0, data)
@@ -755,9 +755,11 @@ class ResampleCubeTemporal:
            If no valid value is found within the given period, the value will be set to no-data (null).
 
         """
-        if dimension == None:
+        if dimension is None:
             if 'time' in data.dims:
                 dimension = 'time'
+            elif 't' in data.dims:
+                dimension = 't'
         elif dimension in ['time', 't', 'temporal', 'times']:
             dimension = dimension
         else:
@@ -795,7 +797,7 @@ class ResampleCubeTemporal:
                     new_data[d] = data[d].values
             filter_values = new_data[dimension].values
             new_data[dimension] = target[dimension].values
-        if valid_within == None:
+        if valid_within is None:
             new_data = new_data
         else:
             minimum = np.timedelta64(valid_within, 'D')
@@ -804,4 +806,196 @@ class ResampleCubeTemporal:
             new_data_t = new_data_t[filter]
             new_data = new_data_t.transpose(*new_data.dims)
         return new_data
+
+
+###############################################################################
+# CreateRasterCube process
+###############################################################################
+
+
+@process
+def create_raster_cube():
+    """
+    Create an empty raster data cube.
+
+    Returns
+    -------
+    data cube :
+        Creates a new raster data cube without dimensions. Dimensions can be added with add_dimension.
+    """
+    return CreateRasterCube()
+
+
+class CreateRasterCube:
+    """
+    Creates a new raster data cube without dimensions. Dimensions can be added with add_dimension.
+    """
+
+    @staticmethod
+    def exec_num():
+        """
+        Parameters
+        ----------
+        This process has no parameters.
+
+        Returns
+        -------
+        xr.DataArray :
+           An empty raster data cube with zero dimensions.
+        """
+        return xr.DataArray([])
+
+
+###############################################################################
+# AddDimension process
+###############################################################################
+
+
+@process
+def add_dimension():
+    """
+    Adds a new named dimension to the data cube.
+
+    Returns
+    -------
+    data cube :
+        The data cube with a newly added dimension. The new dimension has exactly one dimension label.
+        All other dimensions remain unchanged.
+    """
+    return AddDimension()
+
+
+class AddDimension:
+    """
+    Adds a new named dimension to the data cube.
+    Afterwards, the dimension can be referred to with the specified name.
+    If a dimension with the specified name exists, the process fails with a DimensionExists exception.
+    The dimension label of the dimension is set to the specified label.
+    """
+
+    @staticmethod
+    def exec_xar(data, name, labels, type = 'other'):
+        """
+        Parameters
+        ----------
+        data : xr.DataArray
+           A data cube to add the dimension to.
+        name : str
+           Name for the dimension.
+        labels : number, str
+           A dimension label.
+        type : str, optional
+           The type of dimension, defaults to other.
+
+        Returns
+        -------
+        xr.DataArray :
+           The data cube with a newly added dimension. The new dimension has exactly one dimension label.
+           All other dimensions remain unchanged.
+        """
+        data_e = data.assign_coords(placeholder = labels)
+        data_e = data_e.expand_dims('placeholder')
+        data_e = data_e.rename({'placeholder' : name})
+        return data_e
+
+
+###############################################################################
+# DimensionLabels process
+###############################################################################
+
+
+@process
+def dimension_labels():
+    """
+    Get the dimension labels.
+
+    Returns
+    -------
+    Array :
+           The labels as an array.
+
+    """
+    return DimensionLabels()
+
+
+class DimensionLabels:
+    """
+    Gives all labels for a dimension in the data cube. The labels have the same order as in the data cube.
+    If a dimension with the specified name does not exist, the process fails with a DimensionNotAvailable exception.
+    """
+
+    @staticmethod
+    def exec_xar(data, dimension):
+        """
+        Parameters
+        ----------
+        data : xr.DataArray
+           A data cube to add the dimension to.
+        dimension : str
+           The name of the dimension to get the labels for.
+
+        Returns
+        -------
+        np.array :
+           The labels as an array.
+        """
+        if dimension in data.dims:
+            return data[dimension].values
+        else:
+            raise Exception('DimensionNotAvailable')
+
+
+###############################################################################
+# DropDimension process
+###############################################################################
+
+
+@process
+def drop_dimension():
+    """
+    Remove a dimension.
+
+    Returns
+    -------
+    xr.DataArray :
+           A data cube without the specified dimension.
+
+    """
+    return DropDimension()
+
+
+class DropDimension:
+    """
+    Drops a dimension from the data cube.
+    Dropping a dimension only works on dimensions with a single dimension label left,
+    otherwise the process fails with a DimensionLabelCountMismatch exception.
+    Dimension values can be reduced to a single value with a filter such as filter_bands or the reduce_dimension process.
+    If a dimension with the specified name does not exist, the process fails with a DimensionNotAvailable exception.
+    """
+
+    @staticmethod
+    def exec_xar(data, name):
+        """
+        Parameters
+        ----------
+        data : xr.DataArray
+           The data cube to drop a dimension from.
+        name : str
+           Name of the dimension to drop.
+
+        Returns
+        -------
+        xr.DataArray :
+           A data cube without the specified dimension.
+           The number of dimensions decreases by one, but the dimension properties
+           (name, type, labels, reference system and resolution) for all other dimensions remain unchanged.
+        """
+        if name in data.dims:
+            if len(data[name].values) == 1:
+                dropped = data.squeeze(name, drop=True)
+                return dropped
+            else:
+                raise Exception('DimensionLabelCountMismatch')
+        else:
+            raise Exception('DimensionNotAvailable')
 
