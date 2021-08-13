@@ -205,9 +205,7 @@ class Apply:
 
         if callable(process):
             return process(data, **context)
-        elif isinstance(process, dict):
-            # No need to map this
-            return data
+        return data
 ###############################################################################
 # MergeCubes process
 ###############################################################################
