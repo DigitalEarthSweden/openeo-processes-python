@@ -1,13 +1,14 @@
-import rioxarray  # needed by save_result even if not directly called
-from openeo_processes.utils import process
-from openeo_processes.extension.odc import write_odc_product
+from datetime import datetime
 from os.path import splitext
+from typing import List
+
 import numpy as np
-import xarray as xr
-from scipy import optimize
 import odc.algo
-import numpy as np
-from openeo_processes.utils import get_time_dimension_from_data
+import rioxarray  # needed by save_result even if not directly called
+import xarray as xr
+from openeo_processes.extension.odc import write_odc_product
+from openeo_processes.utils import process, get_time_dimension_from_data
+from scipy import optimize
 
 ###############################################################################
 # Load Collection Process
@@ -605,69 +606,73 @@ class SaveResult:
             data format (default: GTiff)
 
         """
-        
-        def refactor_data(data):
-            # The following code is required to recreate a Dataset from the final result as Dataarray, to get a well formatted netCDF
 
-            if 'time' in data.coords:
-                tmp = xr.Dataset(coords={'t':data.time.values,'y':data.y,'x':data.x})
-                if 'bands' in data.coords:
-                    try:
-                        for var in data['bands'].values:
-                            tmp[str(var)] = (('t','y','x'),data.loc[dict(bands=var)])
-                    except Exception as e:
-                        print(e)
-                        tmp[str((data['bands'].values))] = (('t','y','x'),data)
-                else:
-                    tmp['result'] = (('t','y','x'),data)
+        def extract_single_timestamp(data_without_time: xr.DataArray, timestamp: datetime = None) -> xr.Dataset:
+            """Create a xarray Dataset."""
+            tmp = xr.Dataset(coords={'y': data_without_time.y, 'x': data_without_time.x})
+            if 'bands' in data_without_time.coords:
+                try:
+                    for var in data_without_time['bands'].values:
+                        data_var = data_without_time.loc[dict(bands=var)]\
+                            .where(data_without_time.loc[dict(bands=var)] != np.nan, -9999)
+                        tmp[str(var)] = (('y', 'x'), data_var)
+                except Exception as e:
+                    print(e)
+                    data_var = data_without_time.where(data_without_time != np.nan, -9999)
+                    tmp[str((data_without_time['bands'].values))] = (('y', 'x'), data_var)
             else:
-                tmp = xr.Dataset(coords={'y':data.y,'x':data.x})
-                if 'bands' in data.coords:
-                    try:
-                        for var in data['bands'].values:
-                            # Set no data value from np.nan to -9999 - easier to handle in stored files
-                            data_var = data.loc[dict(bands=var)].where(data.loc[dict(bands=var)] != np.nan, -9999)
-                            tmp[str(var)] = (('y','x'), data_var)
-                    except Exception as e:
-                        print(e)
-                        tmp[str((data['bands'].values))] = (('y','x'),data)
-                else:
-                    tmp['result'] = (('y','x'),data)
-            tmp.attrs = data.attrs
+                data_var = data_without_time.where(data_without_time != np.nan, -9999)
+                tmp['result'] = (('y', 'x'), data_var)
+            tmp.attrs = data_without_time.attrs
+            if timestamp:
+                tmp.attrs["datetime_from_dim"] = str(timestamp)
             return tmp
-        
+
+        def refactor_data(data: xr.DataArray) -> List[xr.Dataset]:
+            """Recreate a Dataset from the final result as Dataarray, to ensure a well formatted netCDF."""
+            all_tmp = []
+            # TODO this must be improved once `rename_dimension` is supported!
+            if 'time' in data.coords:
+                for timestamp in data.time.values:
+                    data_at_timestamp = data.loc[dict(time=timestamp)]
+                    all_tmp.append(extract_single_timestamp(data_at_timestamp, timestamp))
+            else:
+                all_tmp.append(extract_single_timestamp(data))
+            return all_tmp
+
+        def create_output_filepath(output_filepath: str, idx: int = 0, ext: str = "nc") -> str:
+            """Create the output filepath."""
+            root, _ = splitext(output_filepath)
+            return f'{root}_{idx}.{ext}'
+
+        # start workaround
+        # https://github.com/opendatacube/datacube-core/issues/972
+        # ValueError failed to prevent overwriting existing key units in `attrs` on variable 'time'
+        if hasattr(data, 'time') and hasattr(data.time, 'units'):
+            data.time.attrs.pop('units', None)
+        if hasattr(data, 'grid_mapping'):
+            data.attrs.pop('grid_mapping')
+        # end workaround
+
         formats = ('GTiff', 'netCDF')
         if format.lower() == 'netcdf':
-            if not splitext(output_filepath)[1]:
-                output_filepath = output_filepath + '.nc'
-            # start workaround
-            # https://github.com/opendatacube/datacube-core/issues/972
-            # ValueError failed to prevent overwriting existing key units in `attrs` on variable 'time'
-            if hasattr(data, 'time') and hasattr(data.time, 'units'):
-                data.time.attrs.pop('units', None)
-            # end workaround
-            
-            data = refactor_data(data)
-            data.to_netcdf(path=output_filepath)
+            data_list = refactor_data(data)
+            for idx, dataset in enumerate(data_list):
+                cur_output_filepath = create_output_filepath(output_filepath, idx, 'nc')
+                dataset.to_netcdf(path=cur_output_filepath)
 
         elif format.lower() in ['gtiff','geotiff']:
-            if not splitext(output_filepath)[1]:
-                output_filepath = output_filepath + '.tif'
-            # TODO
-            # Add check, this works only for 2D or 3D DataArrays, else loop is needed
-            data = refactor_data(data)
-            if len(data.dims) > 3:
-                if len(data.t) == 1:
-                    # We keep the time variable as band in the GeoTiff, multiple band/variables of the same timestamp
-                    data = data.squeeze('t')
-                else:
-                    raise Exception("[!] Not possible to write a 4-dimensional GeoTiff, use NetCDF instead.")
-            
-            data.rio.to_raster(raster_path=output_filepath,**options)
+            data_list = refactor_data(data)
+            if len(data_list[0].dims) > 3:  # this should not be happening anymore, because time is separated!
+                raise Exception("[!] Not possible to write a 4-dimensional GeoTiff, use NetCDF instead.")
+            for idx, dataset in enumerate(data_list):
+                cur_output_filepath = create_output_filepath(output_filepath, idx, 'tif')
+                dataset.rio.to_raster(raster_path=cur_output_filepath,**options)
+
         else:
             raise ValueError(f"Error when saving to file. Format '{format}' is not in {formats}.")
 
-        write_odc_product(data, output_filepath)
+        write_odc_product(data_list[0], output_filepath)
 
 ###############################################################################
 # Resample cube spatial process

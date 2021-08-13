@@ -5,6 +5,7 @@ https://openeo.org/documentation/1.0/processes.html
 
 import os
 import unittest
+
 import pytest
 import openeo_processes as oeop
 import xarray as xr
@@ -52,45 +53,63 @@ class CubesTester(unittest.TestCase):
         assert (merged3.shape == (2, 2, 5, 3))  # added first dimension, so shape is now longer
 
     def test_save_result(self):
-        """ Tests `reduce_dimension` function. """
-
         # TODO improve file check
         # xarray tests
         out_filename = "out.tif"
+        out_filename_0 = "out_0.tif"
+        out_filename_1 = "out_1.tif"
         out_product = "product.yml"
-        reduced = oeop.reduce_dimension(self.test_data.xr_odc_data_3d, reducer=oeop.min, dimension='time')
-        oeop.save_result(reduced, out_filename)
-        assert os.path.exists(out_filename)
+        oeop.save_result(self.test_data.xr_odc_data_3d, out_filename)
+        assert os.path.exists(out_filename_0)
         assert os.path.exists(out_product)
-        os.remove(out_filename)
+        os.remove(out_filename_0)
         os.remove(out_product)
-        
-        # reduced = oeop.reduce_dimension(self.test_data.xr_data_4d, reducer=oeop.min, dimension='time')
-        # print('reduced:',reduced)
-        # oeop.save_result(reduced, out_filename)
-        # assert os.path.exists(out_filename)
-        # assert os.path.exists(out_filename)
-        # os.remove(out_filename)
-        # os.remove(out_product)
+
+        oeop.save_result(self.test_data.xr_odc_data_4d, out_filename)
+        assert os.path.exists(out_filename_0)
+        assert os.path.exists(out_filename_1)
+        assert os.path.exists(out_product)
+        os.remove(out_filename_0)
+        os.remove(out_product)
 
         out_filename = "out.nc"
+        out_filename_0 = "out_0.nc"
+        out_filename_1 = "out_1.nc"
         oeop.save_result(self.test_data.xr_odc_data_3d, out_filename, format='netCDF')
-        assert os.path.exists(out_filename)
-        assert os.path.exists(out_filename)
-        os.remove(out_filename)
+        assert os.path.exists(out_filename_0)
+        assert os.path.exists(out_product)
+        os.remove(out_filename_0)
         os.remove(out_product)
 
         oeop.save_result(self.test_data.xr_odc_data_3d, format='netCDF')
-        assert os.path.exists('out.nc')
-        assert os.path.exists(out_filename)
-        os.remove('out.nc')
+        assert os.path.exists(out_filename_0)
+        assert os.path.exists(out_product)
+        os.remove(out_filename_0)
         os.remove(out_product)
 
-        # oeop.save_result(self.test_data.xr_data_4d, format='netCDF')
-        # assert os.path.exists('out.nc')
-        # assert os.path.exists(out_filename)
-        # os.remove('out.nc')
-        # os.remove(out_product)
+        oeop.save_result(self.test_data.xr_odc_data_4d, format='netCDF')
+        assert os.path.exists(out_filename_0)
+        assert os.path.exists(out_filename_1)
+        assert os.path.exists(out_product)
+        os.remove(out_filename_0)
+        os.remove(out_filename_1)
+        os.remove(out_product)
+
+    def test_save_result_from_file(self):
+        src = os.path.join(os.path.dirname(__file__), "data", "out.time.nc")
+        ref_ds = xr.load_dataset(src)
+        ref_ds_0 = ref_ds.loc[dict(time="2016-01-13T12:00:00.000000000")]
+        data_array = ref_ds.to_array(dim="bands")
+        oeop.save_result(data_array, format='netCDF')
+        actual_ds_0 = xr.load_dataset("out_0.nc")
+        assert ref_ds_0.dims == actual_ds_0.dims
+        assert ref_ds_0.coords == actual_ds_0.coords
+        assert ref_ds_0.variables == actual_ds_0.variables
+        assert ref_ds_0.geobox == actual_ds_0.geobox
+        assert ref_ds_0.extent == actual_ds_0.extent
+        for i in range(10):
+            os.remove(f"out_{i}.nc")
+
 
     def test_fit_curve(self):
         """Tests 'fit_curve' function. """
