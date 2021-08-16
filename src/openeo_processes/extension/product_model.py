@@ -1,5 +1,5 @@
 from dataclasses import dataclass, asdict, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 
 import numpy as np
 import xarray as xr
@@ -35,6 +35,13 @@ class Measurement:
 
 
 @dataclass
+class ExtraDimensions:
+    name: str
+    values: List[Union[int, float]]
+    dtype: Literal['float16', 'float32', 'float64', 'int8', 'int16', 'int32', 'int64', 'uint8', 'uint16', 'uint32',
+                   'uint64', 'complex64', 'complex128']
+
+@dataclass
 class Product:
     name: str
     description: str
@@ -42,6 +49,7 @@ class Product:
     metadata: Metadata
     measurements: List[Measurement]
     metadata_type: str = "eo3"
+    extra_dimensions: Optional[List[ExtraDimensions]] = None
 
 
 def create_product(data: xr.Dataset) -> Product:
@@ -64,6 +72,17 @@ def create_product(data: xr.Dataset) -> Product:
     else:
         resolution = {"y": res[0], "x": res[1]}
 
+    # handle extra-dims
+    extra_dims = list(set(first_data_var.dims).difference({'bands', 'y', 'x', 'time'}))
+    if extra_dims:
+        extra_dimensions = [
+            ExtraDimensions(
+                name=dim,
+                values=getattr(first_data_var, dim).values,
+                dtype=getattr(first_data_var, dim).values.dtype,
+            )
+            for dim in extra_dims]
+
     prod = Product(
         name="PLACEHOLDER_PRODCUT_NAME",
         description=f"Results of job PLACEHOLDER_JOB_ID.",
@@ -77,6 +96,7 @@ def create_product(data: xr.Dataset) -> Product:
             ),
         ),
         measurements=measurements,
+        extra_dimensions=extra_dimensions if extra_dims else None,
     )
     return prod
 
@@ -84,4 +104,7 @@ def create_product(data: xr.Dataset) -> Product:
 def get_prod_dict(data: xr.Dataset) -> dict:
     """Create a product definition from an xr.Dataset and return it as dict."""
     product = create_product(data)
-    return asdict(product)
+    prod_dict = asdict(product)
+    if not prod_dict["extra_dimensions"]:
+        prod_dict.pop("extra_dimension")
+    return prod_dict
