@@ -607,22 +607,31 @@ class SaveResult:
 
         """
 
-        def extract_single_timestamp(data_without_time: xr.DataArray, timestamp: datetime = None) -> xr.Dataset:
+        def extract_single_timestamp(data_without_time: xr.DataArray, timestamp: datetime = None,
+                                     additional_dims: List[str] = None) -> xr.Dataset:
             """Create a xarray Dataset."""
-            tmp = xr.Dataset(coords={'y': data_without_time.y, 'x': data_without_time.x})
+            coords = {'y': data_without_time.y, 'x': data_without_time.x}
+            dims_tmp = ['y', 'x']
+            if additional_dims:
+                for dim in additional_dims:
+                    coords[dim] = getattr(data_without_time, dim)
+                    dims_tmp.append(dim)
+            dims = tuple(dims_tmp)
+
+            tmp = xr.Dataset(coords=coords)
             if 'bands' in data_without_time.coords:
                 try:
                     for var in data_without_time['bands'].values:
                         data_var = data_without_time.loc[dict(bands=var)]\
                             .where(data_without_time.loc[dict(bands=var)] != np.nan, -9999)
-                        tmp[str(var)] = (('y', 'x'), data_var)
+                        tmp[str(var)] = (dims, data_var)
                 except Exception as e:
                     print(e)
                     data_var = data_without_time.where(data_without_time != np.nan, -9999)
-                    tmp[str((data_without_time['bands'].values))] = (('y', 'x'), data_var)
+                    tmp[str((data_without_time['bands'].values))] = (dims, data_var)
             else:
                 data_var = data_without_time.where(data_without_time != np.nan, -9999)
-                tmp['result'] = (('y', 'x'), data_var)
+                tmp['result'] = (dims, data_var)
             tmp.attrs = data_without_time.attrs
             if timestamp:
                 tmp.attrs["datetime_from_dim"] = str(timestamp)
@@ -632,12 +641,14 @@ class SaveResult:
             """Recreate a Dataset from the final result as Dataarray, to ensure a well formatted netCDF."""
             all_tmp = []
             # TODO this must be improved once `rename_dimension` is supported!
+            additional_dims = set(data.dims).difference({'bands', 'y', 'x', 'time'})
             if 'time' in data.coords:
                 for timestamp in data.time.values:
                     data_at_timestamp = data.loc[dict(time=timestamp)]
-                    all_tmp.append(extract_single_timestamp(data_at_timestamp, timestamp))
+                    all_tmp.append(extract_single_timestamp(data_at_timestamp, timestamp, additional_dims))
             else:
-                all_tmp.append(extract_single_timestamp(data))
+                all_tmp.append(extract_single_timestamp(data, additional_dims=additional_dims))
+
             return all_tmp
 
         def create_output_filepath(output_filepath: str, idx: int = 0, ext: str = "nc") -> str:
@@ -663,7 +674,7 @@ class SaveResult:
 
         elif format.lower() in ['gtiff','geotiff']:
             data_list = refactor_data(data)
-            if len(data_list[0].dims) > 3:  # this should not be happening anymore, because time is separated!
+            if len(data_list[0].dims) > 3:
                 raise Exception("[!] Not possible to write a 4-dimensional GeoTiff, use NetCDF instead.")
             for idx, dataset in enumerate(data_list):
                 cur_output_filepath = create_output_filepath(output_filepath, idx, 'tif')

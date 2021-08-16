@@ -52,6 +52,12 @@ def mk_sample_xr_dataset(crs="EPSG:3578",
 def test_data(request):
     class TestDataDriver:
         def __init__(self):
+            self.coords_extra_dim = {
+                'bands': ['band_1', 'band_2', 'band_3'],
+                'y': np.array([1477835.]),
+                'x': np.array([4882815.]),
+                'params': np.array(['a0', 'a1', 'a2']),
+            }
             self.steps = {'y': 5, 'x': 3}
             self.coords_4d = {
                 'bands': ['B08', 'B04', 'B02'],
@@ -82,6 +88,15 @@ def test_data(request):
             self.np_data_4d = data
             self.np_data_3d = data[0, :]
 
+            data_extra_dim = np.ones((3, 1, 1, 3))
+            data_extra_dim[0, :] *= 1
+            data_extra_dim[1, :] *= 2
+            data_extra_dim[2, :] *= 3
+            data_extra_dim[:, :, :, 1] *= 10
+            data_extra_dim[:, :, :, 2] *= 100
+            self.np_data_extra_dim = data_extra_dim
+
+
         def _get_xarray(self):
             """
             Returns a fixed xarray DataArray array with 3 labelled dimensions
@@ -99,6 +114,9 @@ def test_data(request):
             self.xr_odc_data_3d = mk_sample_xr_dataset()
             self.xr_odc_data_4d = mk_sample_xr_dataset(
                 time=['2020-02-13T11:12:13.1234567Z', '2020-02-14T11:12:13.1234567Z'])
+            self.xr_data_extra_dim = xr.DataArray(data=self.np_data_extra_dim,
+                                                  dims=self.coords_extra_dim.keys(),
+                                                  coords=self.coords_extra_dim)
 
         def xr_data_factor(self, factor_1=1.0, factor_2=1.0):
             data = np.ones((3, 2, self.steps['y'], self.steps['x']))

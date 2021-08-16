@@ -75,6 +75,11 @@ class CubesTester(unittest.TestCase):
         out_filename = "out.nc"
         out_filename_0 = "out_0.nc"
         out_filename_1 = "out_1.nc"
+
+        oeop.save_result(self.test_data.xr_data_extra_dim, out_filename, format='netCDF', write_prod=False)
+        assert os.path.exists(out_filename_0)
+        os.remove(out_filename_0)
+
         oeop.save_result(self.test_data.xr_odc_data_3d, out_filename, format='netCDF')
         assert os.path.exists(out_filename_0)
         assert os.path.exists(out_product)
@@ -109,7 +114,6 @@ class CubesTester(unittest.TestCase):
         assert ref_ds_0.extent == actual_ds_0.extent
         for i in range(10):
             os.remove(f"out_{i}.nc")
-
 
     def test_fit_curve(self):
         """Tests 'fit_curve' function. """
