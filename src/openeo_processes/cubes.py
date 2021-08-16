@@ -633,8 +633,9 @@ class SaveResult:
                 data_var = data_without_time.where(data_without_time != np.nan, -9999)
                 tmp['result'] = (dims, data_var)
             tmp.attrs = data_without_time.attrs
-            if timestamp:
-                tmp.attrs["datetime_from_dim"] = str(timestamp)
+            # This is a hack! ODC always(!) expectes to have a time dimension
+            # set datetime to now if no other information is available
+            tmp.attrs["datetime_from_dim"] = str(timestamp) if timestamp else str(datetime.now())
             return tmp
 
         def refactor_data(data: xr.DataArray) -> List[xr.Dataset]:
