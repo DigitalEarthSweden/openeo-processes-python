@@ -1,7 +1,7 @@
 import functools
 import re
 from datetime import timezone, timedelta, datetime
-from typing import Callable
+from typing import Any, Callable, Tuple
 
 import numpy as np
 import xarray as xr
@@ -37,6 +37,17 @@ def eval_datatype(data):
         return package_root
     else:
         return package + '.' + type(data).__name__
+
+
+def tuple_args_to_np_array(args, kwargs) -> np.array:
+    np_args = [np.array(arg) for arg in args if isinstance(arg, tuple)]
+    np_kwargs = {}
+    for key, value in kwargs.items():
+        if isinstance(value, tuple):
+            np_kwargs[key] = np.array(value)
+        else:
+            np_kwargs[key] = value
+    return np_args, np_kwargs
 
 
 # Registry of processes (dict mapping process id to wrapped process implementation).
@@ -96,6 +107,9 @@ def process(processor):
             cls_fun = getattr(cls, "exec_dar")
         elif datatypes.issubset({"int", "float", "NoneType", "str", "bool", "datetime"}):
             cls_fun = getattr(cls, "exec_num")
+        elif "tuple" in datatypes:
+            args, kwargs = tuple_args_to_np_array(args, kwargs)
+            cls_fun = getattr(cls, "exec_np")
         else:
             raise Exception('Datatype unknown.')
 
