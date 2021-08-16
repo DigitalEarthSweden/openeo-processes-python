@@ -591,7 +591,7 @@ class SaveResult:
     """
 
     @staticmethod
-    def exec_xar(data, output_filepath='out', format='GTiff', options={}):
+    def exec_xar(data, output_filepath='out', format='GTiff', options={}, write_prod: bool = True):
         """
         Save data to disk in specified format.
 
@@ -672,7 +672,8 @@ class SaveResult:
         else:
             raise ValueError(f"Error when saving to file. Format '{format}' is not in {formats}.")
 
-        write_odc_product(data_list[0], output_filepath)
+        if write_prod:
+            write_odc_product(data_list[0], output_filepath)
 
 ###############################################################################
 # Resample cube spatial process
