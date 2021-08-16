@@ -56,7 +56,7 @@ def test_data(request):
                 'bands': ['band_1', 'band_2', 'band_3'],
                 'y': np.array([1477835.]),
                 'x': np.array([4882815.]),
-                'params': np.array(['a0', 'a1', 'a2']),
+                'params': np.array([0, 1, 2]),
             }
             self.steps = {'y': 5, 'x': 3}
             self.coords_4d = {

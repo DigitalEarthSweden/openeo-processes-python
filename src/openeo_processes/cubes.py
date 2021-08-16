@@ -446,6 +446,7 @@ class FitCurve:
             data[dimension] = step
         else:
             step = dimension
+
         if isinstance(parameters, xr.core.dataarray.DataArray):
             apply_f = (lambda x, y, p: optimize.curve_fit(function, x[np.nonzero(y)], y[np.nonzero(y)], p)[0])
             in_dims = [[dimension], [dimension], ['params']]
