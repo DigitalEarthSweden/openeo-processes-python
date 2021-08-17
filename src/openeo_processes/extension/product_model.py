@@ -32,6 +32,7 @@ class Measurement:
     dtype: str
     nodata: Any
     aliases: List[str] = field(default_factory=list)
+    extra_dim: str = None
 
 
 @dataclass
@@ -54,23 +55,7 @@ class Product:
 
 def create_product(data: xr.Dataset) -> Product:
     """Create a product definition form an xr.Dataset."""
-    measurements = [
-        Measurement(
-            name=name,
-            dtype=str(msnt.dtype),
-            nodata=-9999,  # no data value set to -9999 in save result
-            units="",  # TODO not implemented - currently ignored!
-        )
-        for name, msnt in data.data_vars.items()
-    ]
-    # Use first data var to define storage - arbitray selection
-    first_data_var = data.data_vars[measurements[0].name]
-    is_geographic = first_data_var.geobox.crs.geographic
-    res = first_data_var.geobox.resolution
-    if is_geographic:
-        resolution = {"latitude": res[0], "longitude": res[1]}
-    else:
-        resolution = {"y": res[0], "x": res[1]}
+    first_data_var = data.data_vars[list(data.data_vars.keys())[0]]
 
     # handle extra-dims
     extra_dims = list(set(first_data_var.dims).difference({'bands', 'y', 'x', 'time'}))
@@ -82,6 +67,24 @@ def create_product(data: xr.Dataset) -> Product:
                 dtype=str(getattr(first_data_var, dim).values.dtype),
             )
             for dim in extra_dims]
+
+    measurements = [
+        Measurement(
+            name=name,
+            dtype=str(msnt.dtype),
+            nodata=-9999,  # no data value set to -9999 in save result
+            units="",  # TODO not implemented - currently ignored!
+            extra_dim=extra_dims[0] if extra_dims else None  # currently one a single extra dim is supported
+        )
+        for name, msnt in data.data_vars.items()
+    ]
+    # Use first data var to define storage - arbitray selection
+    is_geographic = first_data_var.geobox.crs.geographic
+    res = first_data_var.geobox.resolution
+    if is_geographic:
+        resolution = {"latitude": res[0], "longitude": res[1]}
+    else:
+        resolution = {"y": res[0], "x": res[1]}
 
     prod = Product(
         name="PLACEHOLDER_PRODCUT_NAME",
@@ -107,4 +110,6 @@ def get_prod_dict(data: xr.Dataset) -> dict:
     prod_dict = asdict(product)
     if not prod_dict["extra_dimensions"]:
         prod_dict.pop("extra_dimensions")
+        for idx in range(len(prod_dict["measurements"])):
+            prod_dict["measurements"][idx].pop("extra_dim")
     return prod_dict
