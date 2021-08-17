@@ -106,5 +106,5 @@ def get_prod_dict(data: xr.Dataset) -> dict:
     product = create_product(data)
     prod_dict = asdict(product)
     if not prod_dict["extra_dimensions"]:
-        prod_dict.pop("extra_dimension")
+        prod_dict.pop("extra_dimensions")
     return prod_dict
