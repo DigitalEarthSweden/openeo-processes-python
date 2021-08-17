@@ -70,6 +70,7 @@ class CubesTester(unittest.TestCase):
         assert os.path.exists(out_filename_1)
         assert os.path.exists(out_product)
         os.remove(out_filename_0)
+        os.remove(out_filename_1)
         os.remove(out_product)
 
         out_filename = "out.nc"
@@ -114,6 +115,7 @@ class CubesTester(unittest.TestCase):
         assert ref_ds_0.extent == actual_ds_0.extent
         for i in range(10):
             os.remove(f"out_{i}.nc")
+        os.remove("product.yml")
 
     def test_fit_curve(self):
         """Tests 'fit_curve' function. """
