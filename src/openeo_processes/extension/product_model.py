@@ -78,8 +78,8 @@ def create_product(data: xr.Dataset) -> Product:
         extra_dimensions = [
             ExtraDimensions(
                 name=dim,
-                values=getattr(first_data_var, dim).values,
-                dtype=getattr(first_data_var, dim).values.dtype,
+                values=getattr(first_data_var, dim).values.tolist(),
+                dtype=str(getattr(first_data_var, dim).values.dtype),
             )
             for dim in extra_dims]
 
