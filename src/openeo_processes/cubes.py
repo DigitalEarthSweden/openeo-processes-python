@@ -1,6 +1,6 @@
 from datetime import datetime
 from os.path import splitext
-from typing import List
+from typing import Any, Dict, List
 
 import numpy as np
 import odc.algo
@@ -13,6 +13,29 @@ from scipy import optimize
 ###############################################################################
 # Load Collection Process
 ###############################################################################
+
+
+def odc_load_helper(odc_cube, params: Dict[str, Any]) -> xr.DataArray:
+    """Helper method to load a xarray DataArray from ODC."""
+    datacube = odc_cube.load(**params)
+
+    # Set no-data values to nan
+    new_data_vars = {}
+    for name, data_var in datacube.data_vars.items():
+        no_data = data_var.attrs["nodata"]
+        new_attrs = data_var.attrs
+        new_attrs["nodata"] = np.nan
+        new_data_vars[name] = xr.DataArray(
+            data=data_var.where(data_var != no_data),
+            coords=data_var.coords,
+            dims=data_var.dims,
+            attrs=new_attrs,
+        )
+    datacube = xr.Dataset(data_vars=new_data_vars, coords=datacube.coords, attrs=datacube.attrs)
+
+    # Convert to xr.DataArray
+    # TODO: add conversion with multiple and custom dimensions
+    return datacube.to_array(dim='bands')
 
 
 @process
@@ -41,8 +64,25 @@ class LoadCollection:
     def exec_odc(odc_cube, product: str, dask_chunks: dict,
                  x: tuple = (), y: tuple = (), time: list = [],
                  measurements: list = [], crs: str = "EPSG:4326"):
-        return load_result(odc_cube, product, dask_chunks, x, y, time,
-                           measurements, crs)
+
+        odc_params = {
+            'product': product,
+            'dask_chunks': dask_chunks
+        }
+        if x:
+            odc_params['x'] = x
+        if y:
+            odc_params['y'] = y
+        if crs:
+            odc_params['crs'] = crs
+        # lists are transformed to np.arrays by the wrapper
+        # update when that step has been removed
+        if len(time) > 0:
+            odc_params['time'] = list(time)
+        if len(measurements) > 0:
+            odc_params['measurements'] = list(measurements)
+
+        return odc_load_helper(odc_cube, odc_params)
 
 
 ###############################################################################
@@ -73,50 +113,23 @@ class LoadResult:
     """
 
     @staticmethod
-    def exec_odc(odc_cube, product: str, dask_chunks: dict,
-                 x: tuple = (), y: tuple = (), time: list = [],
-                 measurements: list = [], crs: str = "EPSG:4326"):
+    def exec_odc(odc_cube, product: str, dask_chunks: dict):
 
         odc_params = {
             'product': product,
             'dask_chunks': dask_chunks
         }
-        if x:
-            odc_params['x'] = x
-        if y:
-            odc_params['y'] = y
-        if crs:
-            odc_params['crs'] = crs
-        # lists are transformed to np.arrays by the wrapper
-        # update when that step has been removed
-        if len(time) > 0:
-            odc_params['time'] = list(time)
-        if len(measurements) > 0:
-            odc_params['measurements'] = list(measurements)
+        dataarray = odc_load_helper(odc_cube, odc_params)
 
-        datacube = odc_cube.load(**odc_params)
-
-        # Set no-data values to nan
-        new_data_vars = {}
-        for name, data_var in datacube.data_vars.items():
-            no_data = data_var.attrs["nodata"]
-            new_attrs = data_var.attrs
-            new_attrs["nodata"] = np.nan
-            new_data_vars[name] = xr.DataArray(
-                data=data_var.where(data_var != no_data),
-                coords=data_var.coords,
-                dims=data_var.dims,
-                attrs=new_attrs,
-            )
-        datacube = xr.Dataset(data_vars=new_data_vars, coords=datacube.coords, attrs=datacube.attrs)
-
-        # Convert to xr.DataArray
-        # TODO: add conversion with multiple and custom dimensions
-        dataarray = datacube.to_array(dim='bands')
         # If data is in geographic coordinate system coords are called longitude/latitude
         # for consistency and easier handling in other processes rename them to x/y
         if "longitude" in dataarray.coords and "latitude" in dataarray.coords:
             dataarray.rename({"longitude": "x", "latitude": "y"})
+
+        # In ODC each dataset must have a time dimension also if non exists
+        # remove it if only a single one exist
+        if "time" in dataarray.coords and len(dataarray["time"]) == 1:
+            dataarray.squeeze("time", drop=True)
 
         return dataarray
 
