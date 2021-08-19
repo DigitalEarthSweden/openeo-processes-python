@@ -94,10 +94,29 @@ class CubesTester(unittest.TestCase):
         xdata = xr.DataArray(rang, coords=[["NY", "LA"], pd.date_range("2000-01-01", periods=24, freq='M')],
                              dims=["space", "time"])
 
-        def func(x, a, b, c):
-            return a + b * np.cos(2 * np.pi / 31557600 * x) + c * np.sin(2 * np.pi / 31557600 * x)
+        def func_oeop(x, *parameters):
+            _2sjyaa699_11 = oeop.pi(**{})
+            _9k6vt7qcn_2 = oeop.multiply(**{'x': 2, 'y': _2sjyaa699_11})
+            _p42lrxmbq_16 = oeop.divide(**{'x': _9k6vt7qcn_2, 'y': 31557600})
+            _wz26aglyi_5 = oeop.multiply(**{'x': _p42lrxmbq_16, 'y': x})
+            _v81bsalku_7 = oeop.cos(**{'x': _wz26aglyi_5})
+            _32frj455b_1 = oeop.pi(**{})
+            _lyjcuq5vd_15 = oeop.multiply(**{'x': 2, 'y': _32frj455b_1})
+            _1ipvki94n_4 = oeop.divide(**{'x': _lyjcuq5vd_15, 'y': 31557600})
+            _ya3hbxpot_17 = oeop.multiply(**{'x': _1ipvki94n_4, 'y': x})
+            _0p7xlqeyo_8 = oeop.sin(**{'x': _ya3hbxpot_17})
 
-        params = (oeop.fit_curve(xdata, parameters=(0, 1), function=func, dimension='time'))
+            _kryhimf6r_6 = oeop.array_element(**{'data': parameters, 'index': 0})
+            _jxs4umqsh_10 = oeop.array_element(**{'data': parameters, 'index': 1})
+            _8jjjztmya_12 = oeop.array_element(**{'data': parameters, 'index': 2})
+
+            _jhus2gz74_13 = oeop.multiply(**{'x': _jxs4umqsh_10, 'y': _v81bsalku_7})
+            _0v09jn699_14 = oeop.multiply(**{'x': _8jjjztmya_12, 'y': _0p7xlqeyo_8})
+            _xb4c1hk1f_9 = oeop.add(**{'x': _kryhimf6r_6, 'y': _jhus2gz74_13})
+            _b4mf181yp_3 = oeop.add(**{'x': _xb4c1hk1f_9, 'y': _0v09jn699_14})
+            return _b4mf181yp_3
+
+        params = (oeop.fit_curve(xdata, parameters=[1, 1, 1], function=func_oeop, dimension='time'))
         assert (np.isclose(params, [0, 1, 0.5], atol=0.3)).all()  # output should be close to 0, 1, 0.5
 
     def test_predict_curve(self):
@@ -112,7 +131,7 @@ class CubesTester(unittest.TestCase):
         def func(x, a, b, c):
             return a + b * np.cos(2 * np.pi / 31557600 * x) + c * np.sin(2 * np.pi / 31557600 * x)
 
-        params = (oeop.fit_curve(xdata, parameters=(0, 1), function=func, dimension='time'))
+        params = (oeop.fit_curve(xdata, parameters=(0, 1, 0), function=func, dimension='time'))
         predicted = oeop.predict_curve(xdata, params, func, dimension='time',
                                        labels=pd.date_range("2002-01-01", periods=24, freq='M'))
         assert xdata.dims == predicted.dims

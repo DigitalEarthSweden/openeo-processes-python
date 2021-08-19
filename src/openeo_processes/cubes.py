@@ -205,9 +205,7 @@ class Apply:
 
         if callable(process):
             return process(data, **context)
-        elif isinstance(process, dict):
-            # No need to map this
-            return data
+        return data
 ###############################################################################
 # MergeCubes process
 ###############################################################################
@@ -425,17 +423,14 @@ class FitCurve:
             data[dimension] = step
         else:
             step = dimension
-        param = len(optimize.curve_fit(function, step, step * 0)[0])  # how many parameters are calculated
-        param = np.ones(param)  # parameters are one by default
-        param[:(np.array([parameters])).shape[-1]] = parameters  # given input parameters replace default
-        values = xr.apply_ufunc(lambda x, y: optimize.curve_fit(function, x[np.nonzero(y)], y[np.nonzero(y)], param)[0],
+        values = xr.apply_ufunc(lambda x, y: optimize.curve_fit(function, x[np.nonzero(y)], y[np.nonzero(y)], parameters)[0],
                                 step, data,  # zero values not considered
                                 vectorize=True,
                                 input_core_dims=[[dimension], [dimension]],  # Dimension along we fit the curve function
                                 output_core_dims=[['params']],
                                 dask="parallelized",
                                 output_dtypes=[np.float32],
-                                dask_gufunc_kwargs={'allow_rechunk': True, 'output_sizes': {'params': param}}
+                                dask_gufunc_kwargs={'allow_rechunk': True, 'output_sizes': {'params': parameters}}
                                 )
         names = []
         for i in range(len(values['params'])):
