@@ -751,12 +751,9 @@ class ResampleCubeTemporal:
 
         """
         if dimension is None:
-            if 'time' in data.dims:
-                dimension = 'time'
-            elif 't' in data.dims:
-                dimension = 't'
-        elif dimension in ['time', 't', 'temporal', 'times']:
-            dimension = dimension
+            dimension = 'time'
+        if dimension in ['time', 't', 'times']:  # time dimension must be converted into values
+            dimension = get_time_dimension_from_data(data, dimension)
         else:
             raise Exception('DimensionNotAvailable')
         if len(data[dimension].values) >= len(target[dimension].values):
@@ -934,7 +931,8 @@ class DimensionLabels:
         np.array :
            The labels as an array.
         """
-        if dimension in data.dims:
+        if dimension in ['time', 't', 'times']:  # time dimension must be converted into values
+            dimension = get_time_dimension_from_data(data, dimension)
             return data[dimension].values
         else:
             raise Exception('DimensionNotAvailable')
