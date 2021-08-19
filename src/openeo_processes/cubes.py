@@ -5,6 +5,7 @@ import xarray as xr
 from scipy import optimize
 import odc.algo
 import numpy as np
+from openeo_processes.utils import get_time_dimension_from_data
 
 ###############################################################################
 # Load Collection Process
@@ -933,6 +934,8 @@ class DimensionLabels:
         """
         if dimension in ['time', 't', 'times']:  # time dimension must be converted into values
             dimension = get_time_dimension_from_data(data, dimension)
+            return data[dimension].values
+        elif dimension in data.dims:
             return data[dimension].values
         else:
             raise Exception('DimensionNotAvailable')
