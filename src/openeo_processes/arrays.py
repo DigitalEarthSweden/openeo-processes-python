@@ -807,7 +807,7 @@ class ArrayLabels:
         xr.DataArray :
             The labels as an array.
         """
-        if dimension == None:
+        if dimension is None:
             dim = 0
         elif type(dimension) == str:
             i = 0
@@ -910,7 +910,7 @@ class First:
         """
         if len(data) == 0:  # is_empty(data):
             return np.nan
-        if dimension == None:
+        if dimension is None:
             dimension = 0
         if type(dimension) == str:
             dimension = dimension
@@ -1017,7 +1017,7 @@ class Last:
         """
         if len(data) == 0:  # is_empty(data):
             return np.nan
-        if dimension == None:
+        if dimension is None:
             dimension = 0
         if type(dimension) == str:
             dimension = dimension
@@ -1168,13 +1168,13 @@ class Order:
         """
         if len(data) == 0:
             return np.nan
-        if dimension == None:
+        if dimension is None:
             dimension = 0
         if type(dimension) == str:
             dimension_str = dimension
         else:
             dimension_str = data.dims[dimension]
-        if nodata == None:
+        if nodata is None:
             data = data.dropna(dimension_str)
         data_t = data.transpose(dimension_str, ...)
         order = np.zeros(data_t.shape)
@@ -1387,13 +1387,13 @@ class Sort:
         """
         if len(data) == 0:
             return np.nan
-        if dimension == None:
+        if dimension is None:
             dimension = 0
         if type(dimension) == str:
             dimension_str = dimension
         else:
             dimension_str = data.dims[dimension]
-        if nodata == None:
+        if nodata is None:
             data = data.dropna(dimension_str)
         data_t = data.transpose(dimension_str, ...)
         sort = np.zeros(data_t.shape)

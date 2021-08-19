@@ -139,7 +139,10 @@ class CubesTester(unittest.TestCase):
         predicted = oeop.predict_curve(xdata, params, func, dimension='time',
                                        labels=pd.date_range("2000-01-01", periods=24, freq='M'))
         assert (np.isclose(xdata, predicted, atol=0.5)).all()
-
+        dim_times = oeop.dimension_labels(self.test_data.xr_data_factor(), 't')
+        predicted_dim_labels = (oeop.predict_curve(xdata, params, func, dimension='time', labels=dim_times))
+        assert xdata.dims == predicted_dim_labels.dims
+        assert (predicted_dim_labels < 1.8).all()
 
 
     def test_resample_cube_temporal(self):
@@ -157,6 +160,24 @@ class CubesTester(unittest.TestCase):
                              dims=["space", "time"])
         resample2 = oeop.resample_cube_temporal(xdata2, target, dimension='time', valid_within=15)
         xr.testing.assert_equal(resample2, target)
+
+    def test_create_raster_cube(self):
+        """Tests 'create_raster_cube' function. """
+        assert len(oeop.create_raster_cube()) == 0
+
+    def test_add_dimension(self):
+        """Tests 'add_dimension' function. """
+        assert oeop.add_dimension(self.test_data.xr_data_factor(), 'cubes', 'Cube01').shape == (1, 2, 5, 3)
+
+    def test_dimension_labels(self):
+        """Tests 'dimension_labels' function. """
+        assert (oeop.dimension_labels(self.test_data.xr_data_factor(), 'x') == [118.9, 119.9, 120.9]).all()
+        assert (oeop.dimension_labels(self.test_data.xr_data_factor(), 't') == oeop.dimension_labels(self.test_data.xr_data_factor(), 'time')).all()
+
+    def test_drop_dimension(self):
+        """Tests 'drop_dimension' function. """
+        data = oeop.add_dimension(self.test_data.xr_data_factor(), 'cubes', 'Cube01')
+        xr.testing.assert_equal(oeop.drop_dimension(data, 'cubes'), self.test_data.xr_data_factor())
 
 if __name__ == "__main__":
     unittest.main()
