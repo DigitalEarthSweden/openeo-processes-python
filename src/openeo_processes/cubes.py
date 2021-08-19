@@ -547,6 +547,7 @@ class PredictCurve:
         else:
             test = labels
         if dimension in ['time', 't', 'times']:  # time dimension must be converted into values
+            dimension = get_time_dimension_from_data(data, dimension)
             dates = data[dimension].values
             if test is None:
                 timestep = [((x - np.datetime64('1970-01-01')) / np.timedelta64(1, 's')) for x in dates]
