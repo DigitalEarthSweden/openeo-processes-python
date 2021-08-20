@@ -478,10 +478,7 @@ class FitCurve:
             output_dtypes=[np.float32],
             dask_gufunc_kwargs={'allow_rechunk': True, 'output_sizes': {'params': parameters}}
         )
-        names = []
-        for i in range(len(values['params'])):
-            names.append(f"a{i}")
-        values['params'] = names
+        values['params'] = list(range(len(values['params'])))
         return values
 
 ###############################################################################
