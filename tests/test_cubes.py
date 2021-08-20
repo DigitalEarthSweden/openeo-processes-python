@@ -120,7 +120,7 @@ class CubesTester(unittest.TestCase):
         assert (np.isclose(params, [0, 1, 0.5], atol=0.3)).all()  # output should be close to 0, 1, 0.5
         params_2 = (oeop.fit_curve(xdata, parameters=params, function=func_oeop, dimension='time'))
         assert (np.isclose(params_2, [0, 1, 0.5], atol=0.3)).all()
-        xr.testing.assert_equal(params, params_2)
+        assert (np.isclose(params, params_2, atol=0.01)).all()
 
     def test_predict_curve(self):
         """Tests 'predict_curve' function. """
