@@ -81,6 +81,10 @@ class ComparisonTester(unittest.TestCase):
         assert oeop.eq("2018-01-01T00:00:00Z", "2018-01-01T01:00:00+01:00")
         assert oeop.eq(self.test_data.xr_data_factor(3, 5), self.test_data.xr_data_factor(3, 5), reduce=True)
         assert oeop.eq(self.test_data.xr_data_factor(3, 5), self.test_data.xr_data_factor(4.4, 6.2), delta = 1.401 , reduce = True)
+        assert oeop.eq(xr.DataArray(['test']), xr.DataArray(['Test']), case_sensitive=False)
+        assert oeop.eq(xr.DataArray(['test', 'Test', 'TEST']), 'Test', case_sensitive=False, reduce=True)
+        assert oeop.eq(self.test_data.xr_data_factor(1, 1), 1.1, delta = 0.5, reduce = True)
+        assert oeop.eq(self.test_data.xr_data_factor(1, 1), np.array([1,1,1]), reduce=True)
 
     def test_neq(self):
         """ Tests `neq` function. """
