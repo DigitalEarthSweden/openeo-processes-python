@@ -407,12 +407,15 @@ class Eq:
         if x is None or y is None:
             return None
 
-        if (x.dtype in [float, int]) and (y.dtype in [float, int]):  # both arrays only contain numbers
+        x_type = x.dtype if isinstance(x, (xr.core.dataarray.DataArray, np.ndarray)) else type(x)
+        y_type = y.dtype if isinstance(y, (xr.core.dataarray.DataArray, np.ndarray)) else type(y)
+
+        if (x_type in [float, int]) and (y_type in [float, int]):  # both arrays only contain numbers
             if type(delta) in [float, int]:
                 ar_eq = (abs(x-y) <= delta)
             else:
                 ar_eq = x == y
-        elif x.dtype == '<U32' and (y.dtype == '<U32'):  # comparison of strings or dates
+        elif (isinstance(x, str) or x_type.kind.lower() == 'u') and (isinstance(y, str) or y_type.kind.lower() == 'u'):  # comparison of strings or dates
             # try to convert the string into a date
             x_time = None # str2time still missing
             y_time = None
@@ -420,7 +423,9 @@ class Eq:
                 if case_sensitive:
                     ar_eq = x == y
                 else:
-                    ar_eq = x.str.lower() == y.str.lower()
+                    x_l = x.str.lower() if isinstance(x, (xr.core.dataarray.DataArray, np.ndarray)) else x.lower()
+                    y_l = y.str.lower() if isinstance(y, (xr.core.dataarray.DataArray, np.ndarray)) else y.lower()
+                    ar_eq = x_l == y_l
             else:
                 ar_eq = x_time == y_time  # comparison of dates
         else:
