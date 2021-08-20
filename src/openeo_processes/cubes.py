@@ -547,11 +547,11 @@ class PredictCurve:
             dimension = get_time_dimension_from_data(data, dimension)
             dates = data[dimension].values
             if test is None:
-                timestep = [((x - np.datetime64('1970-01-01')) / np.timedelta64(1, 's')) for x in dates]
+                timestep = [((np.datetime64(x) - np.datetime64('1970-01-01')) / np.timedelta64(1, 's')) for x in dates]
                 labels = np.array(timestep)
             else:
                 coords = labels
-                labels = [((x - np.datetime64('1970-01-01')) / np.timedelta64(1, 's')) for x in labels]
+                labels = [((np.datetime64(x) - np.datetime64('1970-01-01')) / np.timedelta64(1, 's')) for x in labels]
                 labels = np.array(labels)
         else:
             if test is None:
