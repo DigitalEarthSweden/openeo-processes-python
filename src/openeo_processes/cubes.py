@@ -573,8 +573,6 @@ class PredictCurve:
         else:
             predicted = values.transpose(*data.dims)
             predicted[dimension] = coords
-        if dimension in ['t', 'times']:
-            predicted = predicted.rename({dimension: 'time'})
         return predicted
 
 
