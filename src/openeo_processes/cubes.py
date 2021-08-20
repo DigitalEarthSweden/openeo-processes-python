@@ -640,13 +640,16 @@ class SaveResult:
                     for var in data_without_time['bands'].values:
                         data_var = data_without_time.loc[dict(bands=var)]\
                             .where(data_without_time.loc[dict(bands=var)] != np.nan, -9999)
+                        data_var.attrs["nodata"] = -9999
                         tmp[str(var)] = (dims, data_var)
                 except Exception as e:
                     print(e)
                     data_var = data_without_time.where(data_without_time != np.nan, -9999)
+                    data_var.attrs["nodata"] = -9999
                     tmp[str((data_without_time['bands'].values))] = (dims, data_var)
             else:
                 data_var = data_without_time.where(data_without_time != np.nan, -9999)
+                data_var.attrs["nodata"] = -9999
                 tmp['result'] = (dims, data_var)
             tmp.attrs = data_without_time.attrs
             # This is a hack! ODC always(!) expectes to have a time dimension
