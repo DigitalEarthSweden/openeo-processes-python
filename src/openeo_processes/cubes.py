@@ -416,7 +416,7 @@ class FitCurve:
         xr.DataArray
             A data cube with the optimal values for the parameters.
         """
-        data = data.fillna(0) # zero values (masked) are not considered
+        data = data.fillna(0)  # zero values (masked) are not considered
         if dimension in ['time', 't', 'times']:  # time dimension must be converted into values
             dates = data[dimension].values
             timestep = [((x - np.datetime64('1970-01-01')) / np.timedelta64(1, 's')) for x in dates]
@@ -424,15 +424,23 @@ class FitCurve:
             data[dimension] = step
         else:
             step = dimension
-        values = xr.apply_ufunc(lambda x, y: optimize.curve_fit(function, x[np.nonzero(y)], y[np.nonzero(y)], parameters)[0],
-                                step, data,  # zero values not considered
-                                vectorize=True,
-                                input_core_dims=[[dimension], [dimension]],  # Dimension along we fit the curve function
-                                output_core_dims=[['params']],
-                                dask="parallelized",
-                                output_dtypes=[np.float32],
-                                dask_gufunc_kwargs={'allow_rechunk': True, 'output_sizes': {'params': parameters}}
-                                )
+        if isinstance(parameters, xr.core.dataarray.DataArray):
+            apply_f = (lambda x, y, p: optimize.curve_fit(function, x[np.nonzero(y)], y[np.nonzero(y)], p)[0])
+            in_dims = [[dimension], [dimension], ['params']]
+            add_arg = [step, data, parameters]
+        else:
+            apply_f = (lambda x, y: optimize.curve_fit(function, x[np.nonzero(y)], y[np.nonzero(y)], parameters)[0])
+            in_dims = [[dimension], [dimension]]
+            add_arg = [step, data]
+        values = xr.apply_ufunc(
+            apply_f, *add_arg,
+            vectorize=True,
+            input_core_dims=in_dims,
+            output_core_dims=[['params']],
+            dask="parallelized",
+            output_dtypes=[np.float32],
+            dask_gufunc_kwargs={'allow_rechunk': True, 'output_sizes': {'params': parameters}}
+        )
         names = []
         for i in range(len(values['params'])):
             names.append(f"a{i}")
