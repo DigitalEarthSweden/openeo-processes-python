@@ -1,13 +1,63 @@
 from datetime import datetime
+
 import numpy as np
 import pytest
 import xarray as xr
+from affine import Affine
+from datacube import Datacube
+from datacube.model import Measurement
+from datacube.utils.dates import mk_time_coord
+from datacube.utils.geometry import GeoBox, CRS
+
+
+# Taken from https://github.com/opendatacube/datacube-core/blob/develop/datacube/testutils/__init__.py#L429
+# with minor adoptions
+def mk_sample_xr_dataset(crs="EPSG:3578",
+                         shape=(33, 74),
+                         resolution=None,
+                         xy=(0, 0),
+                         time=None,
+                         name='band',
+                         dtype='int16',
+                         nodata=np.nan,
+                         units='1'):
+    """ Note that resolution is in Y,X order to match that of GeoBox.
+
+        shape (height, width)
+        resolution (y: float, x: float) - in YX, to match GeoBox/shape notation
+
+        xy (x: float, y: float) -- location of the top-left corner of the top-left pixel in CRS units
+    """
+
+    if isinstance(crs, str):
+        crs = CRS(crs)
+
+    if resolution is None:
+        resolution = (-10, 10) if crs is None or crs.projected else (-0.01, 0.01)
+
+    t_coords = {}
+    if time is not None:
+        t_coords['time'] = mk_time_coord(time)
+
+    transform = Affine.translation(*xy)*Affine.scale(*resolution[::-1])
+    h, w = shape
+    geobox = GeoBox(w, h, transform, crs)
+
+    storage = Datacube.create_storage(
+        t_coords, geobox, [Measurement(name=name, dtype=dtype, nodata=nodata, units=units)])
+    return storage.to_array(dim="bands")
 
 
 @pytest.fixture(scope="class")
 def test_data(request):
     class TestDataDriver:
         def __init__(self):
+            self.coords_extra_dim = {
+                'bands': ['band_1', 'band_2', 'band_3'],
+                'y': np.array([1477835.]),
+                'x': np.array([4882815.]),
+                'params': np.array([0, 1, 2]),
+            }
             self.steps = {'y': 5, 'x': 3}
             self.coords_4d = {
                 'bands': ['B08', 'B04', 'B02'],
@@ -38,6 +88,15 @@ def test_data(request):
             self.np_data_4d = data
             self.np_data_3d = data[0, :]
 
+            data_extra_dim = np.ones((3, 1, 1, 3))
+            data_extra_dim[0, :] *= 1
+            data_extra_dim[1, :] *= 2
+            data_extra_dim[2, :] *= 3
+            data_extra_dim[:, :, :, 1] *= 10
+            data_extra_dim[:, :, :, 2] *= 100
+            self.np_data_extra_dim = data_extra_dim
+
+
         def _get_xarray(self):
             """
             Returns a fixed xarray DataArray array with 3 labelled dimensions
@@ -52,6 +111,12 @@ def test_data(request):
                                            dims=self.coords_3d.keys(),
                                            coords=self.coords_3d)
             self.xr_data_3d.attrs['crs'] = 'EPSG:4326'
+            self.xr_odc_data_3d = mk_sample_xr_dataset()
+            self.xr_odc_data_4d = mk_sample_xr_dataset(
+                time=['2020-02-13T11:12:13.1234567Z', '2020-02-14T11:12:13.1234567Z'])
+            self.xr_data_extra_dim = xr.DataArray(data=self.np_data_extra_dim,
+                                                  dims=self.coords_extra_dim.keys(),
+                                                  coords=self.coords_extra_dim)
 
         def xr_data_factor(self, factor_1=1.0, factor_2=1.0):
             data = np.ones((3, 2, self.steps['y'], self.steps['x']))

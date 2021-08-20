@@ -1,15 +1,41 @@
-import rioxarray  # needed by save_result even if not directly called
-from openeo_processes.utils import process
+from datetime import datetime
 from os.path import splitext
-import xarray as xr
-from scipy import optimize
-import odc.algo
+from typing import Any, Dict, List
+
 import numpy as np
-from openeo_processes.utils import get_time_dimension_from_data
+import odc.algo
+import rioxarray  # needed by save_result even if not directly called
+import xarray as xr
+from openeo_processes.extension.odc import write_odc_product
+from openeo_processes.utils import process, get_time_dimension_from_data
+from scipy import optimize
 
 ###############################################################################
 # Load Collection Process
 ###############################################################################
+
+
+def odc_load_helper(odc_cube, params: Dict[str, Any]) -> xr.DataArray:
+    """Helper method to load a xarray DataArray from ODC."""
+    datacube = odc_cube.load(**params)
+
+    # Set no-data values to nan
+    new_data_vars = {}
+    for name, data_var in datacube.data_vars.items():
+        no_data = data_var.attrs["nodata"]
+        new_attrs = data_var.attrs
+        new_attrs["nodata"] = np.nan
+        new_data_vars[name] = xr.DataArray(
+            data=data_var.where(data_var != no_data),
+            coords=data_var.coords,
+            dims=data_var.dims,
+            attrs=new_attrs,
+        )
+    datacube = xr.Dataset(data_vars=new_data_vars, coords=datacube.coords, attrs=datacube.attrs)
+
+    # Convert to xr.DataArray
+    # TODO: add conversion with multiple and custom dimensions
+    return datacube.to_array(dim='bands')
 
 
 @process
@@ -38,8 +64,25 @@ class LoadCollection:
     def exec_odc(odc_cube, product: str, dask_chunks: dict,
                  x: tuple = (), y: tuple = (), time: list = [],
                  measurements: list = [], crs: str = "EPSG:4326"):
-        return load_result(odc_cube, product, dask_chunks, x, y, time,
-                           measurements, crs)
+
+        odc_params = {
+            'product': product,
+            'dask_chunks': dask_chunks
+        }
+        if x:
+            odc_params['x'] = x
+        if y:
+            odc_params['y'] = y
+        if crs:
+            odc_params['crs'] = crs
+        # lists are transformed to np.arrays by the wrapper
+        # update when that step has been removed
+        if len(time) > 0:
+            odc_params['time'] = list(time)
+        if len(measurements) > 0:
+            odc_params['measurements'] = list(measurements)
+
+        return odc_load_helper(odc_cube, odc_params)
 
 
 ###############################################################################
@@ -70,33 +113,25 @@ class LoadResult:
     """
 
     @staticmethod
-    def exec_odc(odc_cube, product: str, dask_chunks: dict,
-                 x: tuple = (), y: tuple = (), time: list = [],
-                 measurements: list = [], crs: str = "EPSG:4326"):
+    def exec_odc(odc_cube, product: str, dask_chunks: dict):
 
         odc_params = {
             'product': product,
             'dask_chunks': dask_chunks
         }
-        if x:
-            odc_params['x'] = x
-        if y:
-            odc_params['y'] = y
-        if crs:
-            odc_params['crs'] = crs
-        # lists are transformed to np.arrays by the wrapper
-        # update when that step has been removed
-        if len(time) > 0:
-            odc_params['time'] = list(time)
-        if len(measurements) > 0:
-            odc_params['measurements'] = list(measurements)
+        dataarray = odc_load_helper(odc_cube, odc_params)
 
-        datacube = odc_cube.load(**odc_params)
-        # Convert to xr.DataArray
-        # TODO: add conversion with multiple and custom dimensions
-        datacube = datacube.to_array(dim='bands')
+        # If data is in geographic coordinate system coords are called longitude/latitude
+        # for consistency and easier handling in other processes rename them to x/y
+        if "longitude" in dataarray.coords and "latitude" in dataarray.coords:
+            dataarray.rename({"longitude": "x", "latitude": "y"})
 
-        return datacube
+        # In ODC each dataset must have a time dimension also if non exists
+        # remove it if only a single one exist
+        if "time" in dataarray.coords and len(dataarray["time"]) == 1:
+            dataarray.squeeze("time", drop=True)
+
+        return dataarray
 
 
 ###############################################################################
@@ -418,12 +453,14 @@ class FitCurve:
         """
         data = data.fillna(0)  # zero values (masked) are not considered
         if dimension in ['time', 't', 'times']:  # time dimension must be converted into values
+            dimension = get_time_dimension_from_data(data, dimension)
             dates = data[dimension].values
             timestep = [((x - np.datetime64('1970-01-01')) / np.timedelta64(1, 's')) for x in dates]
             step = np.array(timestep)
             data[dimension] = step
         else:
             step = dimension
+
         if isinstance(parameters, xr.core.dataarray.DataArray):
             apply_f = (lambda x, y, p: optimize.curve_fit(function, x[np.nonzero(y)], y[np.nonzero(y)], p)[0])
             in_dims = [[dimension], [dimension], ['params']]
@@ -441,10 +478,7 @@ class FitCurve:
             output_dtypes=[np.float32],
             dask_gufunc_kwargs={'allow_rechunk': True, 'output_sizes': {'params': parameters}}
         )
-        names = []
-        for i in range(len(values['params'])):
-            names.append(f"a{i}")
-        values['params'] = names
+        values['params'] = list(range(len(values['params'])))
         return values
 
 ###############################################################################
@@ -510,6 +544,7 @@ class PredictCurve:
         else:
             test = labels
         if dimension in ['time', 't', 'times']:  # time dimension must be converted into values
+            dimension = get_time_dimension_from_data(data, dimension)
             dates = data[dimension].values
             if test is None:
                 timestep = [((x - np.datetime64('1970-01-01')) / np.timedelta64(1, 's')) for x in dates]
@@ -564,12 +599,12 @@ def save_result():
 
 class SaveResult:
     """
-    Class implementing 'save_result' processe.
+    Class implementing 'save_result' processes.
 
     """
 
     @staticmethod
-    def exec_xar(data, output_filepath='out', format='GTiff', options={}):
+    def exec_xar(data, output_filepath='out', format='GTiff', options={}, write_prod: bool = True):
         """
         Save data to disk in specified format.
 
@@ -584,69 +619,90 @@ class SaveResult:
             data format (default: GTiff)
 
         """
-        
-        def refactor_data(data):
-            # The following code is required to recreate a Dataset from the final result as Dataarray, to get a well formatted netCDF
-            if 'time' in data.coords:
-                tmp = xr.Dataset(coords={'t':data.time.values,'y':data.y,'x':data.x})
-                if 'bands' in data.coords:
-                    try:
-                        for var in data['bands'].values:
-                            tmp[str(var)] = (('t','y','x'),data.loc[dict(bands=var)])
-                    except Exception as e:
-                        print(e)
-                        tmp[str((data['bands'].values))] = (('t','y','x'),data)
-                else:
-                    tmp['result'] = (('t','y','x'),data)
+
+        def extract_single_timestamp(data_without_time: xr.DataArray, timestamp: datetime = None,
+                                     additional_dims: List[str] = None) -> xr.Dataset:
+            """Create a xarray Dataset."""
+            coords = {'y': data_without_time.y, 'x': data_without_time.x}
+            dims_tmp = ['y', 'x']
+            if additional_dims:
+                for dim in additional_dims:
+                    coords[dim] = getattr(data_without_time, dim)
+                    dims_tmp.append(dim)
+            dims = tuple(dims_tmp)
+
+            tmp = xr.Dataset(coords=coords)
+            if 'bands' in data_without_time.coords:
+                try:
+                    for var in data_without_time['bands'].values:
+                        data_var = data_without_time.loc[dict(bands=var)]\
+                            .where(data_without_time.loc[dict(bands=var)] != np.nan, -9999)
+                        data_var.attrs["nodata"] = -9999
+                        tmp[str(var)] = (dims, data_var)
+                except Exception as e:
+                    print(e)
+                    data_var = data_without_time.where(data_without_time != np.nan, -9999)
+                    data_var.attrs["nodata"] = -9999
+                    tmp[str((data_without_time['bands'].values))] = (dims, data_var)
             else:
-                tmp = xr.Dataset(coords={'y':data.y,'x':data.x})
-                if 'bands' in data.coords:
-                    try:
-                        for var in data['bands'].values:
-                            tmp[str(var)] = (('y','x'),data.loc[dict(bands=var)])
-                    except Exception as e:
-                        print(e)
-                        tmp[str((data['bands'].values))] = (('y','x'),data)
-                else:
-                    tmp['result'] = (('y','x'),data)
-            tmp.attrs = data.attrs
+                data_var = data_without_time.where(data_without_time != np.nan, -9999)
+                data_var.attrs["nodata"] = -9999
+                tmp['result'] = (dims, data_var)
+            tmp.attrs = data_without_time.attrs
+            # This is a hack! ODC always(!) expectes to have a time dimension
+            # set datetime to now if no other information is available
+            tmp.attrs["datetime_from_dim"] = str(timestamp) if timestamp else str(datetime.now())
             return tmp
-        
+
+        def refactor_data(data: xr.DataArray) -> List[xr.Dataset]:
+            """Recreate a Dataset from the final result as Dataarray, to ensure a well formatted netCDF."""
+            all_tmp = []
+            # TODO this must be improved once `rename_dimension` is supported!
+            additional_dims = set(data.dims).difference({'bands', 'y', 'x', 'time'})
+            if 'time' in data.coords:
+                for timestamp in data.time.values:
+                    data_at_timestamp = data.loc[dict(time=timestamp)]
+                    all_tmp.append(extract_single_timestamp(data_at_timestamp, timestamp, additional_dims))
+            else:
+                all_tmp.append(extract_single_timestamp(data, additional_dims=additional_dims))
+
+            return all_tmp
+
+        def create_output_filepath(output_filepath: str, idx: int = 0, ext: str = "nc") -> str:
+            """Create the output filepath."""
+            root, _ = splitext(output_filepath)
+            return f'{root}_{idx}.{ext}'
+
+        # start workaround
+        # https://github.com/opendatacube/datacube-core/issues/972
+        # ValueError failed to prevent overwriting existing key units in `attrs` on variable 'time'
+        if hasattr(data, 'time') and hasattr(data.time, 'units'):
+            data.time.attrs.pop('units', None)
+        if hasattr(data, 'grid_mapping'):
+            data.attrs.pop('grid_mapping')
+        # end workaround
+
         formats = ('GTiff', 'netCDF')
         if format.lower() == 'netcdf':
-            if not splitext(output_filepath)[1]:
-                output_filepath = output_filepath + '.nc'
-            # start workaround
-            # https://github.com/opendatacube/datacube-core/issues/972
-            # ValueError failed to prevent overwriting existing key units in `attrs` on variable 'time'
-            if hasattr(data, 'time') and hasattr(data.time, 'units'):
-                data.time.attrs.pop('units', None)
-            # end workaround
-            
-            data = refactor_data(data)
-            data.to_netcdf(path=output_filepath)
+            data_list = refactor_data(data)
+            for idx, dataset in enumerate(data_list):
+                cur_output_filepath = create_output_filepath(output_filepath, idx, 'nc')
+                dataset.to_netcdf(path=cur_output_filepath)
 
         elif format.lower() in ['gtiff','geotiff']:
-            if not splitext(output_filepath)[1]:
-                output_filepath = output_filepath + '.tif'
-            # TODO
-            # Add check, this works only for 2D or 3D DataArrays, else loop is needed
-            
-            data = refactor_data(data)
-            if len(data.dims) > 3:
-                if len(data.t)==1:
-                    # We keep the time variable as band in the GeoTiff, multiple band/variables of the same timestamp
-                    data = data.squeeze('t')
-                else:
-                    raise Exception("[!] Not possible to write a 4-dimensional GeoTiff, use NetCDF instead.")
-            
-            data.rio.to_raster(raster_path=output_filepath,**options)
+            data_list = refactor_data(data)
+            if len(data_list[0].dims) > 3:
+                raise Exception("[!] Not possible to write a 4-dimensional GeoTiff, use NetCDF instead.")
+            for idx, dataset in enumerate(data_list):
+                cur_output_filepath = create_output_filepath(output_filepath, idx, 'tif')
+                dataset.rio.to_raster(raster_path=cur_output_filepath,**options)
 
-            
         else:
             raise ValueError(f"Error when saving to file. Format '{format}' is not in {formats}.")
 
-            
+        if write_prod:
+            write_odc_product(data_list[0], output_filepath)
+
 ###############################################################################
 # Resample cube spatial process
 ###############################################################################

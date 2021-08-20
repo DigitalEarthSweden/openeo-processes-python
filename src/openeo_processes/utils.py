@@ -280,7 +280,8 @@ def str2time(string, allow_24h=False):
 
 def get_time_dimension_from_data(data: xr.DataArray, dim: str = "time") -> str:
     """Automatically find the time dimension available in the dataset.
-     Support 't' and 'time' (OpenEO preferres 't', internally 'time' is used
+
+    Support 't' and 'time' (OpenEO preferres 't', internally 'time' is used
     """
     if dim in data.dims:
         return dim
