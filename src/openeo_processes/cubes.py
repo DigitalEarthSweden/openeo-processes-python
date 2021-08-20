@@ -453,7 +453,7 @@ class FitCurve:
         """
         data = data.fillna(0)  # zero values (masked) are not considered
         if dimension in ['time', 't', 'times']:  # time dimension must be converted into values
-            dimension = get_time_dimension_from_data(dimension)
+            dimension = get_time_dimension_from_data(data, dimension)
             dates = data[dimension].values
             timestep = [((x - np.datetime64('1970-01-01')) / np.timedelta64(1, 's')) for x in dates]
             step = np.array(timestep)
