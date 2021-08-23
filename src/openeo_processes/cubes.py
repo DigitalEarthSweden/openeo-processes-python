@@ -329,7 +329,7 @@ class MergeCubes:
                     elif isinstance(overlap_resolver, xr.core.dataarray.DataArray):
                         merge = overlap_resolver
                     else:
-                        raise Exception('OverlapResolverMissing')
+                        raise Exception(f'OverlapResolverMissing. Overlap Resolver is {overlap_resolver} with type {type(overlap_resolver)}')
             else:  # WIP
                 if not_matching == 1:  # one dimension where some coordinates match, others do not, other dimensions match
                     same1 = []
