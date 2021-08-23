@@ -282,7 +282,7 @@ class MergeCubes:
             The first data cube.
         cube2 : xr.DataArray
             The second data cube.
-        overlap_resolver : callable or dict
+        overlap_resolver : callable or dict or xr.DataArray (created in advance due to mapping)
             the name of an existing process (e.g. `mean`) or a dict for a
             process graph
         context: dict, optional
@@ -326,7 +326,7 @@ class MergeCubes:
                         values = overlap_resolver(cube1, cube2, **context)
                         merge = xr.DataArray(values, coords=cube1.coords,
                                              dims=cube1.dims, attrs=cube1.attrs)  # define dimensions like in cube1
-                    elif overlap_resolver:
+                    elif isinstance(overlap_resolver, xr.core.dataarray.DataArray):
                         merge = overlap_resolver
                     else:
                         raise Exception('OverlapResolverMissing')
