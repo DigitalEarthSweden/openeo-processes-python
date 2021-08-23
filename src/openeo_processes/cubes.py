@@ -129,7 +129,7 @@ class LoadResult:
         # In ODC each dataset must have a time dimension also if non exists
         # remove it if only a single one exist
         if "time" in dataarray.coords and len(dataarray["time"]) == 1:
-            dataarray.squeeze("time", drop=True)
+            dataarray = dataarray.squeeze("time", drop=True)
 
         return dataarray
 
