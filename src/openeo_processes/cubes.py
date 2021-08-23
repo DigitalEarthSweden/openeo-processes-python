@@ -391,6 +391,8 @@ class MergeCubes:
                     merge = xr.DataArray(values, coords=c2.coords,
                                          dims=c2.dims, attrs=c2.attrs)  # define dimensions like in larger cube
                     merge = merge.transpose(*dims_l)
+            elif isinstance(overlap_resolver, xr.core.dataarray.DataArray):
+                merge = overlap_resolver
             else:
                 raise Exception('OverlapResolverMissing')
         return merge
