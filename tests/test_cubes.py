@@ -178,6 +178,16 @@ class CubesTester(unittest.TestCase):
         predicted_dim_labels = (oeop.predict_curve(xdata, params, func, dimension='time', labels=dim_times))
         assert xdata.dims == predicted_dim_labels.dims
         assert (predicted_dim_labels < 1.8).all()
+        xdata_t = xr.DataArray(rang, coords=[["NY", "LA"], pd.date_range("2000-01-01", periods=24, freq='M')],
+                               dims=["space", "t"])
+        predicted_t = oeop.predict_curve(xdata_t, params, func, dimension='t',
+                                         labels=pd.date_range("2000-01-01", periods=24, freq='M'))
+        xr.testing.assert_equal(predicted, predicted_t)
+        predicted_time = oeop.predict_curve(xdata, params, func, dimension='time',
+                                       labels=pd.date_range("2002-01-01", periods=2, freq='M'))
+        predicted_str = oeop.predict_curve(xdata, params, func, dimension='time',
+                                       labels=["2002-01-31 00:00", "2002-02-28"])
+        assert (predicted_time.values == predicted_str.values).all()
 
 
     def test_resample_cube_temporal(self):
