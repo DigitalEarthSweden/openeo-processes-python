@@ -677,7 +677,7 @@ class SaveResult:
         def create_output_filepath(output_filepath: str, idx: int = 0, ext: str = "nc") -> str:
             """Create the output filepath."""
             root, _ = splitext(output_filepath)
-            return f'{root}_{idx}.{ext}'
+            return f'{root}_{str(idx).zfill(5)}.{ext}'
 
         # start workaround
         # https://github.com/opendatacube/datacube-core/issues/972

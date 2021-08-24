@@ -56,8 +56,8 @@ class CubesTester(unittest.TestCase):
         # TODO improve file check
         # xarray tests
         out_filename = "out.tif"
-        out_filename_0 = "out_0.tif"
-        out_filename_1 = "out_1.tif"
+        out_filename_0 = "out_00000.tif"
+        out_filename_1 = "out_00001.tif"
         out_product = "product.yml"
         oeop.save_result(self.test_data.xr_odc_data_3d, out_filename)
         assert os.path.exists(out_filename_0)
@@ -74,8 +74,8 @@ class CubesTester(unittest.TestCase):
         os.remove(out_product)
 
         out_filename = "out.nc"
-        out_filename_0 = "out_0.nc"
-        out_filename_1 = "out_1.nc"
+        out_filename_0 = "out_00000.nc"
+        out_filename_1 = "out_00001.nc"
 
         oeop.save_result(self.test_data.xr_data_extra_dim, out_filename, format='netCDF', write_prod=False)
         assert os.path.exists(out_filename_0)
@@ -107,14 +107,14 @@ class CubesTester(unittest.TestCase):
         ref_ds_0 = ref_ds.loc[dict(time="2016-01-13T12:00:00.000000000")]
         data_array = ref_ds.to_array(dim="bands")
         oeop.save_result(data_array, format='netCDF')
-        actual_ds_0 = xr.load_dataset("out_0.nc")
+        actual_ds_0 = xr.load_dataset("out_00000.nc")
         assert ref_ds_0.dims == actual_ds_0.dims
         assert ref_ds_0.coords == actual_ds_0.coords
         assert ref_ds_0.variables == actual_ds_0.variables
         assert ref_ds_0.geobox == actual_ds_0.geobox
         assert ref_ds_0.extent == actual_ds_0.extent
         for i in range(10):
-            os.remove(f"out_{i}.nc")
+            os.remove(f"out_{str(i).zfill(5)}.nc")
         os.remove("product.yml")
 
     def test_fit_curve(self):
