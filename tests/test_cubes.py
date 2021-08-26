@@ -77,10 +77,6 @@ class CubesTester(unittest.TestCase):
         out_filename_0 = "out_00000.nc"
         out_filename_1 = "out_00001.nc"
 
-        oeop.save_result(self.test_data.xr_data_extra_dim, out_filename, format='netCDF', write_prod=False)
-        assert os.path.exists(out_filename_0)
-        os.remove(out_filename_0)
-
         oeop.save_result(self.test_data.xr_odc_data_3d, out_filename, format='netCDF')
         assert os.path.exists(out_filename_0)
         assert os.path.exists(out_product)
