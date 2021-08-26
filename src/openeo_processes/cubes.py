@@ -630,12 +630,9 @@ class SaveResult:
                                      additional_dims: List[str] = None) -> xr.Dataset:
             """Create a xarray Dataset."""
             coords = {'y': data_without_time.y, 'x': data_without_time.x}
-            dims_tmp = ['y', 'x']
             if additional_dims:
                 for dim in additional_dims:
                     coords[dim] = getattr(data_without_time, dim)
-                    dims_tmp.append(dim)
-            dims = tuple(dims_tmp)
 
             tmp = xr.Dataset(coords=coords)
             if 'bands' in data_without_time.coords:
@@ -644,16 +641,16 @@ class SaveResult:
                         data_var = data_without_time.loc[dict(bands=var)]\
                             .where(data_without_time.loc[dict(bands=var)] != np.nan, -9999)
                         data_var.attrs["nodata"] = -9999
-                        tmp[str(var)] = (dims, data_var)
+                        tmp[str(var)] = (data_var.dims, data_var)
                 except Exception as e:
                     print(e)
                     data_var = data_without_time.where(data_without_time != np.nan, -9999)
                     data_var.attrs["nodata"] = -9999
-                    tmp[str((data_without_time['bands'].values))] = (dims, data_var)
+                    tmp[str((data_without_time['bands'].values))] = (data_var.dims, data_var)
             else:
                 data_var = data_without_time.where(data_without_time != np.nan, -9999)
                 data_var.attrs["nodata"] = -9999
-                tmp['result'] = (dims, data_var)
+                tmp['result'] = (data_var.dims, data_var)
             tmp.attrs = data_without_time.attrs
             # This is a hack! ODC always(!) expectes to have a time dimension
             # set datetime to now if no other information is available
