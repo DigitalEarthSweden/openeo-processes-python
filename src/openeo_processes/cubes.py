@@ -658,6 +658,9 @@ class SaveResult:
             # This is a hack! ODC always(!) expectes to have a time dimension
             # set datetime to now if no other information is available
             tmp.attrs["datetime_from_dim"] = str(timestamp) if timestamp else str(datetime.now())
+            if "crs" not in tmp.attrs:
+                first_data_var = tmp.data_vars[list(tmp.data_vars.keys())[0]]
+                tmp.attrs["crs"] = first_data_var.geobox.crs.to_wkt()
             return tmp
 
         def refactor_data(data: xr.DataArray) -> List[xr.Dataset]:
