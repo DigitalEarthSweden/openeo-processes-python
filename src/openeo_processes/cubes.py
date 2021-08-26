@@ -625,18 +625,9 @@ class SaveResult:
             data format (default: GTiff)
 
         """
-
-        def extract_single_timestamp(data_without_time: xr.DataArray, timestamp: datetime = None,
-                                     additional_dims: List[str] = None) -> xr.Dataset:
+        def extract_single_timestamp(data_without_time: xr.DataArray, timestamp: datetime = None) -> xr.Dataset:
             """Create a xarray Dataset."""
-            coords = {'y': data_without_time.y, 'x': data_without_time.x}
-            dims_tmp = ['y', 'x']
-            if additional_dims:
-                for dim in additional_dims:
-                    coords[dim] = getattr(data_without_time, dim)
-                    dims_tmp.append(dim)
-            dims = tuple(dims_tmp)
-
+            coords = {dim: getattr(data_without_time, dim) for dim in data_without_time.dims if dim != 'bands'}
             tmp = xr.Dataset(coords=coords)
             if 'bands' in data_without_time.coords:
                 try:
@@ -644,16 +635,25 @@ class SaveResult:
                         data_var = data_without_time.loc[dict(bands=var)]\
                             .where(data_without_time.loc[dict(bands=var)] != np.nan, -9999)
                         data_var.attrs["nodata"] = -9999
-                        tmp[str(var)] = (dims, data_var)
+                        tmp[str(var)] = (data_var.dims, data_var)
                 except Exception as e:
                     print(e)
                     data_var = data_without_time.where(data_without_time != np.nan, -9999)
                     data_var.attrs["nodata"] = -9999
-                    tmp[str((data_without_time['bands'].values))] = (dims, data_var)
+                    tmp[str((data_without_time['bands'].values))] = (data_var.dims, data_var)
             else:
                 data_var = data_without_time.where(data_without_time != np.nan, -9999)
                 data_var.attrs["nodata"] = -9999
-                tmp['result'] = (dims, data_var)
+                tmp['result'] = (data_var.dims, data_var)
+
+            # fix dimension order
+            current_dims = tuple(tmp.dims)
+            additional_dim = list(set(current_dims).difference({"bands", "y", "x"}))
+            if additional_dim and current_dims != (additional_dim[0], "y", "x"):
+                tmp = tmp.transpose(additional_dim[0], "y", "x")
+            elif current_dims != ("y", "x"):
+                tmp = tmp.transpose("y", "x")
+
             tmp.attrs = data_without_time.attrs
             # This is a hack! ODC always(!) expectes to have a time dimension
             # set datetime to now if no other information is available
@@ -667,13 +667,12 @@ class SaveResult:
             """Recreate a Dataset from the final result as Dataarray, to ensure a well formatted netCDF."""
             all_tmp = []
             # TODO this must be improved once `rename_dimension` is supported!
-            additional_dims = set(data.dims).difference({'bands', 'y', 'x', 'time'})
             if 'time' in data.coords:
                 for timestamp in data.time.values:
                     data_at_timestamp = data.loc[dict(time=timestamp)]
-                    all_tmp.append(extract_single_timestamp(data_at_timestamp, timestamp, additional_dims))
+                    all_tmp.append(extract_single_timestamp(data_at_timestamp, timestamp))
             else:
-                all_tmp.append(extract_single_timestamp(data, additional_dims=additional_dims))
+                all_tmp.append(extract_single_timestamp(data))
 
             return all_tmp
 
