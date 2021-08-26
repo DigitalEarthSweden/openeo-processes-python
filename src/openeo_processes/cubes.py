@@ -626,14 +626,9 @@ class SaveResult:
 
         """
 
-        def extract_single_timestamp(data_without_time: xr.DataArray, timestamp: datetime = None,
-                                     additional_dims: List[str] = None) -> xr.Dataset:
+        def extract_single_timestamp(data_without_time: xr.DataArray, timestamp: datetime = None) -> xr.Dataset:
             """Create a xarray Dataset."""
-            coords = {'y': data_without_time.y, 'x': data_without_time.x}
-            if additional_dims:
-                for dim in additional_dims:
-                    coords[dim] = getattr(data_without_time, dim)
-
+            coords = {dim: getattr(data_without_time, dim) for dim in data_without_time.dims if dim != 'bands'}
             tmp = xr.Dataset(coords=coords)
             if 'bands' in data_without_time.coords:
                 try:
@@ -664,13 +659,12 @@ class SaveResult:
             """Recreate a Dataset from the final result as Dataarray, to ensure a well formatted netCDF."""
             all_tmp = []
             # TODO this must be improved once `rename_dimension` is supported!
-            additional_dims = set(data.dims).difference({'bands', 'y', 'x', 'time'})
             if 'time' in data.coords:
                 for timestamp in data.time.values:
                     data_at_timestamp = data.loc[dict(time=timestamp)]
-                    all_tmp.append(extract_single_timestamp(data_at_timestamp, timestamp, additional_dims))
+                    all_tmp.append(extract_single_timestamp(data_at_timestamp, timestamp))
             else:
-                all_tmp.append(extract_single_timestamp(data, additional_dims=additional_dims))
+                all_tmp.append(extract_single_timestamp(data))
 
             return all_tmp
 
