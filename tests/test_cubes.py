@@ -111,6 +111,7 @@ class CubesTester(unittest.TestCase):
         assert ref_ds_0.extent == actual_ds_0.extent
         assert "crs" in actual_ds_0.attrs and actual_ds_0.attrs["crs"] == 'PROJCRS["Azimuthal_Equidistant",BASEGEOGCRS["WGS 84",DATUM["World Geodetic System 1984",ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]],ID["EPSG",6326]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]]],CONVERSION["unnamed",METHOD["Modified Azimuthal Equidistant",ID["EPSG",9832]],PARAMETER["Latitude of natural origin",53,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8801]],PARAMETER["Longitude of natural origin",24,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8802]],PARAMETER["False easting",5837287.81977,LENGTHUNIT["metre",1],ID["EPSG",8806]],PARAMETER["False northing",2121415.69617,LENGTHUNIT["metre",1],ID["EPSG",8807]]],CS[Cartesian,2],AXIS["easting",east,ORDER[1],LENGTHUNIT["metre",1,ID["EPSG",9001]]],AXIS["northing",north,ORDER[2],LENGTHUNIT["metre",1,ID["EPSG",9001]]]]'
         assert "datetime_from_dim" in actual_ds_0.attrs
+        assert actual_ds_0.result.dims == ("y", "x")
         for i in range(10):
             os.remove(f"out_{str(i).zfill(5)}.nc")
         os.remove("product.yml")

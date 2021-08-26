@@ -625,7 +625,6 @@ class SaveResult:
             data format (default: GTiff)
 
         """
-
         def extract_single_timestamp(data_without_time: xr.DataArray, timestamp: datetime = None) -> xr.Dataset:
             """Create a xarray Dataset."""
             coords = {dim: getattr(data_without_time, dim) for dim in data_without_time.dims if dim != 'bands'}
@@ -646,6 +645,15 @@ class SaveResult:
                 data_var = data_without_time.where(data_without_time != np.nan, -9999)
                 data_var.attrs["nodata"] = -9999
                 tmp['result'] = (data_var.dims, data_var)
+
+            # fix dimension order
+            current_dims = tuple(tmp.dims)
+            additional_dim = list(set(current_dims).difference({"bands", "y", "x"}))
+            if additional_dim and current_dims != (additional_dim[0], "y", "x"):
+                tmp = tmp.transpose(additional_dim[0], "y", "x")
+            elif current_dims != ("y", "x"):
+                tmp = tmp.transpose("y", "x")
+
             tmp.attrs = data_without_time.attrs
             # This is a hack! ODC always(!) expectes to have a time dimension
             # set datetime to now if no other information is available
