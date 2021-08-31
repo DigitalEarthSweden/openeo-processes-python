@@ -323,6 +323,9 @@ class MathTester(unittest.TestCase):
         xr.testing.assert_equal(
             oeop.clip(self.test_data.xr_data_factor(1, 9), min=1, max=8),
             self.test_data.xr_data_factor(1, 8))
+        xr.testing.assert_equal(
+            oeop.clip(self.test_data.xr_data_factor(np.nan, 9), min=1, max=8),
+            self.test_data.xr_data_factor(np.nan, 8))
 
     def test_quantiles(self):
         """ Tests `quantiles` function. """
