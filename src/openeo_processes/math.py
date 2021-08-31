@@ -3323,10 +3323,7 @@ class Clip:
             The value clipped to the specified range.
         """
 
-        clip = x.where(x > min, min)
-        clip = clip.where(x < max, max)
-
-        return clip
+        return x.clip(min = min, max = max)
 
     @staticmethod
     def exec_da():
