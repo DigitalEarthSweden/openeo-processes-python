@@ -19,19 +19,9 @@ def odc_load_helper(odc_cube, params: Dict[str, Any]) -> xr.DataArray:
     """Helper method to load a xarray DataArray from ODC."""
     datacube = odc_cube.load(**params)
 
-    # Set no-data values to nan
-    new_data_vars = {}
+    # Improve CPU and MEM USAGE
     for name, data_var in datacube.data_vars.items():
-        no_data = data_var.attrs["nodata"]
-        new_attrs = data_var.attrs
-        new_attrs["nodata"] = np.nan
-        new_data_vars[name] = xr.DataArray(
-            data=data_var.where(data_var != no_data),
-            coords=data_var.coords,
-            dims=data_var.dims,
-            attrs=new_attrs,
-        )
-    datacube = xr.Dataset(data_vars=new_data_vars, coords=datacube.coords, attrs=datacube.attrs)
+        datacube[name] = datacube[name].where(datacube[name] != datacube[name].nodata)
 
     # Convert to xr.DataArray
     # TODO: add conversion with multiple and custom dimensions
@@ -480,7 +470,7 @@ class FitCurve:
             output_core_dims=[['params']],
             dask="parallelized",
             output_dtypes=[np.float32],
-            dask_gufunc_kwargs={'allow_rechunk': True, 'output_sizes': {'params': parameters}}
+            dask_gufunc_kwargs={'allow_rechunk': True, 'output_sizes': {'params': len(parameters)}}
         )
         values['params'] = list(range(len(values['params'])))
         return values
