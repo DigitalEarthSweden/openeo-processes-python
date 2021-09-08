@@ -459,10 +459,12 @@ class FitCurve:
             apply_f = (lambda x, y, p: optimize.curve_fit(function, x[np.nonzero(y)], y[np.nonzero(y)], p)[0])
             in_dims = [[dimension], [dimension], ['params']]
             add_arg = [step, data, parameters]
+            output_size = len(parameters['params'])
         else:
             apply_f = (lambda x, y: optimize.curve_fit(function, x[np.nonzero(y)], y[np.nonzero(y)], parameters)[0])
             in_dims = [[dimension], [dimension]]
             add_arg = [step, data]
+            output_size = len(parameters)
         values = xr.apply_ufunc(
             apply_f, *add_arg,
             vectorize=True,
@@ -470,7 +472,7 @@ class FitCurve:
             output_core_dims=[['params']],
             dask="parallelized",
             output_dtypes=[np.float32],
-            dask_gufunc_kwargs={'allow_rechunk': True, 'output_sizes': {'params': len(parameters)}}
+            dask_gufunc_kwargs={'allow_rechunk': True, 'output_sizes': {'params': output_size}}
         )
         values['params'] = list(range(len(values['params'])))
         return values
