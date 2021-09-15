@@ -22,6 +22,7 @@ def odc_load_helper(odc_cube, params: Dict[str, Any]) -> xr.DataArray:
     # Improve CPU and MEM USAGE
     for name, data_var in datacube.data_vars.items():
         datacube[name] = datacube[name].where(datacube[name] != datacube[name].nodata)
+    datacube.attrs['nodata'] = np.nan
 
     # Convert to xr.DataArray
     # TODO: add conversion with multiple and custom dimensions
@@ -303,19 +304,11 @@ class MergeCubes:
                 merge = merge.sortby(dimension)
             elif matching == len(cube1.coords):  # all dimensions match
                 if overlap_resolver is None:  # no overlap resolver, so a new dimension is added
-                    values = np.array([cube1.values, cube2.values])
-                    cubes = ["Cube01", "Cube02"]
-                    coords = [cubes]
-                    dimensions = ["cubes"]
-                    for d in cube1.dims:
-                        dimensions.append(d)
-                        coords.append(cube1[d])
-                    merge = xr.DataArray(values, coords=coords, dims=dimensions, attrs=cube1.attrs)
+                    merge = xr.concat([cube1, cube2], dim='cubes')
+                    merge['cubes'] = ["Cube01", "Cube02"]
                 else:
                     if callable(overlap_resolver):  # overlap resolver, for example add
-                        values = overlap_resolver(cube1, cube2, **context)
-                        merge = xr.DataArray(values, coords=cube1.coords,
-                                             dims=cube1.dims, attrs=cube1.attrs)  # define dimensions like in cube1
+                        merge = overlap_resolver(cube1, cube2, **context)
                     elif isinstance(overlap_resolver, xr.core.dataarray.DataArray):
                         merge = overlap_resolver
                     else:
@@ -365,22 +358,14 @@ class MergeCubes:
                 c1 = cube2
                 c2 = cube1
             check = []
-            dims_l = c2.dims
             for c in c1.dims:
                 check.append(c in c1.dims and c in c2.dims)
             for c in c2.dims:
                 if not (c in c1.dims):
                     dimension = c
-            c2 = c2.transpose(dimension, ...)
-            length = len(c2[dimension])
-            if np.array(check).all():
-                if callable(overlap_resolver):  # overlap resolver, for example add
-                    values = []
-                    for l in range(length):
-                        values.append(overlap_resolver(c2[l], c1, **context).values)
-                    merge = xr.DataArray(values, coords=c2.coords,
-                                         dims=c2.dims, attrs=c2.attrs)  # define dimensions like in larger cube
-                    merge = merge.transpose(*dims_l)
+            if np.array(check).all() and len(c2[dimension]) == 1 and callable(overlap_resolver):
+                c2 = c2.transpose(dimension, ...)
+                merge = overlap_resolver(c2[0], c1, **context)
             elif isinstance(overlap_resolver, xr.core.dataarray.DataArray):
                 merge = overlap_resolver
             else:
@@ -564,8 +549,8 @@ class PredictCurve:
                                 )
         if test is None:
             values = values.transpose(*data.dims)
-            predicted = xr.DataArray(values, coords=data.coords, dims=data.dims, attrs=data.attrs, name=data.name)
-            predicted = predicted.where(data==0, data)
+            values[dimension] = data[dimension]
+            predicted = data.where(data != 0, values)
         else:
             predicted = values.transpose(*data.dims)
             predicted[dimension] = coords
@@ -619,24 +604,17 @@ class SaveResult:
         """
         def extract_single_timestamp(data_without_time: xr.DataArray, timestamp: datetime = None) -> xr.Dataset:
             """Create a xarray Dataset."""
-            coords = {dim: getattr(data_without_time, dim) for dim in data_without_time.dims if dim != 'bands'}
-            tmp = xr.Dataset(coords=coords)
+            data_var = data_without_time.fillna(-9999)
+            data_var.attrs["nodata"] = -9999
             if 'bands' in data_without_time.coords:
                 try:
-                    for var in data_without_time['bands'].values:
-                        data_var = data_without_time.loc[dict(bands=var)]\
-                            .where(data_without_time.loc[dict(bands=var)] != np.nan, -9999)
-                        data_var.attrs["nodata"] = -9999
-                        tmp[str(var)] = (data_var.dims, data_var)
+                    tmp = data_var.to_dataset(dim="bands")
                 except Exception as e:
                     print(e)
-                    data_var = data_without_time.where(data_without_time != np.nan, -9999)
-                    data_var.attrs["nodata"] = -9999
-                    tmp[str((data_without_time['bands'].values))] = (data_var.dims, data_var)
+                    n = data_without_time['bands'].values
+                    tmp = data_var.to_dataset(name=str(n))
             else:
-                data_var = data_without_time.where(data_without_time != np.nan, -9999)
-                data_var.attrs["nodata"] = -9999
-                tmp['result'] = (data_var.dims, data_var)
+                tmp = data_var.to_dataset(name='result')
 
             # fix dimension order
             current_dims = tuple(tmp.dims)
@@ -830,28 +808,18 @@ class ResampleCubeTemporal:
             t = []
             for i in index:
                 t.append(target[dimension].values[int(i)])
-            new_data = xr.DataArray(data.values, coords=data.coords, dims=data.dims, attrs=data.attrs, name=data.name)
-            new_data[dimension] = t
             filter_values = data[dimension].values
+            new_data = data
+            new_data[dimension] = t
         else:
-            index = np.array([])
+            index = []
             for d in target[dimension].values:
                 difference = (np.abs(d - data[dimension].values))
                 nearest = np.argwhere(difference == np.min(difference))
-                index = np.append(index, nearest)
-            v = []
-            c = []
+                index.append(int(nearest))
             data_t = data.transpose(dimension, ...)
-            for i in index:
-                v.append(data_t.values[int(i)])
-                c.append(data_t[dimension].values[int(i)])
-            new_data = xr.DataArray(v, dims=data_t.dims, attrs=data.attrs, name=data.name)
+            new_data = data_t[index]
             new_data = new_data.transpose(*data.dims)
-            for d in new_data.dims:
-                if d == dimension:
-                    new_data[d] = c
-                else:
-                    new_data[d] = data[d].values
             filter_values = new_data[dimension].values
             new_data[dimension] = target[dimension].values
         if valid_within is None:

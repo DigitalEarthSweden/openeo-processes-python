@@ -3206,11 +3206,12 @@ class Extrema:
         if is_empty(data):
             return xr.DataArray(np.nan)
         else:
-            minimum = data.min(dim=dimension, skipna=~ignore_nodata).values
-            maximum = data.max(dim=dimension, skipna=~ignore_nodata).values
-            extrema = np.append(minimum, maximum)
+            minimum = data.min(dim=dimension, skipna=~ignore_nodata)
+            maximum = data.max(dim=dimension, skipna=~ignore_nodata)
+            extrema = xr.concat([minimum, maximum], dim='extrema')
+            extrema['extrema'] = ['min', 'max']
 
-        return xr.DataArray(extrema)
+        return extrema
 
 
     @staticmethod

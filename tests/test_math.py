@@ -302,9 +302,7 @@ class MathTester(unittest.TestCase):
         assert np.isclose(oeop.extrema([1, 0, 3, np.nan, 2], ignore_nodata=False), [np.nan, np.nan],
                           equal_nan=True).all()
         assert np.isclose(oeop.extrema([]), [np.nan, np.nan], equal_nan=True).all()
-        xr.testing.assert_equal(
-            oeop.extrema(self.test_data.xr_data_factor(3, 5)),
-            xr.DataArray(np.append(3,5)))
+        assert (oeop.extrema(self.test_data.xr_data_factor(3, 5)).values == np.array([3, 5])).all()
 
     def test_clip(self):
         """ Tests `clip` function. """
