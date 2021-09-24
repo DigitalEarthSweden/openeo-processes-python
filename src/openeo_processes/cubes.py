@@ -370,6 +370,9 @@ class MergeCubes:
                 merge = overlap_resolver
             else:
                 raise Exception('OverlapResolverMissing')
+        for a in cube1.attrs:
+            if a in cube2.attrs:
+                merge.attrs[a] = cube1.attrs[a]
         return merge
 
 
@@ -460,6 +463,7 @@ class FitCurve:
             dask_gufunc_kwargs={'allow_rechunk': True, 'output_sizes': {'params': output_size}}
         )
         values['params'] = list(range(len(values['params'])))
+        values.attrs = data.attrs
         return values
 
 ###############################################################################
@@ -556,6 +560,7 @@ class PredictCurve:
             predicted[dimension] = coords
         if dimension in ['t', 'times']:
             predicted = predicted.rename({dimension: 'time'})
+        predicted.attrs = data.attrs
         return predicted
 
 
@@ -830,6 +835,7 @@ class ResampleCubeTemporal:
             new_data_t = new_data.transpose(dimension, ...)
             new_data_t = new_data_t[filter]
             new_data = new_data_t.transpose(*new_data.dims)
+        new_data.attrs = data.attrs
         return new_data
 
 

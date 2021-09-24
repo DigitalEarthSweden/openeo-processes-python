@@ -430,7 +430,14 @@ class Eq:
                 ar_eq = x_time == y_time  # comparison of dates
         else:
             ar_eq = x == y
-
+        if isinstance(x, xr.DataArray) and isinstance(y, xr.DataArray):
+            for a in x.attrs:
+                if a in y.attrs:
+                    ar_eq.attrs[a] = x.attrs[a]
+        elif isinstance(x, xr.DataArray):
+            ar_eq.attrs = x.attrs
+        elif isinstance(y, xr.DataArray):
+            ar_eq.attrs = y.attrs
         if reduce:
             return ar_eq.all()
         else:
@@ -704,14 +711,22 @@ class Gt:
         ## x has to be a datacube, whereas y can be another datacube, an integer or a float
         if x is None or y is None:
             return None
-        elif isinstance(y, xr.DataArray) or isinstance(y, int) or isinstance(y, float):
+        if isinstance(x, xr.DataArray) and isinstance(y, xr.DataArray):
             gt_ar = x > y
-            if reduce:
-                return gt_ar.all()
-            else:
-                return gt_ar
+            for a in x.attrs:
+                if a in y.attrs:
+                    gt_ar.attrs[a] = x.attrs[a]
+        elif isinstance(x, xr.DataArray) and isinstance(y, int) or isinstance(y, float):
+            gt_ar = x > y
+            gt_ar.attrs = x.attrs
+        elif isinstance(y, xr.DataArray) and isinstance(x, int) or isinstance(x, float):
+            gt_ar = x > y
+            gt_ar.attrs = y.attrs
+        if reduce:
+            return gt_ar.all()
         else:
-            return False
+            return gt_ar
+        return False
 
     @staticmethod
     def exec_da():

@@ -442,6 +442,7 @@ class MathTester(unittest.TestCase):
         xr.testing.assert_equal(
             oeop.add(self.test_data.xr_data_factor(1, 9), self.test_data.xr_data_factor(np.nan, -2)),
             self.test_data.xr_data_factor(np.nan, 7))
+        assert self.test_data.xr_data_factor(1, 9).attrs == oeop.add(7, self.test_data.xr_data_factor(1, 9)).attrs
 
     def test_subtract(self):
         """ Tests `subtract` function. """

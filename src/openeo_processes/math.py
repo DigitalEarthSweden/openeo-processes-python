@@ -2536,8 +2536,10 @@ class Power:
         xr.DataArray :
             The computed values for `base` raised to the power of `p`.
         """
-
-        return base**float(p)
+        pow = base**float(p)
+        if isinstance(base, xr.DataArray):
+            pow.attrs = base.attrs
+        return pow
 
 
     @staticmethod
@@ -3021,8 +3023,10 @@ class Sd:
         """
         if is_empty(data):
             return np.nan
-
-        return data.std(dim=dimension, skipna=~ignore_nodata)
+        s = data.std(dim=dimension, skipna=~ignore_nodata)
+        if isinstance(data, xr.DataArray):
+            s.attrs = data.attrs
+        return s
 
     @staticmethod
     def exec_da():
@@ -4261,7 +4265,16 @@ class Add:
             The computed sum.
 
         """
-        return x + y
+        added = x + y
+        if isinstance(x, xr.DataArray) and isinstance(y, xr.DataArray):
+            for a in x.attrs:
+                if a in y.attrs:
+                    added.attrs[a] = x.attrs[a]
+        elif isinstance(x, xr.DataArray):
+            added.attrs = x.attrs
+        elif isinstance(y, xr.DataArray):
+            added.attrs = y.attrs
+        return added
 
     @staticmethod
     def exec_da():
@@ -4358,7 +4371,16 @@ class Subtract:
             The computed result.
 
         """
-        return x - y
+        sub = x - y
+        if isinstance(x, xr.DataArray) and isinstance(y, xr.DataArray):
+            for a in x.attrs:
+                if a in y.attrs:
+                    sub.attrs[a] = x.attrs[a]
+        elif isinstance(x, xr.DataArray):
+            sub.attrs = x.attrs
+        elif isinstance(y, xr.DataArray):
+            sub.attrs = y.attrs
+        return sub
 
     @staticmethod
     def exec_da():
@@ -4454,7 +4476,16 @@ class Multiply:
             The computed product.
 
         """
-        return x * y
+        mult = x * y
+        if isinstance(x, xr.DataArray) and isinstance(y, xr.DataArray):
+            for a in x.attrs:
+                if a in y.attrs:
+                    mult.attrs[a] = x.attrs[a]
+        elif isinstance(x, xr.DataArray):
+            mult.attrs = x.attrs
+        elif isinstance(y, xr.DataArray):
+            mult.attrs = y.attrs
+        return mult
 
     @staticmethod
     def exec_da():
@@ -4550,7 +4581,16 @@ class Divide:
             The computed result.
 
         """
-        return x / y
+        div = x / y
+        if isinstance(x, xr.DataArray) and isinstance(y, xr.DataArray):
+            for a in x.attrs:
+                if a in y.attrs:
+                    div.attrs[a] = x.attrs[a]
+        elif isinstance(x, xr.DataArray):
+            div.attrs = x.attrs
+        elif isinstance(y, xr.DataArray):
+            div.attrs = y.attrs
+        return div
 
     @staticmethod
     def exec_da():
