@@ -707,8 +707,7 @@ class Gt:
         xr.DataArray: :
             Returns True if `x` is strictly greater than `y`, None if any operand is None, otherwise False.
         """
-        
-        ## x has to be a datacube, whereas y can be another datacube, an integer or a float
+
         if x is None or y is None:
             return None
         if isinstance(x, xr.DataArray) and isinstance(y, xr.DataArray):
@@ -858,14 +857,22 @@ class Gte:
         """
         if x is None or y is None:
             return None
-        elif isinstance(y, xr.DataArray) or isinstance(y, int) or isinstance(y, float):
+        if isinstance(x, xr.DataArray) and isinstance(y, xr.DataArray):
             gte_ar = ((x-y) >= 0)
-            if reduce:
-                return gte_ar.all()
-            else:
-                return gte_ar
+            for a in x.attrs:
+                if a in y.attrs:
+                    gte_ar.attrs[a] = x.attrs[a]
+        elif isinstance(x, xr.DataArray) and isinstance(y, int) or isinstance(y, float):
+            gte_ar = ((x-y) >= 0)
+            gte_ar.attrs = x.attrs
+        elif isinstance(y, xr.DataArray) and isinstance(x, int) or isinstance(x, float):
+            gte_ar = ((x-y) >= 0)
+            gte_ar.attrs = y.attrs
+        if reduce:
+            return gte_ar.all()
         else:
-            return False
+            return gte_ar
+        return False
 
     @staticmethod
     def exec_da():
@@ -995,17 +1002,24 @@ class Lt:
             Returns True if `x` is strictly lower than `y`, None if any operand is None, otherwise False.
 
         """
-        ## x has to be a datacube, whereas y can be another datacube, an integer or a float
         if x is None or y is None:
             return None
-        elif isinstance(y, xr.DataArray) or isinstance(y, int) or isinstance(y, float):
+        if isinstance(x, xr.DataArray) and isinstance(y, xr.DataArray):
             lt_ar = x < y
-            if reduce:
-                return lt_ar.all()
-            else:
-                return lt_ar
+            for a in x.attrs:
+                if a in y.attrs:
+                    lt_ar.attrs[a] = x.attrs[a]
+        elif isinstance(x, xr.DataArray) and isinstance(y, int) or isinstance(y, float):
+            lt_ar = x < y
+            lt_ar.attrs = x.attrs
+        elif isinstance(y, xr.DataArray) and isinstance(x, int) or isinstance(x, float):
+            lt_ar = x < y
+            lt_ar.attrs = y.attrs
+        if reduce:
+            return lt_ar.all()
         else:
-            return False
+            return lt_ar
+        return False
 
     @staticmethod
     def exec_da():
@@ -1135,17 +1149,24 @@ class Lte:
             Returns True if `x` is strictly lower than or equal to `y`, None if any operand is None, otherwise False.
 
         """
-        ## x has to be a datacube, whereas y can be another datacube, an integer or a float
         if x is None or y is None:
             return None
-        elif isinstance(y, xr.DataArray) or isinstance(y, int) or isinstance(y, float):
+        if isinstance(x, xr.DataArray) and isinstance(y, xr.DataArray):
             lte_ar = x <= y
-            if reduce:
-                return lte_ar.all()
-            else:
-                return lte_ar
+            for a in x.attrs:
+                if a in y.attrs:
+                    lte_ar.attrs[a] = x.attrs[a]
+        elif isinstance(x, xr.DataArray) and isinstance(y, int) or isinstance(y, float):
+            lte_ar = x <= y
+            lte_ar.attrs = x.attrs
+        elif isinstance(y, xr.DataArray) and isinstance(x, int) or isinstance(x, float):
+            lte_ar = x <= y
+            lte_ar.attrs = y.attrs
+        if reduce:
+            return lte_ar.all()
         else:
-            return False
+            return lte_ar
+        return False
 
     @staticmethod
     def exec_da():
@@ -1301,9 +1322,12 @@ class Between:
             return False
 
         if exclude_max:
-            return xr.ufuncs.logical_and(Gte.exec_xar(x, min, reduce=reduce) , Lt.exec_xar(x, max, reduce=reduce))
+            bet = xr.ufuncs.logical_and(Gte.exec_xar(x, min, reduce=reduce) , Lt.exec_xar(x, max, reduce=reduce))
         else:
-            return xr.ufuncs.logical_and(Gte.exec_xar(x, min, reduce=reduce) , Lte.exec_xar(x, max, reduce=reduce))
+            bet = xr.ufuncs.logical_and(Gte.exec_xar(x, min, reduce=reduce) , Lte.exec_xar(x, max, reduce=reduce))
+        if isinstance(x, xr.DataArray):
+            bet.attrs = x.attrs
+        return bet
 
     @staticmethod
     def exec_da():
