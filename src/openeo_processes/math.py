@@ -604,7 +604,10 @@ class Log:
         xr.DataArray :
             The computed logarithm.
         """
-        return xr.ufuncs.log(x)/xr.ufuncs.log(base)
+        l = xr.ufuncs.log(x)/xr.ufuncs.log(base)
+        if isinstance(x, xr.DataArray):
+            l.attrs = x.attrs
+        return l
 
     @staticmethod
     def exec_da():
@@ -1852,7 +1855,16 @@ class Arctan2:
             The computed angles in radians.
 
         """
-        return xr.ufuncs.arctan2(y, x)
+        arct = xr.ufuncs.arctan2(y, x)
+        if isinstance(x, xr.DataArray) and isinstance(y, xr.DataArray):
+            for a in x.attrs:
+                if a in y.attrs:
+                    arct.attrs[a] = x.attrs[a]
+        elif isinstance(x, xr.DataArray):
+            arct.attrs = x.attrs
+        elif isinstance(y, xr.DataArray):
+            arct.attrs = y.attrs
+        return arct
 
     @staticmethod
     def exec_da():
@@ -1979,7 +1991,9 @@ class LinearScaleRange:
         xr.DataArray :
             The transformed numbers.
         """
-        return ((x - inputMin) / (inputMax - inputMin)) * (outputMax - outputMin) + outputMin
+        lsr = ((x - inputMin) / (inputMax - inputMin)) * (outputMax - outputMin) + outputMin
+        lsr.attrs = x.attrs
+        return lsr
 
     @staticmethod
     def exec_da():
@@ -2072,7 +2086,9 @@ class Scale:
             The scaled numbers.
 
         """
-        return x*factor
+        s = x*factor
+        s.attrs = x.attrs
+        return s
 
     @staticmethod
     def exec_da():
@@ -2164,7 +2180,16 @@ class Mod:
         xr.DataArray :
             The remainders after division.
         """
-        return x % y if x is not None and y is not None else None # xr.ufuncs.fmod(x, y)
+        m = x % y
+        if isinstance(x, xr.DataArray) and isinstance(y, xr.DataArray):
+            for a in x.attrs:
+                if a in y.attrs:
+                    m.attrs[a] = x.attrs[a]
+        elif isinstance(x, xr.DataArray):
+            m.attrs = x.attrs
+        elif isinstance(y, xr.DataArray):
+            m.attrs = y.attrs
+        return m
 
     @staticmethod
     def exec_da():
@@ -2630,8 +2655,10 @@ class Mean:
         """
         if is_empty(data):
             return np.nan
-
-        return data.mean(dim=dimension, skipna=~ignore_nodata)
+        m = data.mean(dim=dimension, skipna=~ignore_nodata)
+        if isinstance(data, xr.DataArray):
+            m.attrs = data.attrs
+        return m
 
     @staticmethod
     def exec_da():
@@ -2726,8 +2753,10 @@ class Min:
 
         if not dimension:
             dimension = data.dims[0]
-
-        return data.min(dim=dimension, skipna=~ignore_nodata)
+        m = data.min(dim=dimension, skipna=~ignore_nodata)
+        if isinstance(data, xr.DataArray):
+            m.attrs = data.attrs
+        return m
 
     @staticmethod
     def exec_da():
@@ -2816,8 +2845,10 @@ class Max():
 
         if not dimension:
             dimension = data.dims[0]
-
-        return data.max(dim=dimension, skipna=~ignore_nodata)
+        m = data.max(dim=dimension, skipna=~ignore_nodata)
+        if isinstance(data, xr.DataArray):
+            m.attrs = data.attrs
+        return m
 
     @staticmethod
     def exec_da():
@@ -2918,8 +2949,10 @@ class Median:
         """
         if is_empty(data):
             return np.nan
-
-        return data.median(dim=dimension, skipna=~ignore_nodata)
+        m = data.median(dim=dimension, skipna=~ignore_nodata)
+        if isinstance(data, xr.DataArray):
+            m.attrs = data.attrs
+        return m
 
     @staticmethod
     def exec_da():
@@ -3119,8 +3152,10 @@ class Variance:
 
         if is_empty(data):
             return np.nan
-
-        return data.var(dim=dimension, skipna=~ignore_nodata)
+        v = data.var(dim=dimension, skipna=~ignore_nodata)
+        if isinstance(data, xr.DataArray):
+            v.attrs = data.attrs
+        return v
 
     @staticmethod
     def exec_da():
@@ -3214,7 +3249,7 @@ class Extrema:
             maximum = data.max(dim=dimension, skipna=~ignore_nodata)
             extrema = xr.concat([minimum, maximum], dim='extrema')
             extrema['extrema'] = ['min', 'max']
-
+            extrema.attrs = data.attrs
         return extrema
 
 
@@ -3474,8 +3509,10 @@ class Quantiles:
 
         if is_empty(data):
             return [np.nan] * len(probabilities)
-
-        return data.quantile(np.array(probabilities), dim=dimension, skipna=~ignore_nodata)
+        q = data.quantile(np.array(probabilities), dim=dimension, skipna=~ignore_nodata)
+        if isinstance(data, xr.DataArray):
+            q.attrs = data.attrs
+        return q
 
     @staticmethod
     def exec_da():
@@ -4035,6 +4072,12 @@ class Sum:
                     summand += item
             # Concatenate along dim 'new_dim'
             data = xr.concat(data_tmp, dim='new_dim')
+        elif isinstance(data, xr.DataArray):
+            if not dimension:
+                dimension = data.dims[0]
+            s = data.sum(dim=dimension, skipna=~ignore_nodata)
+            s.attrs = data.attrs
+            return s
 
         if is_empty(data):
             return np.nan
@@ -4170,8 +4213,10 @@ class Product:
 
         if not dimension:
             dimension = data.dims[0]
-
-        return data.prod(dim=dimension, skipna=ignore_nodata) * multiplicand
+        p = data.prod(dim=dimension, skipna=ignore_nodata) * multiplicand
+        if isinstance(data, xr.DataArray):
+            p.attrs = data.attrs
+        return p
 
     @staticmethod
     def exec_da():
@@ -4697,7 +4742,16 @@ class NormalizedDifference:
         xr.DataArray :
            The computed normalized difference.
         """
-        return (x - y) / (x + y)
+        nd = (x - y) / (x + y)
+        if isinstance(x, xr.DataArray) and isinstance(y, xr.DataArray):
+            for a in x.attrs:
+                if a in y.attrs:
+                    nd.attrs[a] = x.attrs[a]
+        elif isinstance(x, xr.DataArray):
+            nd.attrs = x.attrs
+        elif isinstance(y, xr.DataArray):
+            nd.attrs = y.attrs
+        return nd
 
     @staticmethod
     def exec_da():
