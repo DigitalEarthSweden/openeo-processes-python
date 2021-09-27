@@ -620,6 +620,7 @@ class SaveResult:
                     tmp = data_var.to_dataset(name=str(n))
             else:
                 tmp = data_var.to_dataset(name='result')
+            tmp.attrs = data_var.attrs
 
             # fix dimension order
             current_dims = tuple(tmp.dims)
@@ -1033,3 +1034,131 @@ class DropDimension:
         else:
             raise Exception('DimensionNotAvailable')
 
+###############################################################################
+# RenameDimension process
+###############################################################################
+
+
+@process
+def rename_dimension():
+    """
+    Rename a dimension.
+
+    Returns
+    -------
+    xr.DataArray :
+           A data cube with the same dimensions, but the name of one of the dimensions changes.
+           The old name can not be referred to any longer.
+           The dimension properties (name, type, labels, reference system and resolution) remain unchanged.
+    """
+    return RenameDimension()
+
+
+class RenameDimension:
+    """
+    Renames a dimension in the data cube while preserving all other properties.
+    """
+
+    @staticmethod
+    def exec_xar(data, source, target):
+        """
+        Parameters
+        ----------
+        data : xr.DataArray
+           A data cube.
+        source : str
+           The current name of the dimension.
+           Fails with a DimensionNotAvailable exception if the specified dimension does not exist.
+        target : str
+           A new Name for the dimension.
+           Fails with a DimensionExists exception if a dimension with the specified name exists.
+
+        Returns
+        -------
+        xr.DataArray :
+           A data cube with the same dimensions, but the name of one of the dimensions changes.
+           The old name can not be referred to any longer.
+           The dimension properties (name, type, labels, reference system and resolution) remain unchanged.
+        """
+        if source not in data.dims:
+            raise Exception('DimensionNotAvailable')
+        elif target in data.dims:
+            raise Exception('DimensionExists')
+        return data.rename({source: target})
+
+
+###############################################################################
+# RenameLabels process
+###############################################################################
+
+
+@process
+def rename_labels():
+    """
+    Rename dimension labels.
+
+    Returns
+    -------
+    xr.DataArray :
+           The data cube with the same dimensions.
+           The dimension properties (name, type, labels, reference system and resolution) remain unchanged, except that for the given dimension the labels change.
+           The old labels can not be referred to any longer. The number of labels remains the same.
+    """
+    return RenameLabels()
+
+
+class RenameLabels:
+    """
+    Renames a dimension in the data cube while preserving all other properties.
+    """
+
+    @staticmethod
+    def exec_xar(data, dimension, target, source = []):
+        """
+        Parameters
+        ----------
+        data : xr.DataArray
+           A data cube.
+        dimension : str
+           The name of the dimension to rename the labels for.
+        target : array
+           The new names for the labels. The dimension labels in the data cube are expected to be enumerated if the parameter target is not specified.
+           If a target dimension label already exists in the data cube, a LabelExists exception is thrown.
+        source : array
+           The names of the labels as they are currently in the data cube.
+           The array defines an unsorted and potentially incomplete list of labels that should be renamed to the names available in the corresponding array elements in the parameter target.
+           If one of the source dimension labels doesn't exist, the LabelNotAvailable exception is thrown.
+           By default, the array is empty so that the dimension labels in the data cube are expected to be enumerated.
+
+        Returns
+        -------
+        xr.DataArray :
+           The data cube with the same dimensions.
+           The dimension properties (name, type, labels, reference system and resolution) remain unchanged, except that for the given dimension the labels change.
+           The old labels can not be referred to any longer. The number of labels remains the same.
+        """
+        if source == []:
+            source = data[dimension].values
+        if type(source) in [str, int, float]:
+            source = [source]
+        if type(target) in [str, int, float]:
+            target = [target]
+        if len(source) != len(target):
+            raise Exception('LabelMismatch')
+        source = np.array(source)
+        for s in source:
+            if s not in data[dimension].values:
+                raise Exception('LabelNotAvailable')
+        target = np.array(target)
+        for t in target:
+            if t in data[dimension].values:
+                raise Exception('LabelExists')
+        names = np.array([])
+        for n in data[dimension].values:
+            if n in source:
+                index = np.argwhere(source == n)
+                names = np.append(names, target[int(index)])
+            else:
+                names = np.append(names, n)
+        data[dimension] = names
+        return data

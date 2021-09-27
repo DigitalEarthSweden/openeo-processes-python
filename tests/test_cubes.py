@@ -223,5 +223,15 @@ class CubesTester(unittest.TestCase):
         data = oeop.add_dimension(self.test_data.xr_data_factor(), 'cubes', 'Cube01')
         xr.testing.assert_equal(oeop.drop_dimension(data, 'cubes'), self.test_data.xr_data_factor())
 
+    def test_rename_dimension(self):
+        """Tests 'rename_dimension' function. """
+        data = oeop.rename_dimension(self.test_data.xr_data_factor(), 'x', 'longitude')
+        assert (data.dims == ('time', 'y', 'longitude'))
+
+    def test_rename_labels(self):
+        """Tests 'rename_labels' function. """
+        data = oeop.rename_labels(self.test_data.xr_data_factor(), 'x', [119, 120, 121], [118.9, 119.9, 120.9])
+        assert (data['x'].values == (119, 120, 121)).all()
+
 if __name__ == "__main__":
     unittest.main()
