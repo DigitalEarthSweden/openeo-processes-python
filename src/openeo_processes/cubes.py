@@ -17,7 +17,12 @@ from scipy import optimize
 
 def odc_load_helper(odc_cube, params: Dict[str, Any]) -> xr.DataArray:
     """Helper method to load a xarray DataArray from ODC."""
-    datacube = odc_cube.load(**params)
+    try:
+        datacube = odc_cube.load(**params)
+    except ValueError:
+        print('Product with determined extent not found')
+    except KeyError:
+        print('Constraints not found')
 
     # Improve CPU and MEM USAGE
     for name, data_var in datacube.data_vars.items():
