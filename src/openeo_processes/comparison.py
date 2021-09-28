@@ -5,6 +5,7 @@ import numpy as np
 import xarray as xr
 from openeo_processes.utils import process
 from openeo_processes.utils import str2time
+from openeo_processes.utils import keep_attrs
 
 
 # TODO: test if this works for different data types
@@ -383,9 +384,9 @@ class Eq:
 
         Parameters
         ----------
-        x : xr.DataArray
+        x : xr.DataArray, integer, float
             First operand.
-        y : xr.DataArray
+        y : xr.DataArray, integer, float
             Second operand.
         delta : float, optional
             Only applicable for comparing two arrays containing numbers. If this optional parameter is set to a
@@ -430,14 +431,7 @@ class Eq:
                 ar_eq = x_time == y_time  # comparison of dates
         else:
             ar_eq = x == y
-        if isinstance(x, xr.DataArray) and isinstance(y, xr.DataArray):
-            for a in x.attrs:
-                if a in y.attrs:
-                    ar_eq.attrs[a] = x.attrs[a]
-        elif isinstance(x, xr.DataArray):
-            ar_eq.attrs = x.attrs
-        elif isinstance(y, xr.DataArray):
-            ar_eq.attrs = y.attrs
+        ar_eq = keep_attrs(x, y, ar_eq)
         if reduce:
             return ar_eq.all()
         else:
@@ -553,9 +547,9 @@ class Neq:
 
         Parameters
         ----------
-        x : xr.DataArray
+        x : xr.DataArray, integer, float
             First operand.
-        y : xr.DataArray
+        y : xr.DataArray, integer, float
             Second operand.
         delta : float, optional
             Only applicable for comparing two arrays containing numbers. If this optional parameter is set to a
@@ -694,7 +688,7 @@ class Gt:
 
         Parameters
         ----------
-        x : xr.DataArray
+        x : xr.DataArray, integer, float
             First operand.
         y : xr.DataArray, integer, float
             Second operand.
@@ -710,21 +704,13 @@ class Gt:
 
         if x is None or y is None:
             return None
-        if isinstance(x, xr.DataArray) and isinstance(y, xr.DataArray):
+        elif type(x) in [int, float, xr.DataArray] and type(y) in [int, float, xr.DataArray]:
             gt_ar = x > y
-            for a in x.attrs:
-                if a in y.attrs:
-                    gt_ar.attrs[a] = x.attrs[a]
-        elif isinstance(x, xr.DataArray) and isinstance(y, int) or isinstance(y, float):
-            gt_ar = x > y
-            gt_ar.attrs = x.attrs
-        elif isinstance(y, xr.DataArray) and isinstance(x, int) or isinstance(x, float):
-            gt_ar = x > y
-            gt_ar.attrs = y.attrs
-        if reduce:
-            return gt_ar.all()
-        else:
-            return gt_ar
+            gt_ar = keep_attrs(x, y, gt_ar)
+            if reduce:
+                return gt_ar.all()
+            else:
+                return gt_ar
         return False
 
     @staticmethod
@@ -841,9 +827,9 @@ class Gte:
 
         Parameters
         ----------
-        x : xr.DataArray
+        x : xr.DataArray, integer, float
             First operand.
-        y : xr.DataArray
+        y : xr.DataArray, integer, float
             Second operand.
         reduce : bool, optional
             If True, one value will be returned.
@@ -857,21 +843,13 @@ class Gte:
         """
         if x is None or y is None:
             return None
-        if isinstance(x, xr.DataArray) and isinstance(y, xr.DataArray):
+        elif type(x) in [int, float, xr.DataArray] and type(y) in [int, float, xr.DataArray]:
             gte_ar = ((x-y) >= 0)
-            for a in x.attrs:
-                if a in y.attrs:
-                    gte_ar.attrs[a] = x.attrs[a]
-        elif isinstance(x, xr.DataArray) and isinstance(y, int) or isinstance(y, float):
-            gte_ar = ((x-y) >= 0)
-            gte_ar.attrs = x.attrs
-        elif isinstance(y, xr.DataArray) and isinstance(x, int) or isinstance(x, float):
-            gte_ar = ((x-y) >= 0)
-            gte_ar.attrs = y.attrs
-        if reduce:
-            return gte_ar.all()
-        else:
-            return gte_ar
+            gte_ar = keep_attrs(x, y, gte_ar)
+            if reduce:
+                return gte_ar.all()
+            else:
+                return gte_ar
         return False
 
     @staticmethod
@@ -988,9 +966,9 @@ class Lt:
 
         Parameters
         ----------
-        x : xr.DataArray
+        x : xr.DataArray, integer, float
             First operand.
-        y : xr.DataArray
+        y : xr.DataArray, integer, float
             Second operand.
         reduce : bool, optional
             If True, one value will be returned.
@@ -1004,21 +982,13 @@ class Lt:
         """
         if x is None or y is None:
             return None
-        if isinstance(x, xr.DataArray) and isinstance(y, xr.DataArray):
+        elif type(x) in [int, float, xr.DataArray] and type(y) in [int, float, xr.DataArray]:
             lt_ar = x < y
-            for a in x.attrs:
-                if a in y.attrs:
-                    lt_ar.attrs[a] = x.attrs[a]
-        elif isinstance(x, xr.DataArray) and isinstance(y, int) or isinstance(y, float):
-            lt_ar = x < y
-            lt_ar.attrs = x.attrs
-        elif isinstance(y, xr.DataArray) and isinstance(x, int) or isinstance(x, float):
-            lt_ar = x < y
-            lt_ar.attrs = y.attrs
-        if reduce:
-            return lt_ar.all()
-        else:
-            return lt_ar
+            lt_ar = keep_attrs(x, y, lt_ar)
+            if reduce:
+                return lt_ar.all()
+            else:
+                return lt_ar
         return False
 
     @staticmethod
@@ -1135,9 +1105,9 @@ class Lte:
 
         Parameters
         ----------
-        x : xr.DataArray
+        x : xr.DataArray, integer, float
             First operand.
-        y : xr.DataArray
+        y : xr.DataArray, integer, float
             Second operand.
         reduce : bool, optional
             If True, one value will be returned.
@@ -1151,21 +1121,13 @@ class Lte:
         """
         if x is None or y is None:
             return None
-        if isinstance(x, xr.DataArray) and isinstance(y, xr.DataArray):
+        elif type(x) in [int, float, xr.DataArray] and type(y) in [int, float, xr.DataArray]:
             lte_ar = x <= y
-            for a in x.attrs:
-                if a in y.attrs:
-                    lte_ar.attrs[a] = x.attrs[a]
-        elif isinstance(x, xr.DataArray) and isinstance(y, int) or isinstance(y, float):
-            lte_ar = x <= y
-            lte_ar.attrs = x.attrs
-        elif isinstance(y, xr.DataArray) and isinstance(x, int) or isinstance(x, float):
-            lte_ar = x <= y
-            lte_ar.attrs = y.attrs
-        if reduce:
-            return lte_ar.all()
-        else:
-            return lte_ar
+            lte_ar = keep_attrs(x, y, lte_ar)
+            if reduce:
+                return lte_ar.all()
+            else:
+                return lte_ar
         return False
 
     @staticmethod

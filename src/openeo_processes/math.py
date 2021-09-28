@@ -10,7 +10,7 @@ try:
 except ImportError:
     xar_addons = None
 
-from openeo_processes.utils import process
+from openeo_processes.utils import process, keep_attrs
 from openeo_processes.comparison import is_empty
 
 from openeo_processes.errors import QuantilesParameterConflict
@@ -1856,15 +1856,7 @@ class Arctan2:
 
         """
         arct = xr.ufuncs.arctan2(y, x)
-        if isinstance(x, xr.DataArray) and isinstance(y, xr.DataArray):
-            for a in x.attrs:
-                if a in y.attrs:
-                    arct.attrs[a] = x.attrs[a]
-        elif isinstance(x, xr.DataArray):
-            arct.attrs = x.attrs
-        elif isinstance(y, xr.DataArray):
-            arct.attrs = y.attrs
-        return arct
+        return keep_attrs(x, y, arct)
 
     @staticmethod
     def exec_da():
@@ -2180,16 +2172,10 @@ class Mod:
         xr.DataArray :
             The remainders after division.
         """
+        if x is None or y is None:
+            return None
         m = x % y
-        if isinstance(x, xr.DataArray) and isinstance(y, xr.DataArray):
-            for a in x.attrs:
-                if a in y.attrs:
-                    m.attrs[a] = x.attrs[a]
-        elif isinstance(x, xr.DataArray):
-            m.attrs = x.attrs
-        elif isinstance(y, xr.DataArray):
-            m.attrs = y.attrs
-        return m
+        return keep_attrs(x, y, m)
 
     @staticmethod
     def exec_da():
@@ -4311,15 +4297,7 @@ class Add:
 
         """
         added = x + y
-        if isinstance(x, xr.DataArray) and isinstance(y, xr.DataArray):
-            for a in x.attrs:
-                if a in y.attrs:
-                    added.attrs[a] = x.attrs[a]
-        elif isinstance(x, xr.DataArray):
-            added.attrs = x.attrs
-        elif isinstance(y, xr.DataArray):
-            added.attrs = y.attrs
-        return added
+        return keep_attrs(x, y, added)
 
     @staticmethod
     def exec_da():
@@ -4417,15 +4395,7 @@ class Subtract:
 
         """
         sub = x - y
-        if isinstance(x, xr.DataArray) and isinstance(y, xr.DataArray):
-            for a in x.attrs:
-                if a in y.attrs:
-                    sub.attrs[a] = x.attrs[a]
-        elif isinstance(x, xr.DataArray):
-            sub.attrs = x.attrs
-        elif isinstance(y, xr.DataArray):
-            sub.attrs = y.attrs
-        return sub
+        return keep_attrs(x, y, sub)
 
     @staticmethod
     def exec_da():
@@ -4522,15 +4492,7 @@ class Multiply:
 
         """
         mult = x * y
-        if isinstance(x, xr.DataArray) and isinstance(y, xr.DataArray):
-            for a in x.attrs:
-                if a in y.attrs:
-                    mult.attrs[a] = x.attrs[a]
-        elif isinstance(x, xr.DataArray):
-            mult.attrs = x.attrs
-        elif isinstance(y, xr.DataArray):
-            mult.attrs = y.attrs
-        return mult
+        return keep_attrs(x, y, mult)
 
     @staticmethod
     def exec_da():
@@ -4627,15 +4589,7 @@ class Divide:
 
         """
         div = x / y
-        if isinstance(x, xr.DataArray) and isinstance(y, xr.DataArray):
-            for a in x.attrs:
-                if a in y.attrs:
-                    div.attrs[a] = x.attrs[a]
-        elif isinstance(x, xr.DataArray):
-            div.attrs = x.attrs
-        elif isinstance(y, xr.DataArray):
-            div.attrs = y.attrs
-        return div
+        return keep_attrs(x, y, div)
 
     @staticmethod
     def exec_da():
@@ -4743,15 +4697,7 @@ class NormalizedDifference:
            The computed normalized difference.
         """
         nd = (x - y) / (x + y)
-        if isinstance(x, xr.DataArray) and isinstance(y, xr.DataArray):
-            for a in x.attrs:
-                if a in y.attrs:
-                    nd.attrs[a] = x.attrs[a]
-        elif isinstance(x, xr.DataArray):
-            nd.attrs = x.attrs
-        elif isinstance(y, xr.DataArray):
-            nd.attrs = y.attrs
-        return nd
+        return keep_attrs(x, y, nd)
 
     @staticmethod
     def exec_da():

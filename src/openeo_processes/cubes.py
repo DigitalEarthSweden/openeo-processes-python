@@ -371,7 +371,7 @@ class MergeCubes:
             else:
                 raise Exception('OverlapResolverMissing')
         for a in cube1.attrs:
-            if a in cube2.attrs:
+            if a in cube2.attrs and (cube1.attrs[a] == cube2.attrs[a]):
                 merge.attrs[a] = cube1.attrs[a]
         return merge
 
@@ -620,7 +620,6 @@ class SaveResult:
                     tmp = data_var.to_dataset(name=str(n))
             else:
                 tmp = data_var.to_dataset(name='result')
-            tmp.attrs = data_var.attrs
 
             # fix dimension order
             current_dims = tuple(tmp.dims)
@@ -630,7 +629,7 @@ class SaveResult:
             elif current_dims != ("y", "x"):
                 tmp = tmp.transpose("y", "x")
 
-            tmp.attrs = data_without_time.attrs
+            tmp.attrs = data_var.attrs
             # This is a hack! ODC always(!) expectes to have a time dimension
             # set datetime to now if no other information is available
             tmp.attrs["datetime_from_dim"] = str(timestamp) if timestamp else str(datetime.now())
@@ -815,7 +814,7 @@ class ResampleCubeTemporal:
             for i in index:
                 t.append(target[dimension].values[int(i)])
             filter_values = data[dimension].values
-            new_data = data
+            new_data = data #ATTENTION new_data is a shallow copy of data! When you change new_data also data is changed.
             new_data[dimension] = t
         else:
             index = []
