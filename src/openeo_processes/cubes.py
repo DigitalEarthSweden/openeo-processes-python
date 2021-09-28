@@ -668,9 +668,10 @@ class SaveResult:
         formats = ('GTiff', 'netCDF')
         if format.lower() == 'netcdf':
             data_list = refactor_data(data)
-            for idx, dataset in enumerate(data_list):
-                cur_output_filepath = create_output_filepath(output_filepath, idx, 'nc')
-                dataset.to_netcdf(path=cur_output_filepath)
+            paths = []
+            for idx in range(len(data_list)):
+                paths.append(create_output_filepath(output_filepath, idx, 'nc'))
+            xr.save_mfdataset(data_list, paths)
 
         elif format.lower() in ['gtiff','geotiff']:
             data_list = refactor_data(data)
