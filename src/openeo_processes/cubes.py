@@ -442,28 +442,32 @@ class FitCurve:
             data[dimension] = step
         else:
             step = dimension
-
-        if isinstance(parameters, xr.core.dataarray.DataArray):
-            apply_f = (lambda x, y, p: optimize.curve_fit(function, x[np.nonzero(y)], y[np.nonzero(y)], p)[0])
-            in_dims = [[dimension], [dimension], ['params']]
-            add_arg = [step, data, parameters]
-            output_size = len(parameters['params'])
+        if isinstance(parameters, (int, float, list)):
+            values = xr.apply_ufunc(
+                lambda x, y: optimize.curve_fit(function, x[np.nonzero(y)], y[np.nonzero(y)], parameters)[0],
+                step, data,  # zero values not considered
+                vectorize=True,
+                input_core_dims=[[dimension], [dimension]],  # Dimension along we fit the curve function
+                output_core_dims=[['params']],
+                dask="parallelized",
+                output_dtypes=[np.float32],
+                dask_gufunc_kwargs={'allow_rechunk': True, 'output_sizes': {'params': len(parameters)}}
+            )
         else:
-            apply_f = (lambda x, y: optimize.curve_fit(function, x[np.nonzero(y)], y[np.nonzero(y)], parameters)[0])
-            in_dims = [[dimension], [dimension]]
-            add_arg = [step, data]
-            output_size = len(parameters)
-        values = xr.apply_ufunc(
-            apply_f, *add_arg,
-            vectorize=True,
-            input_core_dims=in_dims,
-            output_core_dims=[['params']],
-            dask="parallelized",
-            output_dtypes=[np.float32],
-            dask_gufunc_kwargs={'allow_rechunk': True, 'output_sizes': {'params': output_size}}
-        )
-        values['params'] = list(range(len(values['params'])))
-        values.attrs = data.attrs
+            values = xr.apply_ufunc(
+                lambda x, y, p: optimize.curve_fit(function, x[np.nonzero(y)], y[np.nonzero(y)], p)[0],
+                step, data, parameters,  # zero values not considered
+                vectorize=True,
+                input_core_dims=[[dimension], [dimension], ['params']],  # Dimension along we fit the curve function
+                output_core_dims=[['params']],
+                dask="parallelized",
+                output_dtypes=[np.float32],
+                dask_gufunc_kwargs={'allow_rechunk': True, 'output_sizes': {'params': parameters}}
+            )
+        names = []
+        for i in range(len(values['params'])):
+            names.append(f"a{i}")
+        values['params'] = names
         return values
 
 ###############################################################################
