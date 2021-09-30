@@ -76,6 +76,7 @@ class CubesTester(unittest.TestCase):
         out_filename = "out.nc"
         out_filename_0 = "out_00000.nc"
         out_filename_1 = "out_00001.nc"
+        out_filename_combined = "out_combined.nc"
 
         oeop.save_result(self.test_data.xr_odc_data_3d, out_filename, format='netCDF')
         assert os.path.exists(out_filename_0)
@@ -92,9 +93,11 @@ class CubesTester(unittest.TestCase):
         oeop.save_result(self.test_data.xr_odc_data_4d, format='netCDF')
         assert os.path.exists(out_filename_0)
         assert os.path.exists(out_filename_1)
+        assert os.path.exists(out_filename_combined)
         assert os.path.exists(out_product)
         os.remove(out_filename_0)
         os.remove(out_filename_1)
+        os.remove(out_filename_combined)
         os.remove(out_product)
 
     def test_save_result_from_file(self):
@@ -114,6 +117,7 @@ class CubesTester(unittest.TestCase):
         assert actual_ds_0.result.dims == ("y", "x")
         for i in range(10):
             os.remove(f"out_{str(i).zfill(5)}.nc")
+        os.remove("out_combined.nc")
         os.remove("product.yml")
 
     def test_fit_curve(self):

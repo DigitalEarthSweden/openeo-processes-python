@@ -607,32 +607,38 @@ class SaveResult:
             data format (default: GTiff)
 
         """
-        def extract_single_timestamp(data_without_time: xr.DataArray, timestamp: datetime = None) -> xr.Dataset:
+        def reformat_dataset(dataset: xr.DataArray, timestamp: datetime = None, has_time_dim: bool = False) \
+                -> xr.Dataset:
             """Create a xarray Dataset."""
-            data_var = data_without_time.fillna(-9999)
+            data_var = dataset.fillna(-9999)
             data_var.attrs["nodata"] = -9999
-            if 'bands' in data_without_time.coords:
+            if 'bands' in dataset.coords:
                 try:
                     tmp = data_var.to_dataset(dim="bands")
                 except Exception as e:
                     print(e)
-                    n = data_without_time['bands'].values
+                    n = dataset['bands'].values
                     tmp = data_var.to_dataset(name=str(n))
             else:
                 tmp = data_var.to_dataset(name='result')
 
             # fix dimension order
             current_dims = tuple(tmp.dims)
-            additional_dim = list(set(current_dims).difference({"bands", "y", "x"}))
-            if additional_dim and current_dims != (additional_dim[0], "y", "x"):
-                tmp = tmp.transpose(additional_dim[0], "y", "x")
-            elif current_dims != ("y", "x"):
-                tmp = tmp.transpose("y", "x")
+            base_dims = ("bands", "time", "y", "x") if has_time_dim else ("bands", "y", "x")
+            additional_dim = list(set(current_dims).difference(set(base_dims)))
+            base_dims = base_dims[1:]  # remove bands elem > not a dimension!
+            if additional_dim and current_dims != (additional_dim[0], *base_dims):
+                tmp = tmp.transpose(additional_dim[0], *base_dims)
+            elif current_dims != base_dims:
+                tmp = tmp.transpose(*base_dims)
 
             tmp.attrs = data_var.attrs
             # This is a hack! ODC always(!) expectes to have a time dimension
             # set datetime to now if no other information is available
-            tmp.attrs["datetime_from_dim"] = str(timestamp) if timestamp else str(datetime.now())
+            if has_time_dim:
+                tmp = tmp.rename_dims({"time": "t"})
+            else:
+                tmp.attrs["datetime_from_dim"] = str(timestamp) if timestamp else str(datetime.now())
             if "crs" not in tmp.attrs:
                 first_data_var = tmp.data_vars[list(tmp.data_vars.keys())[0]]
                 tmp.attrs["crs"] = first_data_var.geobox.crs.to_wkt()
@@ -645,9 +651,9 @@ class SaveResult:
             if 'time' in data.coords:
                 for timestamp in data.time.values:
                     data_at_timestamp = data.loc[dict(time=timestamp)]
-                    all_tmp.append(extract_single_timestamp(data_at_timestamp, timestamp))
+                    all_tmp.append(reformat_dataset(data_at_timestamp, timestamp))
             else:
-                all_tmp.append(extract_single_timestamp(data))
+                all_tmp.append(reformat_dataset(data))
 
             return all_tmp
 
@@ -671,6 +677,12 @@ class SaveResult:
             paths = []
             for idx in range(len(data_list)):
                 paths.append(create_output_filepath(output_filepath, idx, 'nc'))
+            # combined dataset
+            if 'time' in data.coords:
+                combined_dataset = reformat_dataset(data, None, has_time_dim=True)
+                data_list.append(combined_dataset)
+                combined_path = f'{splitext(output_filepath)[0]}_combined.nc'
+                paths.append(combined_path)
             xr.save_mfdataset(data_list, paths)
 
         elif format.lower() in ['gtiff','geotiff']:
