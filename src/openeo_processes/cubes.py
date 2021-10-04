@@ -433,7 +433,6 @@ class FitCurve:
         xr.DataArray
             A data cube with the optimal values for the parameters.
         """
-        data = data.fillna(0)  # zero values (masked) are not considered
         if dimension in ['time', 't', 'times']:  # time dimension must be converted into values
             dimension = get_time_dimension_from_data(data, dimension)
             dates = data[dimension].values
@@ -443,26 +442,9 @@ class FitCurve:
         else:
             step = dimension
 
-        if isinstance(parameters, xr.core.dataarray.DataArray):
-            apply_f = (lambda x, y, p: optimize.curve_fit(function, x[np.nonzero(y)], y[np.nonzero(y)], p)[0])
-            in_dims = [[dimension], [dimension], ['params']]
-            add_arg = [step, data, parameters]
-            output_size = len(parameters['params'])
-        else:
-            apply_f = (lambda x, y: optimize.curve_fit(function, x[np.nonzero(y)], y[np.nonzero(y)], parameters)[0])
-            in_dims = [[dimension], [dimension]]
-            add_arg = [step, data]
-            output_size = len(parameters)
-        values = xr.apply_ufunc(
-            apply_f, *add_arg,
-            vectorize=True,
-            input_core_dims=in_dims,
-            output_core_dims=[['params']],
-            dask="parallelized",
-            output_dtypes=[np.float32],
-            dask_gufunc_kwargs={'allow_rechunk': True, 'output_sizes': {'params': output_size}}
-        )
-        values['params'] = list(range(len(values['params'])))
+        values = (data.curvefit(dimension, function, reduce_dims=dimension, skipna=True, p0=parameters, bounds=None, param_names=list(range(len(parameters))), kwargs=None))
+        values = values.curvefit_coefficients
+        values = values.rename({"param": "params"})
         values.attrs = data.attrs
         return values
 
