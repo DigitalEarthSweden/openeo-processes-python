@@ -127,7 +127,7 @@ class CubesTester(unittest.TestCase):
                 np.cos(rang) + 0.5 * np.sin(rang) + np.random.rand(
                     24) * 0.2]  # define data with y = 0 + 1 * cos() + 0.5 *sin()
         xdata = xr.DataArray(rang, coords=[["NY", "LA"], pd.date_range("2000-01-01", periods=24, freq='M')],
-                             dims=["space", "time"])
+                             dims=["x", "time"])
 
         def func_oeop(x, *parameters):
             _2sjyaa699_11 = oeop.pi(**{})

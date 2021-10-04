@@ -439,12 +439,30 @@ class FitCurve:
             timestep = [((x - np.datetime64('1970-01-01')) / np.timedelta64(1, 's')) for x in dates]
             step = np.array(timestep)
             data[dimension] = step
-
+            if "x" in data.dims:
+                data = data.chunk({dimension: (len(dates))})
+                x = data['x'].values
+                l2 = int(np.around(len(x) / 2))
+                x1 = x[:l2]
+                x2 = x[l2:]
+                split1 = data.sel(x=x1)
+                split2 = data.sel(x=x2)
+                values1 = (
+                    split1.curvefit(dimension, function, reduce_dims=dimension, skipna=True, p0=parameters, bounds=None,
+                                    param_names=list(range(len(parameters))), kwargs=None)).curvefit_coefficients
+                values2 = (
+                    split2.curvefit(dimension, function, reduce_dims=dimension, skipna=True, p0=parameters, bounds=None,
+                                    param_names=list(range(len(parameters))), kwargs=None)).curvefit_coefficients
+                values = xr.concat([values1, values2], dim="x")
+            else:
+                data = data.chunk({dimension: len(dates)})
+                values = (data.curvefit(dimension, function, reduce_dims=dimension, skipna=True, p0=parameters, bounds=None, param_names=list(range(len(parameters))), kwargs=None))
+                values = values.curvefit_coefficients
         else:
             step = dimension
-        data = data.chunk({dimension: len(dates)})
-        values = (data.curvefit(dimension, function, reduce_dims=dimension, skipna=True, p0=parameters, bounds=None, param_names=list(range(len(parameters))), kwargs=None))
-        values = values.curvefit_coefficients
+            data = data.chunk({dimension: len(dates)})
+            values = (data.curvefit(dimension, function, reduce_dims=dimension, skipna=True, p0=parameters, bounds=None, param_names=list(range(len(parameters))), kwargs=None))
+            values = values.curvefit_coefficients
         values = values.rename({"param": "params"})
         values.attrs = data.attrs
         return values
