@@ -625,7 +625,7 @@ class SaveResult:
             # This is a hack! ODC always(!) expectes to have a time dimension
             # set datetime to now if no other information is available
             if has_time_dim:
-                tmp = tmp.rename_dims({"time": "t"})
+                tmp = tmp.rename({"time": "t"})
             else:
                 tmp.attrs["datetime_from_dim"] = str(timestamp) if timestamp else str(datetime.now())
             if "crs" not in tmp.attrs:
