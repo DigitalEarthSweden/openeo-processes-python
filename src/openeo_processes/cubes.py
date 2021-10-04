@@ -439,6 +439,8 @@ class FitCurve:
             timestep = [((x - np.datetime64('1970-01-01')) / np.timedelta64(1, 's')) for x in dates]
             step = np.array(timestep)
             data[dimension] = step
+            if 'x' in data.dims and 'y' in data.dims:
+                data = data.chunk({'lat':100, 'lon':100, dimension:len(dates)})
         else:
             step = dimension
 
