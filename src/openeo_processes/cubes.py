@@ -440,7 +440,12 @@ class FitCurve:
             step = np.array(timestep)
             data[dimension] = step
             if 'x' in data.dims and 'y' in data.dims:
+                data = data.chunk({'x':100, 'y':100, dimension:len(dates)})
+            elif 'lat' in data.dims and 'lon' in data.dims:
                 data = data.chunk({'lat':100, 'lon':100, dimension:len(dates)})
+            else:
+                data = data.chunk({dimension:len(dates)})
+
         else:
             step = dimension
 
