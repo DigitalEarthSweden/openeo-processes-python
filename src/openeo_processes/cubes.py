@@ -439,16 +439,10 @@ class FitCurve:
             timestep = [((x - np.datetime64('1970-01-01')) / np.timedelta64(1, 's')) for x in dates]
             step = np.array(timestep)
             data[dimension] = step
-            if 'x' in data.dims and 'y' in data.dims:
-                data = data.chunk({'x':100, 'y':100, dimension:len(dates)})
-            elif 'lat' in data.dims and 'lon' in data.dims:
-                data = data.chunk({'lat':100, 'lon':100, dimension:len(dates)})
-            else:
-                data = data.chunk({dimension:len(dates)})
 
         else:
             step = dimension
-
+        data = data.chunk({dimension: len(dates)})
         values = (data.curvefit(dimension, function, reduce_dims=dimension, skipna=True, p0=parameters, bounds=None, param_names=list(range(len(parameters))), kwargs=None))
         values = values.curvefit_coefficients
         values = values.rename({"param": "params"})
