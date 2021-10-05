@@ -453,23 +453,6 @@ class FitCurve:
             in_dims = [[dimension], [dimension]]
             add_arg = [step, data]
             output_size = len(parameters)
-            if "x" in data.dims and len(data['x'].values)>10:
-                x_ = data['x'].values
-                l2 = int(np.around(len(x_) / 2))
-                x1 = x_[:l2]
-                x2 = x_[l2:]
-                split1 = data.sel(x=x1)
-                split2 = data.sel(x=x2)
-                add_arg1 = [step, split1]
-                add_arg2 = [step, split2]
-                values1 = xr.apply_ufunc(apply_f, *add_arg1, vectorize=True, input_core_dims=in_dims,output_core_dims=[['params']],
-                                        dask="parallelized", output_dtypes=[np.float32], dask_gufunc_kwargs={'allow_rechunk': True, 'output_sizes': {'params': output_size}})
-                values2 = xr.apply_ufunc(apply_f, *add_arg2, vectorize=True, input_core_dims=in_dims,output_core_dims=[['params']],
-                                        dask="parallelized", output_dtypes=[np.float32], dask_gufunc_kwargs={'allow_rechunk': True, 'output_sizes': {'params': output_size}})
-                values = xr.concat([values1, values2], dim="x")
-                values['params'] = list(range(len(values['params'])))
-                values.attrs = data.attrs
-                return values
         values = xr.apply_ufunc(
             apply_f, *add_arg,
             vectorize=True,
