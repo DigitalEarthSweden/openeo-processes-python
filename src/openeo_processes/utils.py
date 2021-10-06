@@ -290,6 +290,23 @@ def get_time_dimension_from_data(data: xr.DataArray, dim: str = "time") -> str:
         if time_dim in data.dims:
             return time_dim
 
+def keep_attrs(x, y, data):
+    """Keeps the attributes of the inputs x and y in the output data.
+
+    When a processes, which requires two inputs x and y is used,
+    the attributes of x and y are not forwarded to the output data.
+    This checks if one of the inputs is a Dataarray, which has attributes.
+    The attributes of x or y are then given to the output data.
+    """
+    if isinstance(x, xr.DataArray) and isinstance(y, xr.DataArray):
+        for a in x.attrs:
+            if a in y.attrs and (x.attrs[a] == y.attrs[a]):
+                data.attrs[a] = x.attrs[a]
+    elif isinstance(x, xr.DataArray):
+        data.attrs = x.attrs
+    elif isinstance(y, xr.DataArray):
+        data.attrs = y.attrs
+    return data
 
 if __name__ == '__main__':
     pass

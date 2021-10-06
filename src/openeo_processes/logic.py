@@ -478,8 +478,8 @@ class If:
         xr.DataArray :
             Either the `accept` or `reject` argument depending on the given boolean value.
         """
-        p = value.where(value == 1, reject)
-        p = p.where(value == 0, accept)
+        p = value.where(value == 0, accept)
+        p = p.where(value == 1, reject)
         return p
 
     @staticmethod

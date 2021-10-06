@@ -5,6 +5,7 @@ import numpy as np
 import xarray as xr
 from openeo_processes.utils import process
 from openeo_processes.utils import str2time
+from openeo_processes.utils import keep_attrs
 
 
 # TODO: test if this works for different data types
@@ -383,9 +384,9 @@ class Eq:
 
         Parameters
         ----------
-        x : xr.DataArray
+        x : xr.DataArray, integer, float
             First operand.
-        y : xr.DataArray
+        y : xr.DataArray, integer, float
             Second operand.
         delta : float, optional
             Only applicable for comparing two arrays containing numbers. If this optional parameter is set to a
@@ -430,7 +431,7 @@ class Eq:
                 ar_eq = x_time == y_time  # comparison of dates
         else:
             ar_eq = x == y
-
+        ar_eq = keep_attrs(x, y, ar_eq)
         if reduce:
             return ar_eq.all()
         else:
@@ -546,9 +547,9 @@ class Neq:
 
         Parameters
         ----------
-        x : xr.DataArray
+        x : xr.DataArray, integer, float
             First operand.
-        y : xr.DataArray
+        y : xr.DataArray, integer, float
             Second operand.
         delta : float, optional
             Only applicable for comparing two arrays containing numbers. If this optional parameter is set to a
@@ -687,7 +688,7 @@ class Gt:
 
         Parameters
         ----------
-        x : xr.DataArray
+        x : xr.DataArray, integer, float
             First operand.
         y : xr.DataArray, integer, float
             Second operand.
@@ -700,18 +701,17 @@ class Gt:
         xr.DataArray: :
             Returns True if `x` is strictly greater than `y`, None if any operand is None, otherwise False.
         """
-        
-        ## x has to be a datacube, whereas y can be another datacube, an integer or a float
+
         if x is None or y is None:
             return None
-        elif isinstance(y, xr.DataArray) or isinstance(y, int) or isinstance(y, float):
+        elif type(x) in [int, float, xr.DataArray] and type(y) in [int, float, xr.DataArray]:
             gt_ar = x > y
+            gt_ar = keep_attrs(x, y, gt_ar)
             if reduce:
                 return gt_ar.all()
             else:
                 return gt_ar
-        else:
-            return False
+        return False
 
     @staticmethod
     def exec_da():
@@ -827,9 +827,9 @@ class Gte:
 
         Parameters
         ----------
-        x : xr.DataArray
+        x : xr.DataArray, integer, float
             First operand.
-        y : xr.DataArray
+        y : xr.DataArray, integer, float
             Second operand.
         reduce : bool, optional
             If True, one value will be returned.
@@ -843,14 +843,14 @@ class Gte:
         """
         if x is None or y is None:
             return None
-        elif isinstance(y, xr.DataArray) or isinstance(y, int) or isinstance(y, float):
+        elif type(x) in [int, float, xr.DataArray] and type(y) in [int, float, xr.DataArray]:
             gte_ar = ((x-y) >= 0)
+            gte_ar = keep_attrs(x, y, gte_ar)
             if reduce:
                 return gte_ar.all()
             else:
                 return gte_ar
-        else:
-            return False
+        return False
 
     @staticmethod
     def exec_da():
@@ -966,9 +966,9 @@ class Lt:
 
         Parameters
         ----------
-        x : xr.DataArray
+        x : xr.DataArray, integer, float
             First operand.
-        y : xr.DataArray
+        y : xr.DataArray, integer, float
             Second operand.
         reduce : bool, optional
             If True, one value will be returned.
@@ -980,17 +980,16 @@ class Lt:
             Returns True if `x` is strictly lower than `y`, None if any operand is None, otherwise False.
 
         """
-        ## x has to be a datacube, whereas y can be another datacube, an integer or a float
         if x is None or y is None:
             return None
-        elif isinstance(y, xr.DataArray) or isinstance(y, int) or isinstance(y, float):
+        elif type(x) in [int, float, xr.DataArray] and type(y) in [int, float, xr.DataArray]:
             lt_ar = x < y
+            lt_ar = keep_attrs(x, y, lt_ar)
             if reduce:
                 return lt_ar.all()
             else:
                 return lt_ar
-        else:
-            return False
+        return False
 
     @staticmethod
     def exec_da():
@@ -1106,9 +1105,9 @@ class Lte:
 
         Parameters
         ----------
-        x : xr.DataArray
+        x : xr.DataArray, integer, float
             First operand.
-        y : xr.DataArray
+        y : xr.DataArray, integer, float
             Second operand.
         reduce : bool, optional
             If True, one value will be returned.
@@ -1120,17 +1119,16 @@ class Lte:
             Returns True if `x` is strictly lower than or equal to `y`, None if any operand is None, otherwise False.
 
         """
-        ## x has to be a datacube, whereas y can be another datacube, an integer or a float
         if x is None or y is None:
             return None
-        elif isinstance(y, xr.DataArray) or isinstance(y, int) or isinstance(y, float):
+        elif type(x) in [int, float, xr.DataArray] and type(y) in [int, float, xr.DataArray]:
             lte_ar = x <= y
+            lte_ar = keep_attrs(x, y, lte_ar)
             if reduce:
                 return lte_ar.all()
             else:
                 return lte_ar
-        else:
-            return False
+        return False
 
     @staticmethod
     def exec_da():
@@ -1286,9 +1284,12 @@ class Between:
             return False
 
         if exclude_max:
-            return xr.ufuncs.logical_and(Gte.exec_xar(x, min, reduce=reduce) , Lt.exec_xar(x, max, reduce=reduce))
+            bet = xr.ufuncs.logical_and(Gte.exec_xar(x, min, reduce=reduce) , Lt.exec_xar(x, max, reduce=reduce))
         else:
-            return xr.ufuncs.logical_and(Gte.exec_xar(x, min, reduce=reduce) , Lte.exec_xar(x, max, reduce=reduce))
+            bet = xr.ufuncs.logical_and(Gte.exec_xar(x, min, reduce=reduce) , Lte.exec_xar(x, max, reduce=reduce))
+        if isinstance(x, xr.DataArray):
+            bet.attrs = x.attrs
+        return bet
 
     @staticmethod
     def exec_da():

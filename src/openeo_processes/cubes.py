@@ -19,19 +19,10 @@ def odc_load_helper(odc_cube, params: Dict[str, Any]) -> xr.DataArray:
     """Helper method to load a xarray DataArray from ODC."""
     datacube = odc_cube.load(**params)
 
-    # Set no-data values to nan
-    new_data_vars = {}
+    # Improve CPU and MEM USAGE
     for name, data_var in datacube.data_vars.items():
-        no_data = data_var.attrs["nodata"]
-        new_attrs = data_var.attrs
-        new_attrs["nodata"] = np.nan
-        new_data_vars[name] = xr.DataArray(
-            data=data_var.where(data_var != no_data),
-            coords=data_var.coords,
-            dims=data_var.dims,
-            attrs=new_attrs,
-        )
-    datacube = xr.Dataset(data_vars=new_data_vars, coords=datacube.coords, attrs=datacube.attrs)
+        datacube[name] = datacube[name].where(datacube[name] != datacube[name].nodata)
+    datacube.attrs['nodata'] = np.nan
 
     # Convert to xr.DataArray
     # TODO: add conversion with multiple and custom dimensions
@@ -313,19 +304,11 @@ class MergeCubes:
                 merge = merge.sortby(dimension)
             elif matching == len(cube1.coords):  # all dimensions match
                 if overlap_resolver is None:  # no overlap resolver, so a new dimension is added
-                    values = np.array([cube1.values, cube2.values])
-                    cubes = ["Cube01", "Cube02"]
-                    coords = [cubes]
-                    dimensions = ["cubes"]
-                    for d in cube1.dims:
-                        dimensions.append(d)
-                        coords.append(cube1[d])
-                    merge = xr.DataArray(values, coords=coords, dims=dimensions, attrs=cube1.attrs)
+                    merge = xr.concat([cube1, cube2], dim='cubes')
+                    merge['cubes'] = ["Cube01", "Cube02"]
                 else:
                     if callable(overlap_resolver):  # overlap resolver, for example add
-                        values = overlap_resolver(cube1, cube2, **context)
-                        merge = xr.DataArray(values, coords=cube1.coords,
-                                             dims=cube1.dims, attrs=cube1.attrs)  # define dimensions like in cube1
+                        merge = overlap_resolver(cube1, cube2, **context)
                     elif isinstance(overlap_resolver, xr.core.dataarray.DataArray):
                         merge = overlap_resolver
                     else:
@@ -375,26 +358,21 @@ class MergeCubes:
                 c1 = cube2
                 c2 = cube1
             check = []
-            dims_l = c2.dims
             for c in c1.dims:
                 check.append(c in c1.dims and c in c2.dims)
             for c in c2.dims:
                 if not (c in c1.dims):
                     dimension = c
-            c2 = c2.transpose(dimension, ...)
-            length = len(c2[dimension])
-            if np.array(check).all():
-                if callable(overlap_resolver):  # overlap resolver, for example add
-                    values = []
-                    for l in range(length):
-                        values.append(overlap_resolver(c2[l], c1, **context).values)
-                    merge = xr.DataArray(values, coords=c2.coords,
-                                         dims=c2.dims, attrs=c2.attrs)  # define dimensions like in larger cube
-                    merge = merge.transpose(*dims_l)
+            if np.array(check).all() and len(c2[dimension]) == 1 and callable(overlap_resolver):
+                c2 = c2.transpose(dimension, ...)
+                merge = overlap_resolver(c2[0], c1, **context)
             elif isinstance(overlap_resolver, xr.core.dataarray.DataArray):
                 merge = overlap_resolver
             else:
                 raise Exception('OverlapResolverMissing')
+        for a in cube1.attrs:
+            if a in cube2.attrs and (cube1.attrs[a] == cube2.attrs[a]):
+                merge.attrs[a] = cube1.attrs[a]
         return merge
 
 
@@ -469,10 +447,12 @@ class FitCurve:
             apply_f = (lambda x, y, p: optimize.curve_fit(function, x[np.nonzero(y)], y[np.nonzero(y)], p)[0])
             in_dims = [[dimension], [dimension], ['params']]
             add_arg = [step, data, parameters]
+            output_size = len(parameters['params'])
         else:
             apply_f = (lambda x, y: optimize.curve_fit(function, x[np.nonzero(y)], y[np.nonzero(y)], parameters)[0])
             in_dims = [[dimension], [dimension]]
             add_arg = [step, data]
+            output_size = len(parameters)
         values = xr.apply_ufunc(
             apply_f, *add_arg,
             vectorize=True,
@@ -480,9 +460,10 @@ class FitCurve:
             output_core_dims=[['params']],
             dask="parallelized",
             output_dtypes=[np.float32],
-            dask_gufunc_kwargs={'allow_rechunk': True, 'output_sizes': {'params': parameters}}
+            dask_gufunc_kwargs={'allow_rechunk': True, 'output_sizes': {'params': output_size}}
         )
         values['params'] = list(range(len(values['params'])))
+        values.attrs = data.attrs
         return values
 
 ###############################################################################
@@ -572,13 +553,14 @@ class PredictCurve:
                                 )
         if test is None:
             values = values.transpose(*data.dims)
-            predicted = xr.DataArray(values, coords=data.coords, dims=data.dims, attrs=data.attrs, name=data.name)
-            predicted = predicted.where(data==0, data)
+            values[dimension] = data[dimension]
+            predicted = data.where(data != 0, values)
         else:
             predicted = values.transpose(*data.dims)
             predicted[dimension] = coords
         if dimension in ['t', 'times']:
             predicted = predicted.rename({dimension: 'time'})
+        predicted.attrs = data.attrs
         return predicted
 
 
@@ -625,39 +607,38 @@ class SaveResult:
             data format (default: GTiff)
 
         """
-        def extract_single_timestamp(data_without_time: xr.DataArray, timestamp: datetime = None) -> xr.Dataset:
+        def reformat_dataset(dataset: xr.DataArray, timestamp: datetime = None, has_time_dim: bool = False) \
+                -> xr.Dataset:
             """Create a xarray Dataset."""
-            coords = {dim: getattr(data_without_time, dim) for dim in data_without_time.dims if dim != 'bands'}
-            tmp = xr.Dataset(coords=coords)
-            if 'bands' in data_without_time.coords:
+            data_var = dataset.fillna(-9999)
+            data_var.attrs["nodata"] = -9999
+            if 'bands' in dataset.coords:
                 try:
-                    for var in data_without_time['bands'].values:
-                        data_var = data_without_time.loc[dict(bands=var)]\
-                            .where(data_without_time.loc[dict(bands=var)] != np.nan, -9999)
-                        data_var.attrs["nodata"] = -9999
-                        tmp[str(var)] = (data_var.dims, data_var)
+                    tmp = data_var.to_dataset(dim="bands")
                 except Exception as e:
                     print(e)
-                    data_var = data_without_time.where(data_without_time != np.nan, -9999)
-                    data_var.attrs["nodata"] = -9999
-                    tmp[str((data_without_time['bands'].values))] = (data_var.dims, data_var)
+                    n = dataset['bands'].values
+                    tmp = data_var.to_dataset(name=str(n))
             else:
-                data_var = data_without_time.where(data_without_time != np.nan, -9999)
-                data_var.attrs["nodata"] = -9999
-                tmp['result'] = (data_var.dims, data_var)
+                tmp = data_var.to_dataset(name='result')
 
             # fix dimension order
             current_dims = tuple(tmp.dims)
-            additional_dim = list(set(current_dims).difference({"bands", "y", "x"}))
-            if additional_dim and current_dims != (additional_dim[0], "y", "x"):
-                tmp = tmp.transpose(additional_dim[0], "y", "x")
-            elif current_dims != ("y", "x"):
-                tmp = tmp.transpose("y", "x")
+            base_dims = ("bands", "time", "y", "x") if has_time_dim else ("bands", "y", "x")
+            additional_dim = list(set(current_dims).difference(set(base_dims)))
+            base_dims = base_dims[1:]  # remove bands elem > not a dimension!
+            if additional_dim and current_dims != (additional_dim[0], *base_dims):
+                tmp = tmp.transpose(additional_dim[0], *base_dims)
+            elif current_dims != base_dims:
+                tmp = tmp.transpose(*base_dims)
 
-            tmp.attrs = data_without_time.attrs
+            tmp.attrs = data_var.attrs
             # This is a hack! ODC always(!) expectes to have a time dimension
             # set datetime to now if no other information is available
-            tmp.attrs["datetime_from_dim"] = str(timestamp) if timestamp else str(datetime.now())
+            if has_time_dim:
+                tmp = tmp.rename({"time": "t"})
+            else:
+                tmp.attrs["datetime_from_dim"] = str(timestamp) if timestamp else str(datetime.now())
             if "crs" not in tmp.attrs:
                 first_data_var = tmp.data_vars[list(tmp.data_vars.keys())[0]]
                 tmp.attrs["crs"] = first_data_var.geobox.crs.to_wkt()
@@ -670,9 +651,9 @@ class SaveResult:
             if 'time' in data.coords:
                 for timestamp in data.time.values:
                     data_at_timestamp = data.loc[dict(time=timestamp)]
-                    all_tmp.append(extract_single_timestamp(data_at_timestamp, timestamp))
+                    all_tmp.append(reformat_dataset(data_at_timestamp, timestamp))
             else:
-                all_tmp.append(extract_single_timestamp(data))
+                all_tmp.append(reformat_dataset(data))
 
             return all_tmp
 
@@ -693,9 +674,16 @@ class SaveResult:
         formats = ('GTiff', 'netCDF')
         if format.lower() == 'netcdf':
             data_list = refactor_data(data)
-            for idx, dataset in enumerate(data_list):
-                cur_output_filepath = create_output_filepath(output_filepath, idx, 'nc')
-                dataset.to_netcdf(path=cur_output_filepath)
+            paths = []
+            for idx in range(len(data_list)):
+                paths.append(create_output_filepath(output_filepath, idx, 'nc'))
+            # combined dataset
+            if 'time' in data.coords:
+                combined_dataset = reformat_dataset(data, None, has_time_dim=True)
+                data_list.append(combined_dataset)
+                combined_path = f'{splitext(output_filepath)[0]}_combined.nc'
+                paths.append(combined_path)
+            xr.save_mfdataset(data_list, paths)
 
         elif format.lower() in ['gtiff','geotiff']:
             data_list = refactor_data(data)
@@ -838,28 +826,18 @@ class ResampleCubeTemporal:
             t = []
             for i in index:
                 t.append(target[dimension].values[int(i)])
-            new_data = xr.DataArray(data.values, coords=data.coords, dims=data.dims, attrs=data.attrs, name=data.name)
-            new_data[dimension] = t
             filter_values = data[dimension].values
+            new_data = data #ATTENTION new_data is a shallow copy of data! When you change new_data also data is changed.
+            new_data[dimension] = t
         else:
-            index = np.array([])
+            index = []
             for d in target[dimension].values:
                 difference = (np.abs(d - data[dimension].values))
                 nearest = np.argwhere(difference == np.min(difference))
-                index = np.append(index, nearest)
-            v = []
-            c = []
+                index.append(int(nearest))
             data_t = data.transpose(dimension, ...)
-            for i in index:
-                v.append(data_t.values[int(i)])
-                c.append(data_t[dimension].values[int(i)])
-            new_data = xr.DataArray(v, dims=data_t.dims, attrs=data.attrs, name=data.name)
+            new_data = data_t[index]
             new_data = new_data.transpose(*data.dims)
-            for d in new_data.dims:
-                if d == dimension:
-                    new_data[d] = c
-                else:
-                    new_data[d] = data[d].values
             filter_values = new_data[dimension].values
             new_data[dimension] = target[dimension].values
         if valid_within is None:
@@ -870,6 +848,7 @@ class ResampleCubeTemporal:
             new_data_t = new_data.transpose(dimension, ...)
             new_data_t = new_data_t[filter]
             new_data = new_data_t.transpose(*new_data.dims)
+        new_data.attrs = data.attrs
         return new_data
 
 
@@ -1067,3 +1046,131 @@ class DropDimension:
         else:
             raise Exception('DimensionNotAvailable')
 
+###############################################################################
+# RenameDimension process
+###############################################################################
+
+
+@process
+def rename_dimension():
+    """
+    Rename a dimension.
+
+    Returns
+    -------
+    xr.DataArray :
+           A data cube with the same dimensions, but the name of one of the dimensions changes.
+           The old name can not be referred to any longer.
+           The dimension properties (name, type, labels, reference system and resolution) remain unchanged.
+    """
+    return RenameDimension()
+
+
+class RenameDimension:
+    """
+    Renames a dimension in the data cube while preserving all other properties.
+    """
+
+    @staticmethod
+    def exec_xar(data, source, target):
+        """
+        Parameters
+        ----------
+        data : xr.DataArray
+           A data cube.
+        source : str
+           The current name of the dimension.
+           Fails with a DimensionNotAvailable exception if the specified dimension does not exist.
+        target : str
+           A new Name for the dimension.
+           Fails with a DimensionExists exception if a dimension with the specified name exists.
+
+        Returns
+        -------
+        xr.DataArray :
+           A data cube with the same dimensions, but the name of one of the dimensions changes.
+           The old name can not be referred to any longer.
+           The dimension properties (name, type, labels, reference system and resolution) remain unchanged.
+        """
+        if source not in data.dims:
+            raise Exception('DimensionNotAvailable')
+        elif target in data.dims:
+            raise Exception('DimensionExists')
+        return data.rename({source: target})
+
+
+###############################################################################
+# RenameLabels process
+###############################################################################
+
+
+@process
+def rename_labels():
+    """
+    Rename dimension labels.
+
+    Returns
+    -------
+    xr.DataArray :
+           The data cube with the same dimensions.
+           The dimension properties (name, type, labels, reference system and resolution) remain unchanged, except that for the given dimension the labels change.
+           The old labels can not be referred to any longer. The number of labels remains the same.
+    """
+    return RenameLabels()
+
+
+class RenameLabels:
+    """
+    Renames a dimension in the data cube while preserving all other properties.
+    """
+
+    @staticmethod
+    def exec_xar(data, dimension, target, source = []):
+        """
+        Parameters
+        ----------
+        data : xr.DataArray
+           A data cube.
+        dimension : str
+           The name of the dimension to rename the labels for.
+        target : array
+           The new names for the labels. The dimension labels in the data cube are expected to be enumerated if the parameter target is not specified.
+           If a target dimension label already exists in the data cube, a LabelExists exception is thrown.
+        source : array
+           The names of the labels as they are currently in the data cube.
+           The array defines an unsorted and potentially incomplete list of labels that should be renamed to the names available in the corresponding array elements in the parameter target.
+           If one of the source dimension labels doesn't exist, the LabelNotAvailable exception is thrown.
+           By default, the array is empty so that the dimension labels in the data cube are expected to be enumerated.
+
+        Returns
+        -------
+        xr.DataArray :
+           The data cube with the same dimensions.
+           The dimension properties (name, type, labels, reference system and resolution) remain unchanged, except that for the given dimension the labels change.
+           The old labels can not be referred to any longer. The number of labels remains the same.
+        """
+        if source == []:
+            source = data[dimension].values
+        if type(source) in [str, int, float]:
+            source = [source]
+        if type(target) in [str, int, float]:
+            target = [target]
+        if len(source) != len(target):
+            raise Exception('LabelMismatch')
+        source = np.array(source)
+        for s in source:
+            if s not in data[dimension].values:
+                raise Exception('LabelNotAvailable')
+        target = np.array(target)
+        for t in target:
+            if t in data[dimension].values:
+                raise Exception('LabelExists')
+        names = np.array([])
+        for n in data[dimension].values:
+            if n in source:
+                index = np.argwhere(source == n)
+                names = np.append(names, target[int(index)])
+            else:
+                names = np.append(names, n)
+        data[dimension] = names
+        return data

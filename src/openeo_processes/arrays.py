@@ -923,8 +923,6 @@ class First:
             while (data_first.fillna(999) != data_first).any() and i < len(data_dim):
                 data_first = data_first.fillna(data_dim[i])
                 i += 1
-        else:
-            pass
         return data_first
 
     @staticmethod
@@ -1030,8 +1028,6 @@ class Last:
             while (data_last.fillna(999) != data_last).any() and i >= 0:
                 data_last = data_last.fillna(data_dim[i])
                 i -= 1
-        else:
-            pass
         return data_last
 
     @staticmethod
