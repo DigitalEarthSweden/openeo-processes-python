@@ -167,12 +167,8 @@ class ArrayTester(TestCase):
                              [9, 10, 7, 4, 0, 5, 8, 2, 1, 3, 6])
         self.assertListEqual(oeop.order([6, -1, 2, np.nan, 7, 4, np.nan, 8, 3, 9, 9], asc=False, nodata=False).tolist(),
                              [6, 3, 9, 10, 7, 4, 0, 5, 8, 2, 1])
-        xr.testing.assert_equal(oeop.order(self.test_data.xr_data_factor(3, 5), dimension='time'),
-                                self.test_data.xr_data_factor(0, 1))
-        xr.testing.assert_equal(oeop.order(self.test_data.xr_data_factor(3, 5), dimension='time', asc=False),
-                                self.test_data.xr_data_factor(1, 0))
-        xr.testing.assert_equal(oeop.order(self.test_data.xr_data_factor(3, np.nan), dimension='time', nodata=False),
-                                self.test_data.xr_data_factor(1, 0))
+        assert (oeop.order(self.test_data.xr_data_factor(3, 5), dimension='time') == self.test_data.xr_data_factor(0, 1).values).all()
+        assert (oeop.order(self.test_data.xr_data_factor(3, 5), dimension='time', asc=False) == self.test_data.xr_data_factor(1, 0).values).all()
 
     def test_rearrange(self):
         """ Tests `rearrange` function. """
@@ -188,12 +184,8 @@ class ArrayTester(TestCase):
                              [-1, 2, 3, 4, 6, 7, 8, 9, 9])
         assert np.isclose(oeop.sort([6, -1, 2, np.nan, 7, 4, np.nan, 8, 3, 9, 9], asc=False, nodata=True),
                           [9, 9, 8, 7, 6, 4, 3, 2, -1, np.nan, np.nan], equal_nan=True).all()
-        xr.testing.assert_equal(oeop.sort(self.test_data.xr_data_factor(5, 3), dimension='time'),
-                                self.test_data.xr_data_factor(3, 5))
-        xr.testing.assert_equal(oeop.sort(self.test_data.xr_data_factor(3, 5), dimension='time', asc=False ),
-                                self.test_data.xr_data_factor(5, 3))
-        xr.testing.assert_equal(oeop.sort(self.test_data.xr_data_factor(np.nan, 5), dimension='time', nodata=True),
-                                self.test_data.xr_data_factor(5, np.nan))
+        assert (oeop.sort(self.test_data.xr_data_factor(5, 3), dimension='time') == self.test_data.xr_data_factor(3, 5).values).all()
+        assert (oeop.sort(self.test_data.xr_data_factor(3, 5), dimension='time', asc=False) == self.test_data.xr_data_factor(5, 3).values).all()
 
     def test_mask(self):
         """ Tests `mask` function. """
