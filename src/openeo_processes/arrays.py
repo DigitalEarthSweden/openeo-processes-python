@@ -16,7 +16,8 @@ from openeo_processes.errors import GenericError
 try:
     from xarray_extras.sort import topk, argtopk
 except ImportError:
-    xar_addons = None
+    topk = None
+    argtopk = None
 
 ########################################################################################################################
 # Array Contains Process
