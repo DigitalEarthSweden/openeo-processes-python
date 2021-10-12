@@ -13,7 +13,10 @@ from openeo_processes.errors import ArrayElementParameterMissing
 from openeo_processes.errors import ArrayElementParameterConflict
 from openeo_processes.errors import GenericError
 
-from xarray_extras.sort import topk, argtopk
+try:
+    from xarray_extras.sort import topk, argtopk
+except ImportError:
+    xar_addons = None
 
 ########################################################################################################################
 # Array Contains Process
