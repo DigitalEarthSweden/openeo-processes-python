@@ -13,6 +13,12 @@ from openeo_processes.errors import ArrayElementParameterMissing
 from openeo_processes.errors import ArrayElementParameterConflict
 from openeo_processes.errors import GenericError
 
+try:
+    from xarray_extras.sort import topk, argtopk
+except ImportError:
+    topk = None
+    argtopk = None
+
 ########################################################################################################################
 # Array Contains Process
 ########################################################################################################################
@@ -1172,28 +1178,15 @@ class Order:
             dimension_str = data.dims[dimension]
         if nodata is None:
             data = data.dropna(dimension_str)
-        data_t = data.transpose(dimension_str, ...)
-        order = np.zeros(data_t.shape)
-        i = 0
+        k = len(data[dimension_str].values)
+        if (asc and not nodata) or (not asc and nodata):
+            fill = data.min() - 1
+            data = data.fillna(fill)
+        order = argtopk(data, k = k, dim = dimension_str)
         if asc:
-            if nodata:
-                data_t = data_t.fillna(data_t.max() + 1)
-            if not nodata:
-                data_t = data_t.fillna(data_t.min() - 1)
-            while i < len(order):
-                order[i] = data_t.argmin(dimension_str)
-                data_t[data_t.argmin(dimension_str)] = data_t.max() + 2
-                i += 1
-        else:
-            if nodata:
-                data_t = data_t.fillna(data_t.min() - 1)
-            if not nodata:
-                data_t = data_t.fillna(data_t.max() + 1)
-            while i < len(order):
-                order[i] = data_t.argmax(dimension_str)
-                data_t[data_t.argmax(dimension_str)] = data_t.min() - 2
-                i += 1
-        order = xr.DataArray(order, coords=data_t.coords, dims=data_t.dims, attrs=data.attrs, name=data.name)
+            r = order[dimension_str].values
+            r = np.flip(r)
+            order = order.loc[{dimension_str: r}]
         order = order.transpose(*data.dims)
         return order
 
@@ -1391,32 +1384,22 @@ class Sort:
             dimension_str = data.dims[dimension]
         if nodata is None:
             data = data.dropna(dimension_str)
-        data_t = data.transpose(dimension_str, ...)
-        sort = np.zeros(data_t.shape)
-        i = 0
+        fill = None
         if asc:
-            if nodata:
-                data_t = data_t.fillna(data_t.max() + 1)
+            k = (-1)*len(data[dimension_str].values)
             if not nodata:
-                data_t = data_t.fillna(data_t.min() - 1)
-            while i < len(sort):
-                sort[i] = data_t.min(dimension_str)
-                data_t[data_t.argmin(dimension_str)] = data_t.max() + 2
-                i += 1
+                fill = data.min()-1
+                data = data.fillna(fill)
         else:
+            k = len(data[dimension_str].values)
             if nodata:
-                data_t = data_t.fillna(data_t.min() - 1)
-            if not nodata:
-                data_t = data_t.fillna(data_t.max() + 1)
-            while i < len(sort):
-                sort[i] = data_t.max(dimension_str)
-                data_t[data_t.argmax(dimension_str)] = data_t.min() - 2
-                i += 1
-        sort = xr.DataArray(sort, coords=data_t.coords, dims=data_t.dims, attrs=data.attrs, name=data.name)
-        sort = sort.where(sort != data.max() + 1, np.nan)
-        sort = sort.where(sort != data.min() - 1, np.nan)
-        sort = sort.transpose(*data.dims)
-        return sort
+                fill = data.min() - 1
+                data = data.fillna(fill)
+        sorted = topk(data, k = k, dim = dimension_str)
+        sorted = sorted.transpose(*data.dims)
+        if fill is not None:
+            sorted = sorted.where(sorted != fill, np.nan)
+        return sorted
 
     @staticmethod
     def exec_da():
