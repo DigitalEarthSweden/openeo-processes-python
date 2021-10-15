@@ -671,22 +671,23 @@ class SaveResult:
             data.attrs.pop('grid_mapping')
         # end workaround
 
+        dask_result = data.compute()  # perform computation
         formats = ('GTiff', 'netCDF')
         if format.lower() == 'netcdf':
-            data_list = refactor_data(data)
+            data_list = refactor_data(dask_result)
             paths = []
             for idx in range(len(data_list)):
                 paths.append(create_output_filepath(output_filepath, idx, 'nc'))
             # combined dataset
-            if 'time' in data.coords:
-                combined_dataset = reformat_dataset(data, None, has_time_dim=True)
+            if 'time' in dask_result.coords:
+                combined_dataset = reformat_dataset(dask_result, None, has_time_dim=True)
                 data_list.append(combined_dataset)
                 combined_path = f'{splitext(output_filepath)[0]}_combined.nc'
                 paths.append(combined_path)
             xr.save_mfdataset(data_list, paths)
 
         elif format.lower() in ['gtiff','geotiff']:
-            data_list = refactor_data(data)
+            data_list = refactor_data(dask_result)
             if len(data_list[0].dims) > 3:
                 raise Exception("[!] Not possible to write a 4-dimensional GeoTiff, use NetCDF instead.")
             for idx, dataset in enumerate(data_list):
