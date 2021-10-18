@@ -1175,3 +1175,75 @@ class RenameLabels:
                 names = np.append(names, n)
         data[dimension] = names
         return data
+
+
+###############################################################################
+# FilterTemporal process
+###############################################################################
+
+
+@process
+def filter_temporal():
+    """
+    Temporal filter for a temporal intervals.
+
+    Returns
+    -------
+    xr.DataArray :
+           A data cube restricted to the specified temporal extent.
+           The dimensions and dimension properties (name, type, labels, reference system and resolution) remain unchanged,
+           except that the temporal dimensions (determined by dimensions parameter) may have less dimension labels.
+
+    """
+    return FilterTemporal()
+
+
+class FilterTemporal:
+    """
+    Limits the data cube to the specified interval of dates and/or times.
+    More precisely, the filter checks whether each of the temporal dimension labels is greater than or equal to the lower boundary (start date/time)
+    and less than the value of the upper boundary (end date/time).
+    This corresponds to a left-closed interval, which contains the lower boundary but not the upper boundary.
+    """
+
+    @staticmethod
+    def exec_xar(data, extent, dimension = None):
+        """
+        Parameters
+        ----------
+        data : xr.DataArray
+           A data cube.
+        extent : temporal interval, array
+           Left-closed temporal interval, i.e. an array with exactly two elements:
+           The first element is the start of the temporal interval. The specified instance in time is included in the interval.
+           The second element is the end of the temporal interval. The specified instance in time is excluded from the interval.
+           The specified temporal strings follow RFC 3339. Also supports open intervals by setting one of the boundaries to null, but never both.
+        dimension : str
+           The name of the temporal dimension to filter on.
+           If no specific dimension is specified or it is set to null, the filter applies to all temporal dimensions.
+           Fails with a DimensionNotAvailable exception if the specified dimension does not exist.
+
+        Returns
+        -------
+        xr.DataArray :
+           A data cube restricted to the specified temporal extent.
+           The dimensions and dimension properties (name, type, labels, reference system and resolution) remain unchanged,
+           except that the temporal dimensions (determined by dimensions parameter) may have less dimension labels.
+        """
+        if dimension is None:
+            dimension = 'time'
+        dimension = get_time_dimension_from_data(data, dimension)
+        if 'Z' in extent[0]:
+            extent[0] = extent[0][:-1]
+        if 'Z' in extent[1]:
+            extent[1] = extent[1][:-1]
+        if dimension in data.dims:
+            filtered = data.loc[{dimension: slice(np.datetime64(extent[0]), np.datetime64(extent[1]))}]
+            l = np.min([len(str(filtered[dimension].values[-1])), len(str(extent[1]))])
+            if str(filtered[dimension].values[-1])[:l] == str(extent[1])[:l]:
+                skip_last = filtered[dimension].values[:-1]
+                return filtered.loc[{dimension: skip_last}]
+            else:
+                return filtered
+        else:
+            raise Exception('DimensionNotAvailable')
