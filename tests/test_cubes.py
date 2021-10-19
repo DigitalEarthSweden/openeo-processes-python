@@ -237,5 +237,12 @@ class CubesTester(unittest.TestCase):
         data = oeop.rename_labels(self.test_data.xr_data_factor(), 'x', [119, 120, 121], [118.9, 119.9, 120.9])
         assert (data['x'].values == (119, 120, 121)).all()
 
+    def test_filter_temporal(self):
+        """Tests 'filter_temporal' function. """
+        data = oeop.filter_temporal(self.test_data.xr_data_factor(), ['2019-12-01', '2019-12-05'])
+        data2 = oeop.filter_temporal(self.test_data.xr_data_factor(), ['2019-12-01T00:00:00Z', '2019-12-02T00:00:00Z'])
+        xr.testing.assert_equal(data, data2)
+
+
 if __name__ == "__main__":
     unittest.main()
