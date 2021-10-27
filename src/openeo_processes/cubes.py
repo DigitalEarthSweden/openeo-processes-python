@@ -6,6 +6,7 @@ import numpy as np
 import odc.algo
 import rioxarray  # needed by save_result even if not directly called
 import xarray as xr
+from openeo_processes.errors import DimensionNotAvailable
 from openeo_processes.extension.odc import write_odc_product
 from openeo_processes.utils import process, get_time_dimension_from_data
 from scipy import optimize
@@ -19,10 +20,11 @@ def odc_load_helper(odc_cube, params: Dict[str, Any]) -> xr.DataArray:
     """Helper method to load a xarray DataArray from ODC."""
     try:
         datacube = odc_cube.load(**params)
-    except ValueError:
-        print('Product with determined extent not found')
+    except ValueError as exp:
+        raise ValueError('For the provided collection, spatial and temporal extent no data is available. Please try'
+                         ' a different extent.')
     except KeyError:
-        print('Constraints not found')
+        raise DimensionNotAvailable()
 
     # Improve CPU and MEM USAGE
     for name, data_var in datacube.data_vars.items():
