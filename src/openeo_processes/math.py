@@ -2641,6 +2641,8 @@ class Mean:
         """
         if is_empty(data):
             return np.nan
+        if not dimension:
+            dimension = data.dims[0]
         m = data.mean(dim=dimension, skipna=~ignore_nodata)
         if isinstance(data, xr.DataArray):
             m.attrs = data.attrs
@@ -2935,6 +2937,8 @@ class Median:
         """
         if is_empty(data):
             return np.nan
+        if not dimension:
+            dimension = data.dims[0]
         m = data.median(dim=dimension, skipna=~ignore_nodata)
         if isinstance(data, xr.DataArray):
             m.attrs = data.attrs
@@ -3042,6 +3046,8 @@ class Sd:
         """
         if is_empty(data):
             return np.nan
+        if not dimension:
+            dimension = data.dims[0]
         s = data.std(dim=dimension, skipna=~ignore_nodata)
         if isinstance(data, xr.DataArray):
             s.attrs = data.attrs
@@ -3138,6 +3144,8 @@ class Variance:
 
         if is_empty(data):
             return np.nan
+        if not dimension:
+            dimension = data.dims[0]
         v = data.var(dim=dimension, skipna=~ignore_nodata)
         if isinstance(data, xr.DataArray):
             v.attrs = data.attrs
@@ -3228,6 +3236,8 @@ class Extrema:
             A list containing the minimum and maximum values for the specified numbers. The first element is the
             minimum, the second element is the maximum. If the input array is empty both elements are set to np.nan.
         """
+        if not dimension:
+            dimension = data.dims[0]
         if is_empty(data):
             return xr.DataArray(np.nan)
         else:
@@ -3446,7 +3456,7 @@ class Quantiles:
             return np.nanpercentile(data, probabilities, axis=dimension)
 
     @staticmethod
-    def exec_xar(data, probabilities=None, q=None, ignore_nodata=True, dimension=0):
+    def exec_xar(data, probabilities=None, q=None, ignore_nodata=True, dimension=None):
         """
         Calculates quantiles, which are cut points dividing the range of a probability distribution into either
 
@@ -3495,6 +3505,8 @@ class Quantiles:
 
         if is_empty(data):
             return [np.nan] * len(probabilities)
+        if not dimension:
+            dimension = data.dims[0]
         q = data.quantile(np.array(probabilities), dim=dimension, skipna=~ignore_nodata)
         if isinstance(data, xr.DataArray):
             q.attrs = data.attrs
@@ -4047,8 +4059,8 @@ class Sum:
             The computed sum of the sequence of numbers.
 
         """
-
         summand = 0
+
         if isinstance(data, list):
             data_tmp = []
             for item in data:
@@ -4058,20 +4070,18 @@ class Sum:
                     summand += item
             # Concatenate along dim 'new_dim'
             data = xr.concat(data_tmp, dim='new_dim')
-        elif isinstance(data, xr.DataArray):
+            if not dimension:
+                dimension = data.dims[0]
+            return data.sum(dim=dimension, skipna=~ignore_nodata) + summand
+        if is_empty(data):
+            return np.nan
+
+        if isinstance(data, xr.DataArray):
             if not dimension:
                 dimension = data.dims[0]
             s = data.sum(dim=dimension, skipna=~ignore_nodata)
             s.attrs = data.attrs
             return s
-
-        if is_empty(data):
-            return np.nan
-
-        if not dimension:
-            dimension = data.dims[0]
-
-        return data.sum(dim=dimension, skipna=~ignore_nodata) + summand
 
     @staticmethod
     def exec_da():
@@ -4698,6 +4708,108 @@ class NormalizedDifference:
         """
         nd = (x - y) / (x + y)
         return keep_attrs(x, y, nd)
+
+    @staticmethod
+    def exec_da():
+        pass
+
+
+########################################################################################################################
+# NDVI Process
+########################################################################################################################
+
+@process
+def ndvi():
+    """
+    Returns class instance of `NormalizedDifference`.
+    For more details, please have a look at the implementations inside `NormalizedDifference`.
+
+    Returns
+    -------
+    NormalizedDifference :
+        Class instance implementing all 'normalized_difference' processes.
+
+    """
+    return Ndvi()
+
+
+class Ndvi:
+    """
+    Computes the Normalized Difference Vegetation Index (NDVI). The NDVI is computed as (nir - red) / (nir + red).
+
+    """
+
+    @staticmethod
+    def exec_num(data, nir='nir', red='red', target_band=None):
+        pass
+
+    @staticmethod
+    def exec_np(data, nir='nir', red='red', target_band=None):
+        pass
+
+    @staticmethod
+    def exec_xar(data, nir='nir', red='red', target_band=None):
+        """
+        Computes the Normalized Difference Vegetation Index (NDVI). The NDVI is computed as (nir - red) / (nir + red).
+        The data parameter expects a raster data cube with a dimension of type bands or a DimensionAmbiguous exception is thrown otherwise.
+        By default, the dimension must have at least two bands with the common names red and nir assigned.
+        Otherwise, the user has to specify the parameters nir and red. If neither is the case, either the exception NirBandAmbiguous or RedBandAmbiguous is thrown.
+        The common names for each band are specified in the collection's band metadata and are not equal to the band names.
+        By default, the dimension of type bands is dropped by this process. To keep the dimension specify a new band name in the parameter target_band.
+        This adds a new dimension label with the specified name to the dimension, which can be used to access the computed values.
+        If a band with the specified name exists, a BandExists is thrown.
+        This process is very similar to the process normalized_difference, but determines the bands automatically based on the common names (red/nir) specified in the metadata.
+
+        Parameters
+        ----------
+        data : xr.DataArray
+            A raster data cube with two bands that have the common names red and nir assigned.
+        nir : string
+            The name of the NIR band. Defaults to the band that has the common name nir assigned.
+            Either the unique band name (metadata field name in bands) or one of the common band names (metadata field common_name in bands) can be specified.
+            If the unique band name and the common name conflict, the unique band name has a higher priority.
+        red : string
+            The name of the red band. Defaults to the band that has the common name red assigned.
+            Either the unique band name (metadata field name in bands) or one of the common band names (metadata field common_name in bands) can be specified.
+            If the unique band name and the common name conflict, the unique band name has a higher priority.
+        target_band : string
+            By default, the dimension of type bands is dropped.
+            To keep the dimension specify a new band name in this parameter so that a new dimension label with the specified name will be added for the computed values.
+
+        Returns
+        -------
+        xr.DataArray :
+           A raster data cube containing the computed NDVI values. The structure of the data cube differs depending on the value passed to target_band:
+        """
+        r = np.nan
+        n = np.nan
+        if 'bands' in data.dims:
+            if red == 'red':
+                if 'B04' in data['bands'].values:
+                    r = data.sel(bands='B04')
+            elif red == 'rededge':
+                if 'B05' in data['bands'].values:
+                    r = data.sel(bands='B05')
+                elif 'B06' in data['bands'].values:
+                    r = data.sel(bands='B06')
+                elif 'B07' in data['bands'].values:
+                    r = data.sel(bands='B07')
+            if nir == 'nir':
+                n = data.sel(bands='B08')
+            elif nir == 'nir08':
+                if 'B8a' in data['bands'].values:
+                    n = data.sel(bands='B8a')
+                elif 'B8A' in data['bands'].values:
+                    n = data.sel(bands='B8A')
+                elif 'B05' in data['bands'].values:
+                    n = data.sel(bands='B05')
+            elif nir == 'nir09':
+                if 'B09' in data['bands'].values:
+                    n = data.sel(bands='B09')
+        nd = (n - r) / (n + r)
+        if target_band is not None:
+            nd = nd.assign_coords(bands=target_band)
+        return nd
 
     @staticmethod
     def exec_da():

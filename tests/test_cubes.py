@@ -243,6 +243,11 @@ class CubesTester(unittest.TestCase):
         data2 = oeop.filter_temporal(self.test_data.xr_data_factor(), ['2019-12-01T00:00:00Z', '2019-12-02T00:00:00Z'])
         xr.testing.assert_equal(data, data2)
 
+    def test_mask(self):
+        """ Tests `mask` function. """
+        assert (oeop.mask(np.array([[1,3,6],[2,2,2]]), np.array([[True,False,True],[False,False,True]]), 999) == np.array([[999,3,999],[2,2,999]])).all()
+        xr.testing.assert_equal(oeop.mask(self.test_data.xr_data_factor(1, 5),self.test_data.xr_data_factor(True, False), replacement = 999),
+                                self.test_data.xr_data_factor(999, 5))
 
 if __name__ == "__main__":
     unittest.main()
