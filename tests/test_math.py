@@ -472,7 +472,11 @@ class MathTester(unittest.TestCase):
         assert oeop.normalized_difference(1, 1) == 0
         assert (oeop.normalized_difference(np.array([1, 1]), np.array([0, 1])) == np.array([1, 0])).all()
         xr.testing.assert_equal(oeop.normalized_difference(self.test_data.xr_data_factor(1, 5), self.test_data.xr_data_factor(1, 3)), self.test_data.xr_data_factor(0, 0.25))
-        
+
+    def test_ndvi(self):
+        """ Tests 'ndvi' function. """
+        assert (oeop.ndvi(self.test_data.xr_data_4d, target_band='B') == 1/3).all()
+
     def test_apply_kernel(self):
         """ Tests `apply_kernel` function. """
         # xarray tests
