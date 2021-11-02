@@ -187,8 +187,3 @@ class ArrayTester(TestCase):
         assert (oeop.sort(self.test_data.xr_data_factor(5, 3), dimension='time') == self.test_data.xr_data_factor(3, 5).values).all()
         assert (oeop.sort(self.test_data.xr_data_factor(3, 5), dimension='time', asc=False) == self.test_data.xr_data_factor(5, 3).values).all()
 
-    def test_mask(self):
-        """ Tests `mask` function. """
-        assert (oeop.mask(np.array([[1,3,6],[2,2,2]]), np.array([[True,False,True],[False,False,True]]), 999) == np.array([[999,3,999],[2,2,999]])).all()
-        xr.testing.assert_equal(oeop.mask(self.test_data.xr_data_factor(1, 5),self.test_data.xr_data_factor(True, False), replacement = 999),
-                                self.test_data.xr_data_factor(999, 5))

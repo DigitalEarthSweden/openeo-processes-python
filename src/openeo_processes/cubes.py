@@ -1247,3 +1247,124 @@ class FilterTemporal:
                 return filtered
         else:
             raise Exception('DimensionNotAvailable')
+
+
+########################################################################################################################
+# Mask Process
+########################################################################################################################
+
+@process
+def mask():
+    """
+    Returns class instance of `Mask`.
+    For more details, please have a look at the implementations inside `Mask`.
+
+    Returns
+    -------
+    Mask :
+        Class instance implementing all 'mask' processes.
+
+    """
+    return Mask()
+
+
+class Mask:
+    """
+    Class instance implementing all 'mask' processes.
+
+    """
+
+    @staticmethod
+    def exec_num():
+        pass
+
+    @staticmethod
+    def exec_np(data, mask, replacement=np.nan):
+        """
+        Applies a mask to an array. A mask is an array for which corresponding elements among `data` and `mask` are
+        compared and those elements in `data` are replaced whose elements in `mask` are non-zero (for numbers) or True
+        (for boolean values). The elements are replaced with the value specified for `replacement`, which defaults to
+        np.nan (no data).
+
+
+        Parameters
+        ----------
+        data : np.ndarray
+            An array to mask.
+        mask : np.ndarray
+            A mask as an array. Every element in `data` must have a corresponding element in `mask`.
+        replacement : float or int, optional
+            The value used to replace masked values with.
+        dimension : int, optional
+            Defines the dimension along to apply the mask (default is 0).
+
+        Returns
+        -------
+        np.ndarray :
+            The masked array.
+
+        """
+        if data.shape == mask.shape:
+            data[mask] = replacement
+        else:
+            data[mask[None, :, :]] = replacement
+
+        return data
+
+    @staticmethod
+    def exec_xar(data, mask, replacement=np.nan):
+        """
+        Applies a mask to an array. A mask is an array for which corresponding elements among `data` and `mask` are
+        compared and those elements in `data` are replaced whose elements in `mask` are non-zero (for numbers) or True
+        (for boolean values). The elements are replaced with the value specified for `replacement`, which defaults to
+        np.nan (no data).
+
+
+        Parameters
+        ----------
+        data : xr.DataArray
+            An array to mask.
+        mask : xr.DataArray
+            A mask as an array. Every element in `data` must have a corresponding element in `mask`.
+        replacement : float or int, optional
+            The value used to replace masked values with.
+
+        Returns
+        -------
+        xr.DataArray :
+            The masked array.
+        """
+        if mask.dtype != bool:
+            mask = mask != 0
+        if (data.dims == mask.dims):  # Check if the dimensions have the same names
+            matching = 0
+            not_matching = 0
+            for c in data.coords:
+                cord = (data[c] == mask[c])  # Check how many dimensions have exactly the same coordinates
+                if (np.array([cord.values])).shape[-1] == 1:  # Special case where dimension has only one coordinate, cannot compute len() of that, so I use shape
+                    cord = (np.array([cord.values]))  # cord is set 0 or 1 here (False or True)
+                else:
+                    cord = len(cord)
+                if cord == 0:  # dimension with different coordinates
+                    dimension = c
+                elif cord == (np.array([data[c].values])).shape[-1]:  # dimensions with matching coordinates, shape instead of len, for special case with only one coordinate
+                    matching += 1
+                else:
+                    not_matching += 1
+                    dim_not_matching = c  # dimensions with some matching coordinates
+            if matching != len(data.coords):  # all dimensions match
+                raise Exception(
+                    "The following dimension does not match between data and mask: %s, can't apply the process.\ndata has %d and mask has %d samples." % (
+                    str(dim_not_matching), len(data[dim_not_matching]), len(mask[dim_not_matching])))
+            data = data.where(mask == 0, replacement)
+        elif len(data.dims) > len(mask.dims):
+            data = data.where(mask == 0, replacement)
+        else:
+            raise Exception("The mask has more dimensions than the data, can't apply the process.")
+            pass
+        return data
+
+    @staticmethod
+    def exec_da():
+        pass
+
