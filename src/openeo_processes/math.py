@@ -3236,10 +3236,10 @@ class Extrema:
             A list containing the minimum and maximum values for the specified numbers. The first element is the
             minimum, the second element is the maximum. If the input array is empty both elements are set to np.nan.
         """
-        if is_empty(data):
-            return xr.DataArray(np.nan)
         if not dimension:
             dimension = data.dims[0]
+        if is_empty(data):
+            return xr.DataArray(np.nan)
         else:
             minimum = data.min(dim=dimension, skipna=~ignore_nodata)
             maximum = data.max(dim=dimension, skipna=~ignore_nodata)
@@ -4059,9 +4059,8 @@ class Sum:
             The computed sum of the sequence of numbers.
 
         """
-        if not dimension:
-            dimension = data.dims[0]
         summand = 0
+
         if isinstance(data, list):
             data_tmp = []
             for item in data:
@@ -4071,16 +4070,18 @@ class Sum:
                     summand += item
             # Concatenate along dim 'new_dim'
             data = xr.concat(data_tmp, dim='new_dim')
-        elif isinstance(data, xr.DataArray):
-            s = data.sum(dim=dimension, skipna=~ignore_nodata)
-            s.attrs = data.attrs
-            return s
-
+            if not dimension:
+                dimension = data.dims[0]
+            return data.sum(dim=dimension, skipna=~ignore_nodata) + summand
         if is_empty(data):
             return np.nan
 
-
-        return data.sum(dim=dimension, skipna=~ignore_nodata) + summand
+        if isinstance(data, xr.DataArray):
+            if not dimension:
+                dimension = data.dims[0]
+            s = data.sum(dim=dimension, skipna=~ignore_nodata)
+            s.attrs = data.attrs
+            return s
 
     @staticmethod
     def exec_da():

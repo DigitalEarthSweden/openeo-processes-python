@@ -243,9 +243,7 @@ class MathTester(unittest.TestCase):
         assert oeop.mean([9, 2.5, np.nan, -2.5]) == 3
         assert np.isnan(oeop.mean([1, np.nan], ignore_nodata=False))
         assert np.isnan(oeop.mean([]))
-        xr.testing.assert_equal(
-            oeop.mean(self.test_data.xr_data_factor(3, 5)),
-            xr.DataArray(4))
+        assert (oeop.mean(self.test_data.xr_data_factor(3, 5)).values == self.test_data.xr_data_factor(4, 4)[0].values).all()
 
     def test_min(self):
         """ Tests `min` function. """
@@ -272,18 +270,14 @@ class MathTester(unittest.TestCase):
         assert oeop.median([-1, -0.5, np.nan, 1]) == -0.5
         assert np.isnan(oeop.median([-1, 0, np.nan, 1], ignore_nodata=False))
         assert np.isnan(oeop.median([]))
-        xr.testing.assert_equal(
-            oeop.median(self.test_data.xr_data_factor(3, 5)),
-            xr.DataArray(4))
+        assert (oeop.median(self.test_data.xr_data_factor(3, 5)).values == self.test_data.xr_data_factor(4, 4)[0].values).all()
 
     def test_sd(self):
         """ Tests `sd` function. """
         assert oeop.sd([-1, 1, 3, np.nan]) == 2
         assert np.isnan(oeop.sd([-1, 1, 3, np.nan], ignore_nodata=False))
         assert np.isnan(oeop.sd([]))
-        xr.testing.assert_equal(
-            oeop.sd(self.test_data.xr_data_factor(3, 5)),
-            xr.DataArray(1))
+        assert (oeop.sd(self.test_data.xr_data_factor(3, 5)).values == self.test_data.xr_data_factor()[0].values).all()
 
     def test_variance(self):
         """ Tests `variance` function. """
@@ -291,9 +285,7 @@ class MathTester(unittest.TestCase):
         assert oeop.variance([2, 3, 3, np.nan, 4, 4, 5]) == 1.1
         assert np.isnan(oeop.variance([-1, 1, np.nan, 3], ignore_nodata=False))
         assert np.isnan(oeop.variance([]))
-        xr.testing.assert_equal(
-            oeop.variance(self.test_data.xr_data_factor(3, 5)),
-            xr.DataArray(1))
+        assert (oeop.variance(self.test_data.xr_data_factor(3, 5)).values == self.test_data.xr_data_factor()[0].values).all()
 
     def test_extrema(self):
         """ Tests `extrema` function. """
@@ -302,7 +294,7 @@ class MathTester(unittest.TestCase):
         assert np.isclose(oeop.extrema([1, 0, 3, np.nan, 2], ignore_nodata=False), [np.nan, np.nan],
                           equal_nan=True).all()
         assert np.isclose(oeop.extrema([]), [np.nan, np.nan], equal_nan=True).all()
-        assert (oeop.extrema(self.test_data.xr_data_factor(3, 5)).values == np.array([3, 5])).all()
+        assert (oeop.extrema(self.test_data.xr_data_factor(3, 5)).values == self.test_data.xr_data_factor(3, 5).values).all()
 
     def test_clip(self):
         """ Tests `clip` function. """
@@ -404,6 +396,8 @@ class MathTester(unittest.TestCase):
              oeop.sum([self.test_data.xr_data_3d, self.test_data.xr_data_3d]) -
              self.test_data.xr_data_3d * 2
             ).sum(), 0)
+
+        assert (oeop.sum(self.test_data.xr_data_factor(1, 2), dimension='time').values == 3).all()
 
     def test_product(self):
         """ Tests `product` function. """
