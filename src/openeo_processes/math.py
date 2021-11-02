@@ -2641,6 +2641,8 @@ class Mean:
         """
         if is_empty(data):
             return np.nan
+        if not dimension:
+            dimension = data.dims[0]
         m = data.mean(dim=dimension, skipna=~ignore_nodata)
         if isinstance(data, xr.DataArray):
             m.attrs = data.attrs
@@ -2935,6 +2937,8 @@ class Median:
         """
         if is_empty(data):
             return np.nan
+        if not dimension:
+            dimension = data.dims[0]
         m = data.median(dim=dimension, skipna=~ignore_nodata)
         if isinstance(data, xr.DataArray):
             m.attrs = data.attrs
@@ -3042,6 +3046,8 @@ class Sd:
         """
         if is_empty(data):
             return np.nan
+        if not dimension:
+            dimension = data.dims[0]
         s = data.std(dim=dimension, skipna=~ignore_nodata)
         if isinstance(data, xr.DataArray):
             s.attrs = data.attrs
@@ -3138,6 +3144,8 @@ class Variance:
 
         if is_empty(data):
             return np.nan
+        if not dimension:
+            dimension = data.dims[0]
         v = data.var(dim=dimension, skipna=~ignore_nodata)
         if isinstance(data, xr.DataArray):
             v.attrs = data.attrs
@@ -3230,6 +3238,8 @@ class Extrema:
         """
         if is_empty(data):
             return xr.DataArray(np.nan)
+        if not dimension:
+            dimension = data.dims[0]
         else:
             minimum = data.min(dim=dimension, skipna=~ignore_nodata)
             maximum = data.max(dim=dimension, skipna=~ignore_nodata)
@@ -3446,7 +3456,7 @@ class Quantiles:
             return np.nanpercentile(data, probabilities, axis=dimension)
 
     @staticmethod
-    def exec_xar(data, probabilities=None, q=None, ignore_nodata=True, dimension=0):
+    def exec_xar(data, probabilities=None, q=None, ignore_nodata=True, dimension=None):
         """
         Calculates quantiles, which are cut points dividing the range of a probability distribution into either
 
@@ -3495,6 +3505,8 @@ class Quantiles:
 
         if is_empty(data):
             return [np.nan] * len(probabilities)
+        if not dimension:
+            dimension = data.dims[0]
         q = data.quantile(np.array(probabilities), dim=dimension, skipna=~ignore_nodata)
         if isinstance(data, xr.DataArray):
             q.attrs = data.attrs
@@ -4047,7 +4059,8 @@ class Sum:
             The computed sum of the sequence of numbers.
 
         """
-
+        if not dimension:
+            dimension = data.dims[0]
         summand = 0
         if isinstance(data, list):
             data_tmp = []
@@ -4059,8 +4072,6 @@ class Sum:
             # Concatenate along dim 'new_dim'
             data = xr.concat(data_tmp, dim='new_dim')
         elif isinstance(data, xr.DataArray):
-            if not dimension:
-                dimension = data.dims[0]
             s = data.sum(dim=dimension, skipna=~ignore_nodata)
             s.attrs = data.attrs
             return s
@@ -4068,8 +4079,6 @@ class Sum:
         if is_empty(data):
             return np.nan
 
-        if not dimension:
-            dimension = data.dims[0]
 
         return data.sum(dim=dimension, skipna=~ignore_nodata) + summand
 
