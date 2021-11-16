@@ -104,13 +104,42 @@ class LoadResult:
     """
 
     @staticmethod
-    def exec_odc(odc_cube, product: str, dask_chunks: dict):
+    def exec_odc(odc_cube, product: str, dask_chunks: dict,
+                 x = None, y = None, time = [],
+                 measurements = [], crs = None):
 
         odc_params = {
             'product': product,
             'dask_chunks': dask_chunks
         }
-        dataarray = odc_load_helper(odc_cube, odc_params)
+        part = False
+        if crs:
+            odc_params['crs'] = crs
+        # lists are transformed to np.arrays by the wrapper
+        # update when that step has been removed
+        if len(time) > 0:
+            odc_params['time'] = list(time)
+        if len(measurements) > 0:
+            odc_params['measurements'] = list(measurements)
+        if x:
+            odc_params['x'] = x
+            part = True
+        if y:
+            odc_params['y'] = y
+            part = True
+        if part:
+            try:
+                dataarray = odc_load_helper(odc_cube, odc_params)
+            except:
+                if x:
+                    odc_params['longitude'] = x
+                    odc_params.pop('x')
+                if y:
+                    odc_params['latitude'] = y
+                    odc_params.pop('y')
+                dataarray = odc_load_helper(odc_cube, odc_params)
+        else:
+            dataarray = odc_load_helper(odc_cube, odc_params)
 
         # If data is in geographic coordinate system coords are called longitude/latitude
         # for consistency and easier handling in other processes rename them to x/y
