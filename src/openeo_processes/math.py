@@ -4806,6 +4806,10 @@ class Ndvi:
             elif nir == 'nir09':
                 if 'B09' in data['bands'].values:
                     n = data.sel(bands='B09')
+            if red in data['bands'].values:
+                r = data.sel(bands=red)
+            if nir in data['bands'].values:
+                n = data.sel(bands=nir)
         nd = (n - r) / (n + r)
         if target_band is not None:
             nd = nd.assign_coords(bands=target_band)
