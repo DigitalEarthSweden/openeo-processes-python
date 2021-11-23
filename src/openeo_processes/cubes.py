@@ -155,6 +155,143 @@ class LoadResult:
 
 
 ###############################################################################
+# Save result process
+###############################################################################
+
+
+@process
+def save_result():
+    """
+    Returns class instance of `save_result`.
+    For more details, please have a look at the implementations inside
+    `save_result`.
+
+    Returns
+    -------
+    save_result :
+        Class instance implementing all 'save_result' processes.
+
+    """
+    return SaveResult()
+
+
+class SaveResult:
+    """
+    Class implementing 'save_result' processes.
+
+    """
+
+    @staticmethod
+    def exec_xar(data, output_filepath='out', format='GTiff', options={}, write_prod: bool = True):
+        """
+        Save data to disk in specified format.
+
+        Parameters
+        ----------
+        data : xr.DataArray
+            An array of numbers. An empty array resolves always with np.nan.
+        output_filepath: str
+            Absolute or relative filepath where to store data on disk,
+            with or without extention
+        format: str, optional
+            data format (default: GTiff)
+
+        """
+        def reformat_dataset(dataset: xr.DataArray, timestamp: datetime = None, has_time_dim: bool = False) \
+                -> xr.Dataset:
+            """Create a xarray Dataset."""
+            data_var = dataset.fillna(-9999)
+            data_var.attrs["nodata"] = -9999
+            if 'bands' in dataset.coords:
+                try:
+                    tmp = data_var.to_dataset(dim="bands")
+                except Exception as e:
+                    print(e)
+                    n = dataset['bands'].values
+                    tmp = data_var.to_dataset(name=str(n))
+            else:
+                tmp = data_var.to_dataset(name='result')
+
+            # fix dimension order
+            current_dims = tuple(tmp.dims)
+            base_dims = ("bands", "time", "y", "x") if has_time_dim else ("bands", "y", "x")
+            additional_dim = list(set(current_dims).difference(set(base_dims)))
+            base_dims = base_dims[1:]  # remove bands elem > not a dimension!
+            if additional_dim and current_dims != (additional_dim[0], *base_dims):
+                tmp = tmp.transpose(additional_dim[0], *base_dims)
+            elif current_dims != base_dims:
+                tmp = tmp.transpose(*base_dims)
+
+            tmp.attrs = data_var.attrs
+            # This is a hack! ODC always(!) expectes to have a time dimension
+            # set datetime to now if no other information is available
+            if has_time_dim:
+                tmp = tmp.rename({"time": "t"})
+            else:
+                tmp.attrs["datetime_from_dim"] = str(timestamp) if timestamp else str(datetime.now())
+            if "crs" not in tmp.attrs:
+                first_data_var = tmp.data_vars[list(tmp.data_vars.keys())[0]]
+                tmp.attrs["crs"] = first_data_var.geobox.crs.to_wkt()
+            return tmp
+
+        def refactor_data(data: xr.DataArray) -> List[xr.Dataset]:
+            """Recreate a Dataset from the final result as Dataarray, to ensure a well formatted netCDF."""
+            all_tmp = []
+            # TODO this must be improved once `rename_dimension` is supported!
+            if 'time' in data.coords:
+                for timestamp in data.time.values:
+                    data_at_timestamp = data.loc[dict(time=timestamp)]
+                    all_tmp.append(reformat_dataset(data_at_timestamp, timestamp))
+            else:
+                all_tmp.append(reformat_dataset(data))
+
+            return all_tmp
+
+        def create_output_filepath(output_filepath: str, idx: int = 0, ext: str = "nc") -> str:
+            """Create the output filepath."""
+            root, _ = splitext(output_filepath)
+            return f'{root}_{str(idx).zfill(5)}.{ext}'
+
+        # start workaround
+        # https://github.com/opendatacube/datacube-core/issues/972
+        # ValueError failed to prevent overwriting existing key units in `attrs` on variable 'time'
+        if hasattr(data, 'time') and hasattr(data.time, 'units'):
+            data.time.attrs.pop('units', None)
+        if hasattr(data, 'grid_mapping'):
+            data.attrs.pop('grid_mapping')
+        # end workaround
+
+        dask_result = data.compute()  # perform computation
+        formats = ('GTiff', 'netCDF')
+        if format.lower() == 'netcdf':
+            data_list = refactor_data(dask_result)
+            paths = []
+            for idx in range(len(data_list)):
+                paths.append(create_output_filepath(output_filepath, idx, 'nc'))
+            # combined dataset
+            if 'time' in dask_result.coords:
+                combined_dataset = reformat_dataset(dask_result, None, has_time_dim=True)
+                data_list.append(combined_dataset)
+                combined_path = f'{splitext(output_filepath)[0]}_combined.nc'
+                paths.append(combined_path)
+            xr.save_mfdataset(data_list, paths)
+
+        elif format.lower() in ['gtiff','geotiff']:
+            data_list = refactor_data(dask_result)
+            if len(data_list[0].dims) > 3:
+                raise Exception("[!] Not possible to write a 4-dimensional GeoTiff, use NetCDF instead.")
+            for idx, dataset in enumerate(data_list):
+                cur_output_filepath = create_output_filepath(output_filepath, idx, 'tif')
+                dataset.rio.to_raster(raster_path=cur_output_filepath,**options)
+
+        else:
+            raise ValueError(f"Error when saving to file. Format '{format}' is not in {formats}.")
+
+        if write_prod:
+            write_odc_product(data_list[0], output_filepath)
+
+
+###############################################################################
 # Reduce dimension process
 ###############################################################################
 
@@ -592,142 +729,6 @@ class PredictCurve:
         predicted.attrs = data.attrs
         return predicted
 
-
-###############################################################################
-# Save result process
-###############################################################################
-
-
-@process
-def save_result():
-    """
-    Returns class instance of `save_result`.
-    For more details, please have a look at the implementations inside
-    `save_result`.
-
-    Returns
-    -------
-    save_result :
-        Class instance implementing all 'save_result' processes.
-
-    """
-    return SaveResult()
-
-
-class SaveResult:
-    """
-    Class implementing 'save_result' processes.
-
-    """
-
-    @staticmethod
-    def exec_xar(data, output_filepath='out', format='GTiff', options={}, write_prod: bool = True):
-        """
-        Save data to disk in specified format.
-
-        Parameters
-        ----------
-        data : xr.DataArray
-            An array of numbers. An empty array resolves always with np.nan.
-        output_filepath: str
-            Absolute or relative filepath where to store data on disk,
-            with or without extention
-        format: str, optional
-            data format (default: GTiff)
-
-        """
-        def reformat_dataset(dataset: xr.DataArray, timestamp: datetime = None, has_time_dim: bool = False) \
-                -> xr.Dataset:
-            """Create a xarray Dataset."""
-            data_var = dataset.fillna(-9999)
-            data_var.attrs["nodata"] = -9999
-            if 'bands' in dataset.coords:
-                try:
-                    tmp = data_var.to_dataset(dim="bands")
-                except Exception as e:
-                    print(e)
-                    n = dataset['bands'].values
-                    tmp = data_var.to_dataset(name=str(n))
-            else:
-                tmp = data_var.to_dataset(name='result')
-
-            # fix dimension order
-            current_dims = tuple(tmp.dims)
-            base_dims = ("bands", "time", "y", "x") if has_time_dim else ("bands", "y", "x")
-            additional_dim = list(set(current_dims).difference(set(base_dims)))
-            base_dims = base_dims[1:]  # remove bands elem > not a dimension!
-            if additional_dim and current_dims != (additional_dim[0], *base_dims):
-                tmp = tmp.transpose(additional_dim[0], *base_dims)
-            elif current_dims != base_dims:
-                tmp = tmp.transpose(*base_dims)
-
-            tmp.attrs = data_var.attrs
-            # This is a hack! ODC always(!) expectes to have a time dimension
-            # set datetime to now if no other information is available
-            if has_time_dim:
-                tmp = tmp.rename({"time": "t"})
-            else:
-                tmp.attrs["datetime_from_dim"] = str(timestamp) if timestamp else str(datetime.now())
-            if "crs" not in tmp.attrs:
-                first_data_var = tmp.data_vars[list(tmp.data_vars.keys())[0]]
-                tmp.attrs["crs"] = first_data_var.geobox.crs.to_wkt()
-            return tmp
-
-        def refactor_data(data: xr.DataArray) -> List[xr.Dataset]:
-            """Recreate a Dataset from the final result as Dataarray, to ensure a well formatted netCDF."""
-            all_tmp = []
-            # TODO this must be improved once `rename_dimension` is supported!
-            if 'time' in data.coords:
-                for timestamp in data.time.values:
-                    data_at_timestamp = data.loc[dict(time=timestamp)]
-                    all_tmp.append(reformat_dataset(data_at_timestamp, timestamp))
-            else:
-                all_tmp.append(reformat_dataset(data))
-
-            return all_tmp
-
-        def create_output_filepath(output_filepath: str, idx: int = 0, ext: str = "nc") -> str:
-            """Create the output filepath."""
-            root, _ = splitext(output_filepath)
-            return f'{root}_{str(idx).zfill(5)}.{ext}'
-
-        # start workaround
-        # https://github.com/opendatacube/datacube-core/issues/972
-        # ValueError failed to prevent overwriting existing key units in `attrs` on variable 'time'
-        if hasattr(data, 'time') and hasattr(data.time, 'units'):
-            data.time.attrs.pop('units', None)
-        if hasattr(data, 'grid_mapping'):
-            data.attrs.pop('grid_mapping')
-        # end workaround
-
-        dask_result = data.compute()  # perform computation
-        formats = ('GTiff', 'netCDF')
-        if format.lower() == 'netcdf':
-            data_list = refactor_data(dask_result)
-            paths = []
-            for idx in range(len(data_list)):
-                paths.append(create_output_filepath(output_filepath, idx, 'nc'))
-            # combined dataset
-            if 'time' in dask_result.coords:
-                combined_dataset = reformat_dataset(dask_result, None, has_time_dim=True)
-                data_list.append(combined_dataset)
-                combined_path = f'{splitext(output_filepath)[0]}_combined.nc'
-                paths.append(combined_path)
-            xr.save_mfdataset(data_list, paths)
-
-        elif format.lower() in ['gtiff','geotiff']:
-            data_list = refactor_data(dask_result)
-            if len(data_list[0].dims) > 3:
-                raise Exception("[!] Not possible to write a 4-dimensional GeoTiff, use NetCDF instead.")
-            for idx, dataset in enumerate(data_list):
-                cur_output_filepath = create_output_filepath(output_filepath, idx, 'tif')
-                dataset.rio.to_raster(raster_path=cur_output_filepath,**options)
-
-        else:
-            raise ValueError(f"Error when saving to file. Format '{format}' is not in {formats}.")
-
-        if write_prod:
-            write_odc_product(data_list[0], output_filepath)
 
 ###############################################################################
 # Resample cube spatial process
@@ -1397,3 +1398,153 @@ class Mask:
     def exec_da():
         pass
 
+
+###############################################################################
+# AggregateTemporalPeriod process
+###############################################################################
+
+
+@process
+def aggregate_temporal_period():
+    """
+    Temporal aggregations based on calendar hierarchies
+
+    Returns
+    -------
+    xr.DataArray :
+           A new data cube with the same dimensions. The dimension properties
+           (name, type, labels, reference system and resolution) remain unchanged, except for the resolution and
+           dimension labels of the given temporal dimension.
+    """
+    return AggregateTemporalPeriod()
+
+
+class AggregateTemporalPeriod:
+    """
+    Computes a temporal aggregation based on calendar hierarchies such as years, months or seasons.
+    For other calendar hierarchies aggregate_temporal can be used.
+    For each interval, all data along the dimension will be passed through the reducer.
+    If the dimension is not set or is set to null, the data cube is expected to only have one temporal dimension.
+    """
+
+    @staticmethod
+    def exec_xar(data, period, reducer, dimension=None, context=None):
+        """
+        Parameters
+        ----------
+        data : xr.DataArray
+            An array to mask.
+        period : string
+            The time intervals to aggregate. The following pre-defined values are available:
+            hour, day, week, dekad, month, season, tropical-season, year, decade, decade-ad
+        reducer : process
+            A reducer to be applied for the values contained in each period.
+            A reducer is a single process such as mean or a set of processes,
+            which computes a single value for a list of values, see the category 'reducer' for such processes.
+            Periods may not contain any values, which for most reducers leads to no-data (null) values by default.
+        dimension : string
+            The name of the temporal dimension for aggregation.
+            All data along the dimension is passed through the specified reducer.
+            If the dimension is not set or set to null, the data cube is expected to only have one temporal dimension.
+            Fails with a TooManyDimensions exception if it has more dimensions.
+            Fails with a DimensionNotAvailable exception if the specified dimension does not exist.
+        context : any
+            Additional data to be passed to the reducer.
+
+        Returns
+        -------
+        xr.DataArray :
+           A new data cube with the same dimensions. The dimension properties
+           (name, type, labels, reference system and resolution) remain unchanged, except for the resolution and
+           dimension labels of the given temporal dimension.
+        """
+        if dimension is None:
+            dimension = 'time'
+        if dimension in ['time', 't', 'times']:
+            dimension = get_time_dimension_from_data(data, dimension)
+        else:
+            raise Exception('DimensionNotAvailable')
+        if period in ['hour', 'day', 'week', 'month', 'season', 'year']:
+            p = dimension + '.' + period
+        if context is None:
+            context = {'dimension': dimension}
+        elif 'dimension' not in context:
+            context['dimension'] = dimension
+        if callable(reducer):
+            new = reducer(data.groupby(p), **context)
+        return new
+
+###############################################################################
+# ApplyDimension process
+###############################################################################
+
+@process
+def apply_dimension():
+    """
+    Apply a process to pixels along a dimension
+
+    Returns
+    -------
+    xr.DataArray :
+           A data cube with the newly computed values.
+           All dimensions stay the same, except for the dimensions specified in corresponding parameters.
+    """
+    return ApplyDimension()
+
+class ApplyDimension:
+    """
+    Applies a process to all pixel values along a dimension of a raster data cube.
+    For example, if the temporal dimension is specified the process will work on a time series of pixel values.
+    The process reduce_dimension also applies a process to pixel values along a dimension, but drops the dimension
+    afterwards. The process apply applies a process to each pixel value in the data cube. The target dimension is the
+    source dimension if not specified otherwise in the target_dimension parameter. The pixel values in the target
+    dimension get replaced by the computed pixel values. The name, type and reference system are preserved. The
+    dimension labels are preserved when the target dimension is the source dimension and the number of pixel values in
+    the source dimension is equal to the number of values computed by the process. Otherwise, the dimension labels will
+    be incrementing integers starting from zero, which can be changed using rename_labels afterwards. The number of
+    labels will equal to the number of values computed by the process.
+    """
+
+    @staticmethod
+    def exec_xar(data, process, dimension, target_dimension=None, context=None):
+        """
+        Parameters
+        ----------
+        data : xr.DataArray
+            A data cube..
+        process : Process
+            Process to be applied on all pixel values.
+            The specified process needs to accept an array and must return an array with at least one element.
+            A process may consist of multiple sub-processes.
+        dimension : string
+            The name of the source dimension to apply the process on.
+            Fails with a DimensionNotAvailable exception if the specified dimension does not exist.
+        target_dimension : string
+            The name of the target dimension or null (the default) to use the source dimension specified in the
+            parameter dimension. By specifying a target dimension, the source dimension is removed. The target
+            dimension with the specified name and the type other (see add_dimension) is created, if it doesn't exist
+            yet.
+        context : any
+            Additional data to be passed to the process.
+
+        Returns
+        -------
+        xr.DataArray :
+           A data cube with the newly computed values.
+           All dimensions stay the same, except for the dimensions specified in corresponding parameters.
+        """
+        if callable(process):
+            context = context if context is not None else {}
+            if dimension in ['time', 't', 'times']:
+                dimension = get_time_dimension_from_data(data, dimension)
+            new = process(data, dimension=dimension, **context)
+            if dimension in new.dims:
+                if target_dimension is not None:
+                    new = new.rename({dimension: target_dimension})
+            else:
+                if target_dimension is not None:
+                    new = new.expand_dims(target_dimension)
+                    new[target_dimension] = np.arange(len(new[target_dimension]))
+            return new
+        else:
+            return process
