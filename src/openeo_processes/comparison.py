@@ -3,6 +3,7 @@ import math
 
 import numpy as np
 import xarray as xr
+import dask as da
 from openeo_processes.utils import process
 from openeo_processes.utils import str2time
 from openeo_processes.utils import keep_attrs
@@ -572,7 +573,7 @@ class Neq:
         if eq_val is None:
             return None
         else:
-            return xr.ufuncs.logical_not(eq_val)
+            return da.array.logical_not(eq_val)
 
     @staticmethod
     def exec_da():
@@ -1284,9 +1285,9 @@ class Between:
             return False
 
         if exclude_max:
-            bet = xr.ufuncs.logical_and(Gte.exec_xar(x, min, reduce=reduce) , Lt.exec_xar(x, max, reduce=reduce))
+            bet = da.array.logical_and(Gte.exec_xar(x, min, reduce=reduce) , Lt.exec_xar(x, max, reduce=reduce))
         else:
-            bet = xr.ufuncs.logical_and(Gte.exec_xar(x, min, reduce=reduce) , Lte.exec_xar(x, max, reduce=reduce))
+            bet = da.array.logical_and(Gte.exec_xar(x, min, reduce=reduce) , Lte.exec_xar(x, max, reduce=reduce))
         if isinstance(x, xr.DataArray):
             bet.attrs = x.attrs
         return bet
