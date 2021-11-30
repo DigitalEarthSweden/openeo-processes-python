@@ -249,5 +249,17 @@ class CubesTester(unittest.TestCase):
         xr.testing.assert_equal(oeop.mask(self.test_data.xr_data_factor(1, 5),self.test_data.xr_data_factor(True, False), replacement = 999),
                                 self.test_data.xr_data_factor(999, 5))
 
+    def test_aggregate_temporal_period(self):
+        """ Tests 'aggregate_temporal_period' function. """
+        assert (oeop.aggregate_temporal_period(self.test_data.xr_data_4d,'day',oeop.min) == self.test_data.xr_data_4d.values).all()
+        xr.testing.assert_equal(oeop.aggregate_temporal_period(self.test_data.xr_data_4d,'day',oeop.min),
+                                oeop.aggregate_temporal_period(self.test_data.xr_data_4d, 'day',oeop.max, 'time', {}))
+
+    def test_apply_dimension(self):
+        """Tests 'apply_dimension' function. """
+        assert (oeop.apply_dimension(self.test_data.xr_data_factor(1,2), oeop.min, 'time', 'time').values ==
+                                 self.test_data.xr_data_factor(1,2)[0].values).all()
+        assert (oeop.apply_dimension(self.test_data.xr_data_factor(1, 2), oeop.min, 'time', 'time').dims ==
+                self.test_data.xr_data_factor(1, 2).dims)
 if __name__ == "__main__":
     unittest.main()

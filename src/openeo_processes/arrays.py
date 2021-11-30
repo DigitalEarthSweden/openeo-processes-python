@@ -379,7 +379,7 @@ class Count:
         return count
 
     @staticmethod
-    def exec_xar(data, condition=None, context=None, dimension=0):
+    def exec_xar(data, condition=None, context=None, dimension=None):
         """
         Gives the number of elements in an array that matches the specified condition.
         Remarks:
@@ -421,7 +421,10 @@ class Count:
             count = data.shape[dimension]
         elif callable(condition):
             context = context if context is not None else {}
-            count = condition(data, **context).sum()
+            if dimension is None:
+                count = condition(data, **context).sum()
+            elif dimension in data.dims:
+                count = condition(data, **context).sum(dim=dimension)
         else:
             raise ValueError(condition)
         return count
@@ -735,6 +738,8 @@ class ArrayFind:
         -----
         Own implementation, since np.argmax does not treat 'no matches' right.
         """
+        if not dimension:
+            dimension = data.dims[0]
         data = data.where(data == value, value-1)
         find = (data.argmax(dim=dimension))
         find_in = data.isin(value).sum(dimension)
