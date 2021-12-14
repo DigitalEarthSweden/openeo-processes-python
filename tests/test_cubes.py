@@ -243,11 +243,23 @@ class CubesTester(unittest.TestCase):
         data2 = oeop.filter_temporal(self.test_data.xr_data_factor(), ['2019-12-01T00:00:00Z', '2019-12-02T00:00:00Z'])
         xr.testing.assert_equal(data, data2)
 
+    def test_filter_spatial(self):
+        """Tests 'filter_spatial' function. """
+        geo = {'type': 'Polygon', 'coordinates': [[117.9, 55.2], [120.5, 58.4], [120.5, 55.2]]}
+        assert (oeop.filter_spatial(self.test_data.xr_data_factor(), geo).dims == self.test_data.xr_data_factor(1, 1)[:,:4, :2].dims)
+
     def test_mask(self):
         """ Tests `mask` function. """
         assert (oeop.mask(np.array([[1,3,6],[2,2,2]]), np.array([[True,False,True],[False,False,True]]), 999) == np.array([[999,3,999],[2,2,999]])).all()
         xr.testing.assert_equal(oeop.mask(self.test_data.xr_data_factor(1, 5),self.test_data.xr_data_factor(True, False), replacement = 999),
                                 self.test_data.xr_data_factor(999, 5))
+
+    def test_mask_polygon(self):
+        """Tests 'mask_polygon function. """
+        geojson = {'type' : 'Polygon', 'coordinates': [[117.9, 55.2], [120.5, 58.4], [120.5, 55.2]]}
+        assert ((oeop.mask_polygon(self.test_data.xr_data_factor(1,1), geojson))['x'].values == self.test_data.xr_data_factor(1,1)['x'].values).all()
+        geojson = {'type': 'MultiPolygon', 'coordinates': [[(117.9, 55.2), (120.5, 58.4), (120.5, 55.2)], [(120.5, 55.2), (121, 58.4), (120.5, 55.2)]]}
+        print(oeop.mask_polygon(self.test_data.xr_data_factor(1,1), geojson))
 
     def test_aggregate_temporal_period(self):
         """ Tests 'aggregate_temporal_period' function. """

@@ -6,6 +6,7 @@ import numpy as np
 import odc.algo
 import rioxarray  # needed by save_result even if not directly called
 import xarray as xr
+from shapely.geometry import Point, LineString, Polygon, MultiPolygon
 from openeo_processes.extension.odc import write_odc_product
 from openeo_processes.utils import process, get_time_dimension_from_data
 from scipy import optimize
@@ -1277,6 +1278,119 @@ class FilterTemporal:
         else:
             raise Exception('DimensionNotAvailable')
 
+###############################################################################
+# FilterSpatial process
+###############################################################################
+
+
+@process
+def filter_spatial():
+    """
+    Spatial filter using geometries.
+
+    Returns
+    -------
+    xr.DataArray :
+           A data cube restricted to the specified geometries. The dimensions and dimension properties
+           (name, type, labels, reference system and resolution) remain unchanged, except that the spatial dimensions
+           have less (or the same) dimension labels.
+
+    """
+    return FilterSpatial()
+
+
+class FilterSpatial:
+    """
+    Limits the data cube over the spatial dimensions to the specified geometries.
+    For polygons, the filter retains a pixel in the data cube if the point at the pixel center intersects with at least
+    one of the polygons (as defined in the Simple Features standard by the OGC).
+    For points, the process considers the closest pixel center.
+    For lines (line strings), the process considers all the pixels whose centers are closest to at least one point on
+    the line. More specifically, pixels outside of the bounding box of the given geometry will not be available after
+    filtering. All pixels inside the bounding box that are not retained will be set to null (no data).
+    """
+
+    @staticmethod
+    def exec_xar(data, geometries):
+        """
+        Parameters
+        ----------
+        data : xr.DataArray
+           A data cube.
+        geometries : geojson
+           One or more geometries used for filtering, specified as GeoJSON.
+
+        Returns
+        -------
+        xr.DataArray :
+           A data cube restricted to the specified geometries. The dimensions and dimension properties
+           (name, type, labels, reference system and resolution) remain unchanged, except that the spatial dimensions
+           have less (or the same) dimension labels.
+        """
+        lon = data['x'].values
+        lat = data['y'].values
+
+        if geometries['type'] == 'Point':
+            coord = geometries['coordinates']
+            arg = np.argmin(abs(lon - coord[0]))
+            x = lon[arg]
+            arg = np.argmin(abs(lat - coord[1]))
+            y = lat[arg]
+            return data.loc[{'x': x, 'y': y}]
+
+        elif geometries['type'] == 'LineString' or geometries['type'] == 'Lines' or geometries['type'] == 'Polygon':
+            coord = geometries['coordinates']
+            if geometries['type'] == 'Polygon':
+                P = Polygon(coord)
+            else:
+                P = LineString(coord)
+            coord = np.array(coord)
+            lon = lon[lon >= np.min(coord[:, 0])]
+            lon = lon[lon <= np.max(coord[:, 0])]
+            lat = lat[lat >= np.min(coord[:, 1])]
+            lat = lat[lat <= np.max(coord[:, 1])]
+            d2 = data.loc[{'x': lon, 'y': lat}]
+
+        elif geometries['type'] == 'MultiPolygon':
+            coord = geometries['coordinates']
+            polygons = [Polygon(x) for x in coord]
+            P = MultiPolygon(polygons)
+            coord = np.array(coord)
+            lon = lon[lon >= np.min(coord[:, :, 0])]
+            lon = lon[lon <= np.max(coord[:, :, 0])]
+            lat = lat[lat >= np.min(coord[:, :, 1])]
+            lat = lat[lat <= np.max(coord[:, :, 1])]
+            d2 = data.loc[{'x': lon, 'y': lat}]
+
+        def insides(x, y):
+            y0 = y[0]
+            val = np.array([])
+            for i in range(len(x)):
+                x0 = x[i]
+                p = Point(x0, y0)
+                val = np.append(val, p.within(P))
+            return val
+
+        if 'time' in d2.dims:
+            D = d2.isel(time=0)
+            if 'bands' in D.dims:
+                D = D.isel(bands=0)
+        elif 'bands' in d2.dims:
+            D = d2.isel(bands=0)
+        else:
+            D = d2
+        D = D.where(np.isnan(D), D['y'])
+        values = xr.apply_ufunc(
+            insides, D['x'].values, D,
+            vectorize=True,
+            input_core_dims=[['x'], ['x']],
+            output_core_dims=[['x']],
+            dask="parallelized",
+            output_dtypes=[np.float32],
+            dask_gufunc_kwargs={'allow_rechunk': True}
+        )
+        return d2.where(values == 1, np.nan)
+
 
 ########################################################################################################################
 # Mask Process
@@ -1396,6 +1510,116 @@ class Mask:
     @staticmethod
     def exec_da():
         pass
+
+
+########################################################################################################################
+# Mask_Polygon Process
+########################################################################################################################
+
+@process
+def mask_polygon():
+    """
+    Returns class instance of `Mask Polygon`.
+    For more details, please have a look at the implementations inside `Mask Polygon`.
+
+    Returns
+    -------
+    Mask :
+        Apply a polygon mask
+
+    """
+    return Mask_Polygon()
+
+
+class Mask_Polygon:
+    """
+    Apply a polygon mask
+
+    """
+    @staticmethod
+    def exec_xar(data, mask, replacement=np.nan, inside=False):
+        """
+        Applies a (multi) polygon mask to a raster data cube. To apply a raster mask use mask.
+        All pixels for which the point at the pixel center does not intersect with any polygon (as defined in the
+        Simple Features standard by the OGC) are replaced. This behavior can be inverted by setting the parameter
+        inside to true. The pixel values are replaced with the value specified for replacement, which defaults to null
+        (no data). No data values in data will be left untouched by the masking operation.
+
+
+        Parameters
+        ----------
+        data : xr.DataArray
+            An array to mask.
+        mask : geojson
+            A GeoJSON object containing at least one polygon. The provided feature types can be one of the following:
+            A Polygon or MultiPolygon geometry,
+        replacement : float or int, optional
+            The value used to replace masked values with.
+        inside : boolean
+            If set to true all pixels for which the point at the pixel center does intersect with any polygon are
+            replaced.
+
+        Returns
+        -------
+        xr.DataArray :
+            A masked raster data cube with the same dimensions.
+            The dimension properties (name, type, labels, reference system and resolution) remain unchanged.
+        """
+
+        def insides(x, y):
+            y0 = y[0]
+            val = np.array([])
+            for i in range(len(x)):
+                x0 = x[i]
+                p = Point(x0, y0)
+                val = np.append(val, p.within(polygon))
+            return val
+
+        if mask['type'] == 'Point':
+            lon = data['x'].values
+            lat = data['y'].values
+            coord = mask['coordinates']
+            arg = np.argmin(abs(lon - coord[0]))
+            x = lon[arg]
+            arg = np.argmin(abs(lat - coord[1]))
+            y = lat[arg]
+            if inside:
+                return data.where(data.x != x, replacement).where(data.y != y, replacement)
+            else:
+                return data.where(data.x == x, replacement).where(data.y == y, replacement)
+        elif mask['type'] == 'Polygon':
+            coord = mask['coordinates']
+            polygon = Polygon(coord)
+
+        elif mask['type'] == 'MultiPolygon':
+            coord = mask['coordinates']
+            polygons = [Polygon(x) for x in coord]
+            polygon = MultiPolygon(polygons)
+
+        if 'time' in data.dims:
+            D = data.isel(time=0)
+            if 'bands' in D.dims:
+                D = D.isel(bands=0)
+        elif 'bands' in data.dims:
+            D = data.isel(bands=0)
+        else:
+            D = data
+        D = D.fillna(1)
+        D = D.where(np.isnan(D), D['y'])
+        values = xr.apply_ufunc(
+            insides, D['x'].values, D,
+            vectorize=True,
+            input_core_dims=[['x'], ['x']],
+            output_core_dims=[['x']],
+            dask="parallelized",
+            output_dtypes=[np.float32],
+            dask_gufunc_kwargs={'allow_rechunk': True}
+        )
+        if inside:
+            return data.where(values == 1, replacement)
+        else:
+            return data.where(values == 0, replacement)
+
 
 
 ###############################################################################
