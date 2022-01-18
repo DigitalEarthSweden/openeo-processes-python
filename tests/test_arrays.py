@@ -15,6 +15,28 @@ import math
 class ArrayTester(TestCase):
     """ Tests all array functions. """
 
+    def test_array_create(self):
+        """ Tests `array_create` function. """
+        assert (oeop.array_create(2,3) == np.array([2,2,2])).all()
+        assert (len(oeop.array_create([])) == 0)
+        assert (oeop.array_create([1, 2, 3], repeat=2) == np.array([1,2,3,1,2,3])).all()
+        assert (oeop.array_create(["A", "B", "C"]) == np.array(["A", "B", "C"])).all()
+        assert len(oeop.array_create([np.nan, 1], 2) == 4)
+
+    def test_array_modify(self):
+        """ Tests `array_modify` function. """
+        assert (oeop.array_modify(np.array([2,3]), np.array([4,7]), 1, 0) == np.array([2,4,7,3])).all()
+        assert (oeop.array_modify(data = ["a","d","c"], values = ["b"], index = 1) == ['a','b','c']).all()
+        assert (oeop.array_modify(data = ["a","b",4,5], values = [1,2,3], index = 0, length = 2) == [1,2,3,4,5]).all()
+        assert (oeop.array_modify(data = ["a","c"], values = ["b"], index = 1, length = 0) == ["a","b","c"]).all()
+        assert (oeop.array_modify(data = [np.nan,np.nan,"a","b","c"], values = [], index = 0, length = 2) == ["a","b","c"]).all()
+        assert (oeop.array_modify(data=["a", "b", "c"], values=[], index=1, length=10) == ["a"])
+
+    def test_array_concat(self):
+        """ Tests `array_concat` function. """
+        assert (oeop.array_concat(np.array([2, 3]), np.array([4, 7]))== np.array([2,3,4,7])).all()
+        assert (oeop.array_concat(array1 = ["a","b"], array2 = [1,2]) == np.array(['a','b',1,2], dtype=object)).all()
+
     def test_array_contains(self):
         """ Tests `array_contains` function. """
         assert oeop.array_contains([1, 2, 3], value=2)

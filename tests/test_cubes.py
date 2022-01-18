@@ -248,6 +248,17 @@ class CubesTester(unittest.TestCase):
         geo = {'type': 'Polygon', 'coordinates': [[117.9, 55.2], [120.5, 58.4], [120.5, 55.2]]}
         assert (oeop.filter_spatial(self.test_data.xr_data_factor(), geo).dims == self.test_data.xr_data_factor(1, 1)[:,:4, :2].dims)
 
+    def test_filter_labels(self):
+        """Tests 'filter_labels' function. """
+        xr.testing.assert_equal(oeop.filter_labels(self.test_data.xr_data_factor(), oeop.gt, 'x', {'y': 120}), self.test_data.xr_data_factor().loc[{'x': [120.9]}])
+
+    def test_filter_bbox(self):
+        """Tests 'filter_bbox' function. """
+        extent = {'west': 120, 'east': 118, 'north': 60, 'south': 56, 'crs':'EPSG:4326'}
+        xr.testing.assert_equal(oeop.filter_bbox(self.test_data.xr_data_factor(), extent), self.test_data.xr_data_factor().loc[{'x': [118.9, 119.9], 'y': [56.3, 57.3, 58.3, 59.3]}])
+        extent = {'west': 124, 'east': 123, 'north': 63, 'south': 62, 'crs': 4326}
+        assert len((oeop.filter_bbox(self.test_data.xr_data_factor(), extent)).values[0])==0
+
     def test_mask(self):
         """ Tests `mask` function. """
         assert (oeop.mask(np.array([[1,3,6],[2,2,2]]), np.array([[True,False,True],[False,False,True]]), 999) == np.array([[999,3,999],[2,2,999]])).all()
