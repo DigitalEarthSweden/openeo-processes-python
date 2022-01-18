@@ -23,6 +23,10 @@ class MathTester(unittest.TestCase):
         """ Tests `pi` function. """
         assert oeop.pi() == np.pi
 
+    def test_constant(self):
+        """ Tests `pi` function. """
+        assert oeop.constant(5) == 5
+
     def test_floor(self):
         """ Tests `floor` function. """
         assert oeop.floor(0) == 0

@@ -9,7 +9,9 @@ import xarray as xr
 from shapely.geometry import Point, LineString, Polygon, MultiPolygon
 from openeo_processes.extension.odc import write_odc_product
 from openeo_processes.utils import process, get_time_dimension_from_data
+from openeo_processes.errors import DimensionNotAvailable, TooManyDimensions
 from scipy import optimize
+from pyproj import Proj, transform, Transformer, CRS
 
 ###############################################################################
 # Load Collection Process
@@ -1390,6 +1392,142 @@ class FilterSpatial:
             dask_gufunc_kwargs={'allow_rechunk': True}
         )
         return d2.where(values == 1, np.nan)
+
+########################################################################################################################
+# Filter Labels Process
+########################################################################################################################
+
+@process
+def filter_labels():
+    """
+    Filter dimension labels based on a condition.
+
+    Returns
+    -------
+    xr.DataArray :
+           A data cube with the same dimensions. The dimension properties (name, type, labels, reference system and
+           resolution) remain unchanged, except that the given dimension has less (or the same) dimension labels.
+
+    """
+    return FilterLabels()
+
+
+class FilterLabels:
+    """
+    Filters the dimension labels in the data cube for the given dimension. Only the dimension labels that match the
+    specified condition are preserved, all other labels with their corresponding data get removed.
+    """
+
+    @staticmethod
+    def exec_xar(data, condition, dimension, context = {}):
+        """
+        Parameters
+        ----------
+        data : xr.DataArray
+           A data cube.
+        condition : process
+           A condition that is evaluated against each dimension label in the specified dimension. A dimension label and
+           the corresponding data is preserved for the given dimension, if the condition returns true.
+        dimension : str
+           The name of the dimension to filter on. Fails with a DimensionNotAvailable exception if the specified
+           dimension does not exist.
+        context : any
+           Additional data to be passed to the condition.
+
+        Returns
+        -------
+        xr.DataArray :
+           A data cube with the same dimensions. The dimension properties (name, type, labels, reference system and
+           resolution) remain unchanged, except that the given dimension has less (or the same) dimension labels.
+        """
+        if dimension not in data.dims:
+            raise DimensionNotAvailable("A dimension with the specified name does not exist.")
+        labels = data[dimension].values
+        if callable(condition):
+            label_mask = condition(labels, **context)
+            label = labels[label_mask]
+            data_f = data.loc[{dimension: label}]
+            return data_f
+
+
+########################################################################################################################
+# Filter Bbox Process
+########################################################################################################################
+
+@process
+def filter_bbox():
+    """
+    Spatial filter using a bounding box.
+
+    Returns
+    -------
+    xr.DataArray :
+           A data cube restricted to the bounding box. The dimensions and dimension properties (name, type, labels,
+           reference system and resolution) remain unchanged, except that the spatial dimensions have less (or the
+           same) dimension labels.
+
+    """
+    return FilterBbox()
+
+
+class FilterBbox:
+    """
+    Limits the data cube to the specified bounding box.
+    The filter retains a pixel in the data cube if the point at the pixel center intersects with the bounding box (as
+    defined in the Simple Features standard by the OGC).
+    """
+
+    @staticmethod
+    def exec_xar(data, extent):
+        """
+        Parameters
+        ----------
+        data : xr.DataArray
+           A data cube.
+        extent : bounding-box:object
+           A bounding box, which may include a vertical axis (see base and height).
+
+        Returns
+        -------
+        xr.DataArray :
+           A data cube restricted to the bounding box. The dimensions and dimension properties (name, type, labels,
+           reference system and resolution) remain unchanged, except that the spatial dimensions have less (or the
+           same) dimension labels.
+        """
+        if type(extent) == dict:
+            if "crs" in extent and extent["crs"] is not None:
+                crs = extent["crs"]
+            else:
+                crs = 4326
+            crs_input = CRS.from_user_input(crs)
+
+            if "west" in extent and "east" in extent:
+                bbox = [[extent["west"], extent["south"]],
+                        [extent["east"], extent["south"]],
+                        [extent["east"], extent["north"]],
+                        [extent["west"], extent["north"]]]
+            if "crs" in data.attrs:
+                data_crs = data.attrs["crs"]
+                crs_data = CRS.from_user_input(data_crs)
+
+            transformer = Transformer.from_crs(crs_input, crs_data)
+
+            x_t = []
+            y_t = []
+            for p in bbox:
+                x1, y1 = p
+                x2, y2 = transformer.transform(x1, y1)
+                x_t.append(x2)
+                y_t.append(y2)
+            x_t = np.array(x_t)
+            y_t = np.array(y_t)
+            x_min = x_t.min()
+            x_max = x_t.max()
+            y_min = y_t.min()
+            y_max = y_t.max()
+
+            data = data.loc[dict(x=slice(x_min, x_max), y=slice(y_min, y_max))]
+        return data
 
 
 ########################################################################################################################

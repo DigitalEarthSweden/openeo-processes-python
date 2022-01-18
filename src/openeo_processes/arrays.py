@@ -19,6 +19,264 @@ except ImportError:
     topk = None
     argtopk = None
 
+
+########################################################################################################################
+# Array Create Process
+########################################################################################################################
+
+@process
+def array_create():
+    """
+    Returns class instance of `ArrayCreate`.
+    For more details, please have a look at the implementations inside `ArrayCreate`.
+
+    Returns
+    -------
+    ArrayCreate :
+        Class instance implementing all 'array_create' processes.
+
+    """
+    return ArrayCreate()
+
+
+class ArrayCreate:
+    """
+    Class implementing all 'array_create' processes.
+
+    """
+
+    @staticmethod
+    def exec_num(data, repeat = 1):
+        """
+        Creates a new array, which by default is empty.
+        The second parameter repeat allows to add the given array multiple times to the new array.
+        In most cases you can simply pass a (native) array to processes directly, but this process is especially useful
+        to create a new array that is getting returned by a child process, for example in apply_dimension.
+
+        Parameters
+        ----------
+        data : int
+            A (native) array to fill the newly created array with. Defaults to an empty array.
+        repeat : int
+            The number of times the (native) array specified in data is repeatedly added after each other to the new
+            array being created. Defaults to 1.
+
+        Returns
+        -------
+        np.array :
+            The newly created array.
+
+        """
+        data = np.array([data])
+        if len(data) == 0:
+            return np.array([])
+        return np.tile(data, reps=repeat)
+
+
+    @staticmethod
+    def exec_np(data = [], repeat = 1):
+        """
+        Creates a new array, which by default is empty.
+        The second parameter repeat allows to add the given array multiple times to the new array.
+        In most cases you can simply pass a (native) array to processes directly, but this process is especially useful
+        to create a new array that is getting returned by a child process, for example in apply_dimension.
+
+        Parameters
+        ----------
+        data : np.array
+            A (native) array to fill the newly created array with. Defaults to an empty array.
+        repeat : int
+            The number of times the (native) array specified in data is repeatedly added after each other to the new
+            array being created. Defaults to 1.
+
+        Returns
+        -------
+        np.array :
+            The newly created array.
+
+        """
+        data = np.array(data)
+        if len(data) == 0:
+            return np.array([])
+        return np.tile(data, reps=repeat)
+
+    @staticmethod
+    def exec_xar(data, repeat = 1):
+        """
+        Creates a new array, which by default is empty.
+        The second parameter repeat allows to add the given array multiple times to the new array.
+        In most cases you can simply pass a (native) array to processes directly, but this process is especially useful
+        to create a new array that is getting returned by a child process, for example in apply_dimension.
+
+        Parameters
+        ----------
+        data : xr.DataArray
+            A (native) array to fill the newly created array with. Defaults to an empty array.
+        repeat : int
+            The number of times the (native) array specified in data is repeatedly added after each other to the new
+            array being created. Defaults to 1.
+
+        Returns
+        -------
+        np.array :
+            The newly created array.
+
+        """
+        if len(data) == 0:
+            return np.array([])
+        elif len(data.shape) == 1:
+            if len(data) < 100:
+                data = data.values
+                return np.tile(data, reps=repeat)
+
+    @staticmethod
+    def exec_da():
+        pass
+
+########################################################################################################################
+# Array Modify Process
+########################################################################################################################
+
+@process
+def array_modify():
+    """
+    Returns class instance of `ArrayModify`.
+    For more details, please have a look at the implementations inside `ArrayModify`.
+
+    Returns
+    -------
+    ArrayModify :
+        Class instance implementing all 'array_modify' processes.
+
+    """
+    return ArrayModify()
+
+
+class ArrayModify:
+    """
+    Class implementing all 'array_modify' processes.
+
+    """
+
+    @staticmethod
+    def exec_num():
+        pass
+
+
+    @staticmethod
+    def exec_np(data, values, index, length = 1):
+        """
+        Modify an array by removing, inserting or updating elements. Updating can be seen as removing elements followed
+        by inserting new elements (not necessarily the same number). All labels get discarded and the array indices are
+        always a sequence of numbers with the step size of 1 and starting at 0
+
+        Parameters
+        ----------
+        data : np.array
+            The array to modify.
+        values : np.array
+            The values to insert into the data array.
+        index : int
+            The index in the data array of the element to insert the value(s) before. If the index is greater than the
+            number of elements in the data array, the process throws an ArrayElementNotAvailable exception.
+            To insert after the last element, there are two options:
+            Use the simpler processes array_append to append a single value or array_concat to append multiple values.
+            Specify the number of elements in the array. You can retrieve the number of elements with the process
+            count, having the parameter condition set to true.
+        lenght : int
+            The number of elements in the data array to remove (or replace) starting from the given index.
+            If the array contains fewer elements, the process simply removes all elements up to the end.
+
+        Returns
+        -------
+        np.array :
+            An array with values added, updated or removed.
+
+        """
+        data = np.array(data)
+        values = np.array(values)
+        if index == 0:
+            part = values
+        else:
+            first = data[:index]
+            part = np.append(first, values)
+        if index+length < len(data):
+            part = np.append(part, data[index+length:])
+        return part
+
+
+    @staticmethod
+    def exec_xar():
+        pass
+
+    @staticmethod
+    def exec_da():
+        pass
+
+########################################################################################################################
+# Array Concat Process
+########################################################################################################################
+
+@process
+def array_concat():
+    """
+    Returns class instance of `ArrayConcat`.
+    For more details, please have a look at the implementations inside `ArrayConcat`.
+
+    Returns
+    -------
+    ArrayModify :
+        Class instance implementing all 'array_concat' processes.
+
+    """
+    return ArrayConcat()
+
+
+class ArrayConcat:
+    """
+    Class implementing all 'array_concat' processes.
+
+    """
+
+    @staticmethod
+    def exec_num():
+        pass
+
+
+    @staticmethod
+    def exec_np(array1, array2):
+        """
+        Concatenates two arrays into a single array by appending the second array to the first array. Array labels get
+        discarded from both arrays before merging.
+
+        Parameters
+        ----------
+        array1 : np.array
+            The first array.
+        array2 : np.array
+            The second array.
+
+        Returns
+        -------
+        np.array :
+            The merged array.
+
+        """
+        array1 = np.array(array1)
+        array2 = np.array(array2)
+        concat = np.append(array1, array2)
+        return concat
+
+
+    @staticmethod
+    def exec_xar():
+        pass
+
+    @staticmethod
+    def exec_da():
+        pass
+
+
 ########################################################################################################################
 # Array Contains Process
 ########################################################################################################################

@@ -47,6 +47,27 @@ def pi():
     """
     return np.pi
 
+########################################################################################################################
+# Constant
+########################################################################################################################
+
+def constant(x):
+    """
+    Define a constant value.
+    Defines a constant value that can be reused in multiple places of a process.
+
+    Parameters
+    ----------
+    x : any
+        The value of the constant.
+
+    Returns
+    -------
+    any :
+        The value of the constant.
+    """
+    return x
+
 
 ########################################################################################################################
 # Floor Process
