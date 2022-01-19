@@ -1440,6 +1440,8 @@ class FilterLabels:
            A data cube with the same dimensions. The dimension properties (name, type, labels, reference system and
            resolution) remain unchanged, except that the given dimension has less (or the same) dimension labels.
         """
+        if dimension in ['time', 't', 'times']:
+            dimension = get_time_dimension_from_data(data, dimension)
         if dimension not in data.dims:
             raise DimensionNotAvailable("A dimension with the specified name does not exist.")
         labels = data[dimension].values
@@ -1526,6 +1528,8 @@ class FilterBbox:
             y_min = y_t.min()
             y_max = y_t.max()
 
+            data = data.sortby('x')
+            data = data.sortby('y')
             data = data.loc[dict(x=slice(x_min, x_max), y=slice(y_min, y_max))]
         return data
 
