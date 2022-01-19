@@ -1526,6 +1526,8 @@ class FilterBbox:
             y_min = y_t.min()
             y_max = y_t.max()
 
+            data = data.sortby('x')
+            data = data.sortby('y')
             data = data.loc[dict(x=slice(x_min, x_max), y=slice(y_min, y_max))]
         return data
 
