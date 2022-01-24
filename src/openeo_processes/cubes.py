@@ -12,8 +12,6 @@ from openeo_processes.utils import process, get_time_dimension_from_data
 from openeo_processes.errors import DimensionNotAvailable, TooManyDimensions
 from scipy import optimize
 from pyproj import Proj, transform, Transformer, CRS
-import datacube
-from datacube.utils.cog import write_cog
 
 ###############################################################################
 # Load Collection Process
@@ -287,8 +285,6 @@ class SaveResult:
             for idx, dataset in enumerate(data_list):
                 cur_output_filepath = create_output_filepath(output_filepath, idx, 'tif')
                 dataset.rio.to_raster(raster_path=cur_output_filepath,**options)
-                cur_output_filepath_COG = str(cur_output_filepath)[:-4] + '_cog.tif'
-                write_cog(geo_im=dataset, fname=cur_output_filepath_COG).compute()
 
         else:
             raise ValueError(f"Error when saving to file. Format '{format}' is not in {formats}.")
