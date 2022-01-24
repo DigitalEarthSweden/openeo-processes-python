@@ -12,6 +12,8 @@ from openeo_processes.utils import process, get_time_dimension_from_data
 from openeo_processes.errors import DimensionNotAvailable, TooManyDimensions
 from scipy import optimize
 from pyproj import Proj, transform, Transformer, CRS
+import datacube
+from datacube.utils.cog import write_cog
 
 ###############################################################################
 # Load Collection Process
