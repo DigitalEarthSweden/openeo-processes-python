@@ -1503,11 +1503,13 @@ class FilterBbox:
                 crs = 4326
             crs_input = CRS.from_user_input(crs)
 
-            if "west" in extent and "east" in extent:
+            if "west" in extent and "east" in extent and "south" in extent and "north" in extent:
                 bbox = [[extent["west"], extent["south"]],
                         [extent["east"], extent["south"]],
                         [extent["east"], extent["north"]],
                         [extent["west"], extent["north"]]]
+            else:
+                raise Exception("Coordinate missing!")
             if "crs" in data.attrs:
                 data_crs = data.attrs["crs"]
                 crs_data = CRS.from_user_input(data_crs)
