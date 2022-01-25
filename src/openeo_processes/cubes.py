@@ -12,6 +12,8 @@ from openeo_processes.utils import process, get_time_dimension_from_data
 from openeo_processes.errors import DimensionNotAvailable, TooManyDimensions
 from scipy import optimize
 from pyproj import Proj, transform, Transformer, CRS
+import datacube
+from datacube.utils.cog import write_cog
 
 ###############################################################################
 # Load Collection Process
@@ -69,6 +71,27 @@ class LoadCollection:
             odc_params['y'] = y
         if crs:
             odc_params['crs'] = crs
+            if crs not in ["EPSG:4326", "epsg:4326", "4326", 4326]:
+                if x and y:
+                    bbox = [[x[1], y[0]],
+                            [x[0], y[0]],
+                            [x[0], y[1]],
+                            [x[1], y[1]]]
+                    crs_input = CRS.from_user_input(crs)
+                    crs_data = CRS.from_user_input(4326)
+                    transformer = Transformer.from_crs(crs_input, crs_data)
+
+                    x_t = np.array([])
+                    y_t = np.array([])
+                    for p in bbox:
+                        x1, y1 = p
+                        x2, y2 = transformer.transform(x1, y1)
+                        x_t = np.append(x_t, x2)
+                        y_t = np.append(y_t, y2)
+                    odc_params['x'] = (x_t.min(), x_t.max())
+                    odc_params['y'] = (y_t.min(), y_t.max())
+                    odc_params['crs'] = 'EPSG:4326'
+
         # lists are transformed to np.arrays by the wrapper
         # update when that step has been removed
         if len(time) > 0:
@@ -285,6 +308,12 @@ class SaveResult:
             for idx, dataset in enumerate(data_list):
                 cur_output_filepath = create_output_filepath(output_filepath, idx, 'tif')
                 dataset.rio.to_raster(raster_path=cur_output_filepath,**options)
+                try:
+                    darray = dataset.to_array(dim='bands')
+                    cur_output_filepath_COG = str(cur_output_filepath)[:-4] + '_cog.tif'
+                    write_cog(geo_im=darray, fname=cur_output_filepath_COG).compute()
+                except:
+                    print('cog not saved')
 
         else:
             raise ValueError(f"Error when saving to file. Format '{format}' is not in {formats}.")
