@@ -69,27 +69,6 @@ class LoadCollection:
             odc_params['y'] = y
         if crs:
             odc_params['crs'] = crs
-            if crs not in ["EPSG:4326", "epsg:4326", "4326", 4326]:
-                if x and y:
-                    bbox = [[x[1], y[0]],
-                            [x[0], y[0]],
-                            [x[0], y[1]],
-                            [x[1], y[1]]]
-                    crs_input = CRS.from_user_input(crs)
-                    crs_data = CRS.from_user_input(4326)
-                    transformer = Transformer.from_crs(crs_input, crs_data)
-
-                    x_t = np.array([])
-                    y_t = np.array([])
-                    for p in bbox:
-                        x1, y1 = p
-                        x2, y2 = transformer.transform(x1, y1)
-                        x_t = np.append(x_t, x2)
-                        y_t = np.append(y_t, y2)
-                    odc_params['x'] = (x_t.min(), x_t.max())
-                    odc_params['y'] = (y_t.min(), y_t.max())
-                    odc_params['crs'] = 'EPSG:4326'
-
         # lists are transformed to np.arrays by the wrapper
         # update when that step has been removed
         if len(time) > 0:
