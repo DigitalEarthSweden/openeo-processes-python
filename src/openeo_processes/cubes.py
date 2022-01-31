@@ -11,7 +11,13 @@ from openeo_processes.extension.odc import write_odc_product
 from openeo_processes.utils import process, get_time_dimension_from_data
 from openeo_processes.errors import DimensionNotAvailable, TooManyDimensions
 from scipy import optimize
-from pyproj import Proj, transform, Transformer, CRS
+try:
+    from pyproj import Proj, transform, Transformer, CRS
+except ImportError:
+    Proj = None
+    transform = None
+    Transformer = None
+    CRS = None
 
 ###############################################################################
 # Load Collection Process
