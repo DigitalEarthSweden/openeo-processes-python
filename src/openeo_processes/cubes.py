@@ -12,10 +12,8 @@ from openeo_processes.utils import process, get_time_dimension_from_data
 from openeo_processes.errors import DimensionNotAvailable, TooManyDimensions
 from scipy import optimize
 try:
-    from pyproj import Proj, transform, Transformer, CRS
+    from pyproj import Transformer, CRS
 except ImportError:
-    Proj = None
-    transform = None
     Transformer = None
     CRS = None
 
