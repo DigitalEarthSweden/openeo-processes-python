@@ -270,7 +270,7 @@ class CubesTester(unittest.TestCase):
         geojson = {'type' : 'Polygon', 'coordinates': [[117.9, 55.2], [120.5, 58.4], [120.5, 55.2]]}
         assert ((oeop.mask_polygon(self.test_data.xr_data_factor(1,1), geojson))['x'].values == self.test_data.xr_data_factor(1,1)['x'].values).all()
         geojson = {'type': 'MultiPolygon', 'coordinates': [[(117.9, 55.2), (120.5, 58.4), (120.5, 55.2)], [(120.5, 55.2), (121, 58.4), (120.5, 55.2)]]}
-        print(oeop.mask_polygon(self.test_data.xr_data_factor(1,1), geojson))
+        #print(oeop.mask_polygon(self.test_data.xr_data_factor(1,1), geojson))
 
     def test_aggregate_temporal_period(self):
         """ Tests 'aggregate_temporal_period' function. """
