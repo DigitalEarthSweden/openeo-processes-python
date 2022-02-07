@@ -1514,10 +1514,10 @@ class FilterBbox:
             crs_input = CRS.from_user_input(crs)
 
             if "west" in extent and "east" in extent and "south" in extent and "north" in extent:
-                bbox = [[extent["west"], extent["south"]],
-                        [extent["east"], extent["south"]],
-                        [extent["east"], extent["north"]],
-                        [extent["west"], extent["north"]]]
+                bbox = [[extent["south"], extent["west"]],
+                        [extent["south"], extent["east"]],
+                        [extent["north"], extent["east"]],
+                        [extent["north"], extent["west"]]]
             else:
                 raise Exception("Coordinate missing!")
             if "crs" in data.attrs:
@@ -1540,9 +1540,12 @@ class FilterBbox:
             y_min = y_t.min()
             y_max = y_t.max()
 
-            data = data.sortby('x')
-            data = data.sortby('y')
-            data = data.loc[dict(x=slice(x_min, x_max), y=slice(y_min, y_max))]
+            data_x = data['x'].values
+            data_x = data_x[data_x > x_min][data_x[data_x > x_min] < x_max]
+            data = data.sel(x=data_x)
+            data_y = data['y'].values
+            data_y = data_y[data_y > y_min][data_y[data_y > y_min] < y_max]
+            data = data.sel(y= data_y)
         return data
 
 
