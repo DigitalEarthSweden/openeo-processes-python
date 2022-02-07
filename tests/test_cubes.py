@@ -254,9 +254,9 @@ class CubesTester(unittest.TestCase):
 
     def test_filter_bbox(self):
         """Tests 'filter_bbox' function. """
-        extent = {'west': 120, 'east': 118, 'north': 60, 'south': 56, 'crs':'EPSG:4326'}
+        extent = {'west': 60, 'east': 56, 'north': 120, 'south': 118, 'crs':'EPSG:4326'}
         xr.testing.assert_equal(oeop.filter_bbox(self.test_data.xr_data_factor(), extent), self.test_data.xr_data_factor().loc[{'x': [118.9, 119.9], 'y': [56.3, 57.3, 58.3, 59.3]}])
-        extent = {'west': 124, 'east': 123, 'north': 63, 'south': 62, 'crs': 4326}
+        extent = {'west': 63, 'east': 62, 'north': 124, 'south': 123, 'crs': 4326}
         assert len((oeop.filter_bbox(self.test_data.xr_data_factor(), extent)).values[0])==0
 
     def test_mask(self):
