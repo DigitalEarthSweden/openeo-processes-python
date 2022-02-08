@@ -290,11 +290,7 @@ class SaveResult:
                 raise Exception("[!] Not possible to write a 4-dimensional GeoTiff, use NetCDF instead.")
             for idx, dataset in enumerate(data_list):
                 cur_output_filepath = create_output_filepath(output_filepath, idx, 'tif')
-                try:
-                    darray = dataset.to_array(dim='bands')
-                    write_cog(geo_im=darray, fname=cur_output_filepath).compute()
-                except:
-                    dataset.rio.to_raster(raster_path=cur_output_filepath, **options)
+                dataset.rio.to_raster(raster_path=cur_output_filepath, **options)
 
         else:
             raise ValueError(f"Error when saving to file. Format '{format}' is not in {formats}.")
