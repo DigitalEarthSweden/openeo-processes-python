@@ -290,9 +290,11 @@ class SaveResult:
                 raise Exception("[!] Not possible to write a 4-dimensional GeoTiff, use NetCDF instead.")
             for idx, dataset in enumerate(data_list):
                 cur_output_filepath = create_output_filepath(output_filepath, idx, 'tif')
-                print(dataset)
+                print('DATASET: ', dataset)
                 darray = dataset.to_array(dim='bands')
-                print(darray)
+                print('DATAARRAY: ', darray)
+                darray.attrs["datetime_from_dim"] = str(datetime.now())
+                print('DATAARRAY WITH TIME: ', darray)
                 write_cog(geo_im=darray, fname=cur_output_filepath).compute()
                 #dataset.rio.to_raster(raster_path=cur_output_filepath, **options)
 
