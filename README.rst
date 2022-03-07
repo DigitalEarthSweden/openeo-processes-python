@@ -49,13 +49,9 @@ Installation
     For example with one of the following install commands::
 
         pip install .[dask]
-        pip install .[xarray]
-        pip install .[dask,xarray]
-	
-	Please note: the xarray process resample_cube_spatial requires the odc-tools library, which can't be installed automatically. You have to install it using::
-	
-        pip install --extra-index-url="https://packages.dea.ga.gov.au" odc-algo odc-aws
-
+		pip install --extra-index-url="https://packages.dea.ga.gov.au" .[xarray]
+        pip install --extra-index-url="https://packages.dea.ga.gov.au" .[dask,xarray]
+		
 4. Optionally run the tests::
 
         python setup.py test
