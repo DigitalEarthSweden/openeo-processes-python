@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import math
+import random
 
 from openeo_processes.utils import create_slices
 from openeo_processes.utils import process
