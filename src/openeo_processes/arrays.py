@@ -1698,6 +1698,8 @@ class VectorToRandomPoints:
         for feature in data['features']:
             if 'properties' not in feature:
                 feature['properties'] = {}
+            elif feature['properties'] is None:
+                feature['properties'] = {}
 
         gdf = gpd.GeoDataFrame.from_features(data['features']).set_crs(4326)
 
