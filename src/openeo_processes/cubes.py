@@ -963,7 +963,7 @@ class AddDimension:
     """
 
     @staticmethod
-    def exec_xar(data, name, labels, type = 'other'):
+    def exec_xar(data=None, name=None, label=None, type='other'):
         """
         Parameters
         ----------
@@ -982,7 +982,9 @@ class AddDimension:
            The data cube with a newly added dimension. The new dimension has exactly one dimension label.
            All other dimensions remain unchanged.
         """
-        data_e = data.assign_coords(placeholder = labels)
+        if name in data.dims:
+            raise Exception('DimensionExists - A dimension with the specified name already exists. The existing dimensions are: {}'.format(data.dims))
+        data_e = data.assign_coords(placeholder = label)
         data_e = data_e.expand_dims('placeholder')
         data_e = data_e.rename({'placeholder' : name})
         return data_e
