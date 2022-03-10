@@ -1738,7 +1738,7 @@ class VectorToRandomPoints:
             multipolygons_gdf_6933 = multipolygons_gdf.to_crs(6933)
 
             gdf_polygon_areas = np.asarray([geom.area for geom in polygons_gdf_6933['geometry']])
-            gdf_multipolygon_areas = np.asarray([geom.area for geom in polygons_gdf_6933['geometry']])
+            gdf_multipolygon_areas = np.asarray([geom.area for geom in multipolygons_gdf_6933['geometry']])
             tot_area = np.sum(gdf_polygon_areas) + np.sum(gdf_multipolygon_areas)
 
             # Depending on the max number of points we want to extract and the area of each polygon,
