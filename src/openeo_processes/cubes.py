@@ -276,12 +276,6 @@ class SaveResult:
             paths = []
             for idx in range(len(data_list)):
                 paths.append(create_output_filepath(output_filepath, idx, 'nc'))
-            # combined dataset
-            if 'time' in data.coords:
-                combined_dataset = reformat_dataset(data, None, has_time_dim=True)
-                data_list.append(combined_dataset)
-                combined_path = f'{splitext(output_filepath)[0]}_combined.nc'
-                paths.append(combined_path)
             xr.save_mfdataset(data_list, paths)
 
         elif format.lower() in ['gtiff','geotiff']:
