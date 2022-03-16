@@ -11,6 +11,8 @@ import openeo_processes as oeop
 import xarray as xr
 import numpy as np
 import pandas as pd
+from tests.conftest import test_geojson
+from tests.conftest import equi7xarray
 
 
 @pytest.mark.usefixtures("test_data")
@@ -284,5 +286,15 @@ class CubesTester(unittest.TestCase):
                                  self.test_data.xr_data_factor(1,2)[0].values).all()
         assert (oeop.apply_dimension(self.test_data.xr_data_factor(1, 2), oeop.min, 'time', 'time').dims ==
                 self.test_data.xr_data_factor(1, 2).dims)
+
+
+    def test_aggregate_spatial(self):
+        """Tests 'aggregate_spatial' function. """
+        P = test_geojson('Polygon')
+        vector_points = oeop.vector_to_regular_points(P, 0.01)
+        print(vector_points)
+        print(equi7xarray())
+        print(oeop.aggregate_spatial(equi7xarray(), vector_points, oeop.mean, 'result'))
+
 if __name__ == "__main__":
     unittest.main()

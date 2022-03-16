@@ -129,3 +129,109 @@ def test_data(request):
             return xdata
 
     request.cls.test_data = TestDataDriver()
+
+def test_geojson(geometry):
+    if geometry == 'Polygon':
+        geojson2 = {
+            'type': 'FeatureCollection',
+            'features': [
+                {
+                    'type': 'Feature',
+                    'properties': {},
+                    'geometry': {
+                        'type': 'Polygon',
+                        'coordinates': [
+                            [
+                                [
+                                    11.402550080548934,
+                                    46.299634105980964
+                                ],
+                                [
+                                    11.437437058344888,
+                                    46.299634105980964
+                                ],
+                                [
+                                    11.437437058344888,
+                                    46.350398112827055
+                                ],
+                                [
+                                    11.402550080548934,
+                                    46.350398112827055
+                                ],
+                                [
+                                    11.402550080548934,
+                                    46.299634105980964
+                                ]
+                            ]
+                        ]
+                    }
+                }
+            ]
+        }
+    elif geometry == 'MultiPolygon':
+        geojson2 = {
+            'type': 'FeatureCollection',
+            'features': [
+                {
+                    'type': 'Feature',
+                    'properties': {},
+                    'geometry': {
+                        'type': 'MultiPolygon',
+                        'coordinates': [
+                            [
+                                [
+                                    [
+                                        11.437437058344888,
+                                        46.350398112827055
+                                    ],
+                                    [
+                                        11.457437058344888,
+                                        46.350398112827055
+                                    ],
+                                    [
+                                        11.457437058344888,
+                                        46.390398112827055
+                                    ],
+                                    [
+                                        11.437437058344888,
+                                        46.350398112827055
+                                    ]
+                                ]
+                            ],
+                            [
+                                [
+                                    [
+                                        11.457437058344888,
+                                        46.390398112827055
+                                    ],
+                                    [
+                                        11.477437058344888,
+                                        46.400398112827055
+                                    ],
+                                    [
+                                        11.477437058344888,
+                                        46.390398112827055
+                                    ],
+                                    [
+                                        11.457437058344888,
+                                        46.390398112827055
+                                    ]
+                                ]
+                            ]
+                        ]
+                    }
+                }
+            ]
+        }
+    return geojson2
+
+def equi7xarray():
+    y = [1459509.1198203214, 1462676.7740152855, 1463645.2966358056]
+    x = [4869567.340356644, 4870511.829134757, 4870695.104272628, 4870878.396641726, 4871822.373331639]
+    bands = ['B04', 'B08']
+    equi7 = xr.DataArray(np.array([[[550, 1200], [550, 1200], [550, 1200], [550, 1200], [550, 1200]],
+                                  [[550, 1200], [550, 1200], [550, 1200], [550, 1200], [550, 1200]],
+                                  [[550, 1200], [550, 1200], [550, 1200], [550, 1200], [550, 1200]]]),
+                         coords = [y, x, bands], dims= ["y", "x", "bands"])
+    equi7.attrs["crs"] = 'PROJCS["Azimuthal_Equidistant",GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]],PROJECTION["Azimuthal_Equidistant"],PARAMETER["latitude_of_center",53],PARAMETER["longitude_of_center",24],PARAMETER["false_easting",5837287.81977],PARAMETER["false_northing",2121415.69617],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["Easting",EAST],AXIS["Northing",NORTH]]'
+    return equi7

@@ -1966,7 +1966,7 @@ class AggregateSpatial:
             input_raster_cube_dims = [target_dimension]
         bands_or_timesteps = None
         if input_raster_cube_dims[0] in list(data.dims):
-            bands_or_timesteps = raster_cube[input_raster_cube_dims[0]].values
+            bands_or_timesteps = data[input_raster_cube_dims[0]].values
 
         # Case when geoJSON is provided
         if type(geometries) == dict:
@@ -1998,7 +1998,7 @@ class AggregateSpatial:
         geom_crop_list = []
         for i in range(len(vector_cube_utm)):
             if callable(reducer):
-                try:
+                #try:
                     geom_crop = crop.rio.clip(vector_cube_utm.loc[[i]].geometry)
                     valid_data_dict = {}
                     if bands_or_timesteps is not None:
@@ -2027,8 +2027,8 @@ class AggregateSpatial:
                     for ic in input_vector_cube_columns:
                         vector_data_dict[ic] = geometries.loc[[i], ic].item()
                     output_vector_cube = output_vector_cube.append(vector_data_dict, ignore_index=True)
-                except:
-                    pass
+                #except:
+                #    pass
         return output_vector_cube
 
 
