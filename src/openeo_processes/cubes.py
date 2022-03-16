@@ -213,7 +213,7 @@ class SaveResult:
         data.attrs["nodata"] = -9999
         # Convert data array to data set, keeping a nice format on the bands.
         data = data.to_dataset(
-            dim='variable'
+            dim='bands'
         )
 
         # Generate tile list
