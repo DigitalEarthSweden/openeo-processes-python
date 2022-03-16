@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import math
+import random
 
 from openeo_processes.utils import create_slices
 from openeo_processes.utils import process
@@ -19,6 +20,13 @@ except ImportError:
     topk = None
     argtopk = None
 
+from shapely.geometry import Point
+from shapely.geometry.multipoint import MultiPoint
+from shapely.geometry import LineString
+from shapely.geometry import Polygon
+from shapely.geometry import MultiPolygon
+
+import geopandas as gpd
 
 ########################################################################################################################
 # Array Create Process
@@ -1668,3 +1676,181 @@ class Sort:
     def exec_da():
         pass
 
+###############################################################################
+# VectorToRandomPoints process
+###############################################################################
+
+@process
+def vector_to_random_points():
+
+    return VectorToRandomPoints()
+
+
+class VectorToRandomPoints:
+
+    @staticmethod
+    def exec_num(data, geometry_count = None, total_count = None, seed = None):
+
+        if seed is not None:
+            random.seed(seed)
+
+        # Each feature must have a properties field, even if there is no property
+        for feature in data['features']:
+            if 'properties' not in feature:
+                feature['properties'] = {}
+            elif feature['properties'] is None:
+                feature['properties'] = {}
+
+        gdf = gpd.GeoDataFrame.from_features(data['features']).set_crs(4326)
+
+        features_count = len(gdf)
+
+        # Divide features into polygons and points (TODO: add handling of Lines)
+        # For the subsequent code, I consider a MultiPolygon as a single 'geometry'
+        points_gdf   = gpd.GeoDataFrame(columns=gdf.columns)
+        polygons_gdf = gpd.GeoDataFrame(columns=gdf.columns)
+        multipolygons_gdf = gpd.GeoDataFrame(columns=gdf.columns)
+        for idx, row in gdf.iterrows():
+            if type(row.geometry) == MultiPolygon:
+                multipolygons_gdf = multipolygons_gdf.append(row,ignore_index=True)
+            if type(row.geometry) == Polygon:
+                polygons_gdf = polygons_gdf.append(row,ignore_index=True)
+            if type(row.geometry) == Point:
+                points_gdf = points_gdf.append(row,ignore_index=True)
+        points_gdf = points_gdf.set_crs(4326)
+        polygons_gdf = polygons_gdf.set_crs(4326)
+        multipolygons_gdf = multipolygons_gdf.set_crs(4326)
+
+        if geometry_count is None and total_count is None:
+            # Return only 1 point each geometry
+            pts_each_polygon = np.ones(len(polygons_gdf['geometry']),dtype=int)
+            pts_each_multipolygon = np.ones(len(multipolygons_gdf['geometry']),dtype=int)
+
+        elif geometry_count is None and total_count is not None:
+            # Return total_count points, distributed between the available geometries or CountMismatch
+            # if there are more than total_count geometries
+            if total_count < features_count:
+                raise Exception("CountMismatch - The maximum number of points must be >= the number of features of the provided geoJSON!\
+             total_count = {} numb of features = {}".format(total_count,features_count))
+
+            ## Compute the total area of all the polygons
+            ## We tranform first the points to an equal area projection
+            ## Found this CRS in this discussion, can be changed https://gis.stackexchange.com/questions/218450/getting-polygon-areas-using-geopandas
+            polygons_gdf_6933 = polygons_gdf.to_crs(6933)
+            multipolygons_gdf_6933 = multipolygons_gdf.to_crs(6933)
+
+            gdf_polygon_areas = np.asarray([geom.area for geom in polygons_gdf_6933['geometry']])
+            gdf_multipolygon_areas = np.asarray([geom.area for geom in multipolygons_gdf_6933['geometry']])
+            tot_area = np.sum(gdf_polygon_areas) + np.sum(gdf_multipolygon_areas)
+
+            # Depending on the max number of points we want to extract and the area of each polygon,
+            # we extract a proportional number of points for each polygon depending on its area
+            # Minimum number of points extracted from each geometry is 1.
+
+            # Compute how many points per area unit we will sample
+            # We need to subtract the number of points provided as input first
+
+            pts_per_unit = (total_count - len(points_gdf)) / tot_area
+
+            pts_each_polygon = np.multiply(pts_per_unit,gdf_polygon_areas)
+            pts_each_multipolygon = np.multiply(pts_per_unit,gdf_multipolygon_areas)
+
+            # Round the number of points to the closest integer
+            pts_each_polygon = np.floor(pts_each_polygon).astype(int) # or np.round
+            pts_each_multipolygon = np.floor(pts_each_multipolygon).astype(int) # or np.round
+
+            # Check if there are polygons which will have a single point
+            pts_each_polygon[pts_each_polygon==0] = 1
+            pts_each_multipolygon[pts_each_multipolygon==0] = 1
+
+        elif geometry_count is not None and total_count is None:
+            pts_each_polygon = np.ones(len(polygons_gdf['geometry']),dtype=int) * geometry_count
+            pts_each_multipolygon = np.ones(len(multipolygons_gdf['geometry']),dtype=int) * geometry_count   
+
+        elif geometry_count is not None and total_count is not None:
+            if total_count < features_count:
+                raise Exception("CountMismatch - The maximum number of points must be >= the number of features of the provided geoJSON!\
+             total_count = {} numb of features = {}".format(total_count,features_count))
+            else:
+                # See https://github.com/Open-EO/openeo-processes/pull/315#discussion_r821457646
+                # TODO
+                raise Exception("Not yet implemented. We need to decide how to handle this.")
+
+        # Loop over all the Polygons:
+        for idx, polygon in polygons_gdf.iterrows():
+            # find area bounds
+            bounds = polygon.geometry.bounds
+            xmin, ymin, xmax, ymax = bounds
+
+            xext = xmax - xmin
+            yext = ymax - ymin
+
+            count = 0
+            points_list = []
+            for i in range(pts_each_polygon[idx]):
+                # generate a random x and y
+                x = xmin + random.random() * xext
+                y = ymin + random.random() * yext
+                p = Point(x, y)
+                if polygon.geometry.contains(p):  # check if point is inside geometry
+                    points_list.append(p)
+                    count += 1
+
+            # Return te centroid if we were not able to find random points within the polygon
+            if count == 0:
+                p = polygon.geometry.centroid
+                if polygon.geometry.contains(p):  # check if point is inside geometry
+                    points_list.append(p)
+                else:
+                    pass
+                    # TODO: Edge case. Return empty feature or first coordinate of the geometry?
+
+            multipoint = polygon.copy()
+            if len(points_list)>1:
+                multipoint.geometry = MultiPoint(points_list)
+                points_gdf = points_gdf.append(multipoint,ignore_index=True)
+
+            elif len(points_list)==1:
+                multipoint.geometry = points_list[0]
+                points_gdf = points_gdf.append(multipoint,ignore_index=True)
+
+
+        # Loop over all the MultiPolygons:
+        # polygons_from_multipolygons_gdf = multipolygons_gdf.explode()
+        for idx, polygon in multipolygons_gdf.iterrows():
+            # find area bounds
+            bounds = polygon.geometry.bounds
+            xmin, ymin, xmax, ymax = bounds
+
+            xext = xmax - xmin
+            yext = ymax - ymin
+
+            count = 0
+            points_list = []
+            for i in range(pts_each_multipolygon[idx]):
+                # generate a random x and y
+                x = xmin + random.random() * xext
+                y = ymin + random.random() * yext
+                p = Point(x, y)
+                if polygon.geometry.contains(p):  # check if point is inside geometry
+                    points_list.append(p)
+                    count += 1
+            # Return te centroid if we were not able to find random points within the polygon
+            if count == 0:
+                p = polygon.geometry.centroid
+                if polygon.geometry.contains(p):  # check if point is inside geometry
+                    points_list.append(p)
+                else:
+                    pass
+                    # TODO: Edge case. Return empty feature or first coordinate of the geometry?
+
+            multipoint = polygon.copy()
+            if len(points_list)>1:
+                multipoint.geometry = MultiPoint(points_list)
+                points_gdf = points_gdf.append(multipoint,ignore_index=True)
+
+            elif len(points_list)==1:
+                multipoint.geometry = points_list[0]
+                points_gdf = points_gdf.append(multipoint,ignore_index=True)
+
+        return points_gdf # This returns a GeoDatafram (geopandas). We could also return a dict if necessary.

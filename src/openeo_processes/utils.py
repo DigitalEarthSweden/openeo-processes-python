@@ -105,7 +105,7 @@ def process(processor):
             cls_fun = getattr(cls, "exec_np")
         elif "dask" in datatypes:
             cls_fun = getattr(cls, "exec_dar")
-        elif datatypes.issubset({"int", "float", "NoneType", "str", "bool", "datetime"}):
+        elif datatypes.issubset({"int", "float", "NoneType", "str", "bool", "datetime", "dict"}):
             cls_fun = getattr(cls, "exec_num")
         elif "tuple" in datatypes:
             args, kwargs = tuple_args_to_np_array(args, kwargs)
