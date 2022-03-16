@@ -1966,7 +1966,7 @@ class AggregateSpatial:
             input_raster_cube_dims = [target_dimension]
         bands_or_timesteps = None
         if input_raster_cube_dims[0] in list(data.dims):
-            bands_or_timesteps = raster_cube[input_raster_cube_dims[0]].values
+            bands_or_timesteps = data[input_raster_cube_dims[0]].values
 
         # Case when geoJSON is provided
         if type(geometries) == dict:
