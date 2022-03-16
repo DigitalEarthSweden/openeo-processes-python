@@ -564,6 +564,23 @@ class ArrayElement:
         #     msg = "Parameter 'labels' is needed when specifying input parameter 'label'."
         #     raise GenericError(msg)
 
+###############################################################################
+# CONVERTMULTIPOINTTOPOINTS process
+###############################################################################
+
+@process
+def convert_multipoint_to_points():
+    return VectorToRegularPoints()
+
+
+class ConvertMultipointToPoints:
+
+    @staticmethod
+    def exec_num(geo):
+        features = []
+        for x, y in (geo['features'][0]['geometry']['coordinates']):
+            features.append({"type": "Feature", "properties": {}, "geometry": {"type": "Point", "coordinates": [x, y]}})
+        return {"type": "FeatureCollection", "features": features}
 
 ########################################################################################################################
 # Count Process
@@ -1853,4 +1870,58 @@ class VectorToRandomPoints:
                 multipoint.geometry = points_list[0]
                 points_gdf = points_gdf.append(multipoint,ignore_index=True)
 
-        return points_gdf # This returns a GeoDatafram (geopandas). We could also return a dict if necessary.
+        return points_gdf # This returns a GeoDataframe (geopandas). We could also return a dict if necessary.
+
+
+###############################################################################
+# VectorToRegularPoints process
+###############################################################################
+
+@process
+def vector_to_regular_points():
+
+    return VectorToRegularPoints()
+
+
+class VectorToRegularPoints:
+
+    @staticmethod
+    def exec_num(data, cell_size):
+        if cell_size <= 0:
+            raise Exception("Cell size to small.")
+        if type(data) == dict:
+            sampl = []
+            polygon_list = []
+            for i in range(len(data["features"])):
+                geo = data["features"][i]["geometry"]
+                if geo['type'] == 'Point':
+                    p = geo['coordinates']
+                    sampl.append([p[0], p[1]])
+                elif geo['type'] == 'Polygon':
+                    p = geo['coordinates'][0]
+                    polygon_list.append(p)
+                elif geo['type'] == 'MultiPolygon':
+                    for p in ((geo['coordinates'][0])):
+                        polygon_list.append(p)
+            if len(polygon_list) > 0:
+                for i in range(len(polygon_list)):
+                    p = polygon_list[i]
+                    x = np.array(p)[:, 0]
+                    y = np.array(p)[:, 1]
+                    x_min = np.nanmin(x)
+                    y_min = np.nanmin(y)
+                    x_max = np.nanmax(x)
+                    y_max = np.nanmax(y)
+                    x_sampl = np.arange(x_min + cell_size / 2, x_max + cell_size / 2, cell_size)
+                    y_sampl = np.arange(y_min + cell_size / 2, y_max + cell_size / 2, cell_size)
+                    check = False
+                    for xi in x_sampl:
+                        for yi in y_sampl:
+                            if Point(xi, yi).within(Polygon(p)):
+                                sampl.append([xi, yi])
+                                check = True
+                    if not check:
+                        point = np.array(Polygon(p).centroid)
+                        sampl.append([point[0], point[1]])
+        return {"type": "FeatureCollection", "features": [
+            {"type": "Feature", "properties": {}, "geometry": {"type": "MultiPoint", "coordinates": sampl}}]}
