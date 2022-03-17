@@ -4,6 +4,7 @@ from os.path import splitext
 from typing import Any, Dict, List
 
 import numpy as np
+import pandas as pd
 import odc.algo
 from osgeo import osr
 import rioxarray  # needed by save_result even if not directly called
@@ -11,8 +12,8 @@ import xarray as xr
 from equi7grid import equi7grid
 from shapely.geometry import Point, LineString, Polygon, MultiPolygon
 from openeo_processes.extension.odc import write_odc_product
-from openeo_processes.utils import process, get_time_dimension_from_data
-from openeo_processes.errors import DimensionNotAvailable, TooManyDimensions
+from openeo_processes.utils import process, get_time_dimension_from_data, xarray_dataset_from_dask_dataframe
+from openeo_processes.errors import DimensionNotAvailable
 from scipy import optimize
 import datacube
 import dask
@@ -22,6 +23,12 @@ try:
 except ImportError:
     Transformer = None
     CRS = None
+import xgboost as xgb
+import dask.dataframe as df
+from dask_ml.model_selection import train_test_split
+
+import geopandas as gpd
+import urllib, json
 
 ###############################################################################
 # Load Collection Process
@@ -464,6 +471,19 @@ class MergeCubes:
     """
 
     @staticmethod
+    def exec_num(cube1, cube2, overlap_resolver = None, context={}):
+        if type(cube1) == gpd.geodataframe.GeoDataFrame and type(cube2) == gpd.geodataframe.GeoDataFrame:
+            cube1.append(cube2, ignore_index=True)
+            return cube1
+
+    @staticmethod
+    def exec_np(cube1, cube2, overlap_resolver=None, context={}):
+        if type(cube1) == gpd.geodataframe.GeoDataFrame and type(cube2) == gpd.geodataframe.GeoDataFrame:
+            cube1.append(cube2, ignore_index=True)
+            return cube1
+
+
+    @staticmethod
     def exec_xar(cube1, cube2, overlap_resolver = None, context={}):
         """
         Parameters
@@ -482,6 +502,10 @@ class MergeCubes:
         -------
         xr.DataArray
         """
+        if type(cube1) == gpd.geodataframe.GeoDataFrame and type(cube2) == gpd.geodataframe.GeoDataFrame:
+            cube1.append(cube2, ignore_index=True)
+            return cube1
+
         if (cube1.dims == cube2.dims):  # Check if the dimensions have the same names
             matching = 0
             not_matching = 0
@@ -1687,10 +1711,6 @@ class Mask:
             pass
         return data
 
-    @staticmethod
-    def exec_da():
-        pass
-
 
 ########################################################################################################################
 # Mask_Polygon Process
@@ -1951,3 +1971,272 @@ class ApplyDimension:
             return new
         else:
             return process
+
+###############################################################################
+# Aggregate_spatial process
+###############################################################################
+
+@process
+def aggregate_spatial():
+
+    return AggregateSpatial()
+
+
+class AggregateSpatial:
+
+    @staticmethod
+    def exec_xar(data, geometries, reducer, target_dimension = "result", context = None):
+        input_raster_cube_dims = list(data.dims)
+        if len(input_raster_cube_dims) > 3:
+            raise Exception(
+                'TooManyDimensions - The number of dimensions must be reduced to three for aggregate_spatial. Input raster-cube dimensions: {}'.format(
+                    input_raster_cube_dims))
+        if 'x' in input_raster_cube_dims:
+            input_raster_cube_dims.remove('x')
+        if 'y' in input_raster_cube_dims:
+            input_raster_cube_dims.remove('y')
+        if len(input_raster_cube_dims) == 0:
+            input_raster_cube_dims = [target_dimension]
+        bands_or_timesteps = None
+        if input_raster_cube_dims[0] in list(data.dims):
+            bands_or_timesteps = data[input_raster_cube_dims[0]].values
+
+        # Case when geoJSON is provided
+        if type(geometries) == dict:
+            geometries = gpd.GeoDataFrame.from_features(geometries)
+        # Case when a vector-cube (result of vector_to_random_points for instance) is provided
+        elif type(geometries) == gpd.geodataframe.GeoDataFrame:
+            pass
+        # Case where a vector-cube is provided via URL
+        elif type(geometries) == str:
+            response = urllib.request.urlopen(geometries)
+            geometries = json.loads(response.read())
+            geometries = gpd.GeoDataFrame.from_features(geometries)
+        else:
+            raise Exception('[!] No compatible vector input data has been provided.')
+
+        input_vector_cube_columns = list(geometries.columns)
+
+        output_raster_cube_columns = input_vector_cube_columns + [target_dimension, target_dimension + '_meta']
+        output_vector_cube = gpd.GeoDataFrame(columns=output_raster_cube_columns)
+
+        ## Input geometries are in EPSG:4326 and the data has a different projection. We reproject the vector-cube
+        geometries = geometries.set_crs(4326)
+        if 'crs' in data.attrs:
+            CRS = data.attrs['crs']
+        else:
+            CRS = 'PROJCS["Azimuthal_Equidistant",GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]],PROJECTION["Azimuthal_Equidistant"],PARAMETER["latitude_of_center",53],PARAMETER["longitude_of_center",24],PARAMETER["false_easting",5837287.81977],PARAMETER["false_northing",2121415.69617],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["Easting",EAST],AXIS["Northing",NORTH]]'
+        vector_cube_utm = geometries.to_crs(CRS)
+        data = data.rio.set_crs(CRS)
+
+        ## First clip the data keeping only the data within the polygons
+        crop = data.rio.clip(vector_cube_utm.geometry, drop=True)
+
+        ## Loop over the geometries in the FeatureCollection and apply the reducer
+        geom_crop_list = []
+        for i in range(len(vector_cube_utm)):
+            if callable(reducer):
+                try:
+                    geom_crop = crop.rio.clip(vector_cube_utm.loc[[i]].geometry)
+                    valid_data_dict = {}
+                    if bands_or_timesteps is not None:
+                        total_count = len(geom_crop.x) * len(geom_crop.y) * len(geom_crop[input_raster_cube_dims[0]])
+                    else:
+                        total_count = len(geom_crop.x) * len(geom_crop.y)
+                    invalid_count = np.isnan(geom_crop).sum().values
+
+                    valid_count = total_count - invalid_count
+                    valid_data_dict['total_count'] = float(total_count)
+                    valid_data_dict['valid_count'] = float(valid_count)
+                    reduced_value = reducer(reducer(geom_crop, dimension='x'), dimension='y')
+                    reduced_value = reduced_value.load()
+
+                    raster_data_dict = {}
+
+                    vector_data_dict = {}
+                    vector_data_dict[target_dimension] = i
+                    if bands_or_timesteps is not None:
+                        for b_or_t in bands_or_timesteps:
+                            vector_data_dict[str(b_or_t)] = reduced_value.loc[
+                                {input_raster_cube_dims[0]: b_or_t}].item()
+                    else:
+                        vector_data_dict[target_dimension] = reduced_value.item()
+                    vector_data_dict[target_dimension + '_meta'] = valid_data_dict
+                    for ic in input_vector_cube_columns:
+                        vector_data_dict[ic] = geometries.loc[[i], ic].item()
+                    output_vector_cube = output_vector_cube.append(vector_data_dict, ignore_index=True)
+                except:
+                    pass
+        return output_vector_cube
+
+
+###############################################################################
+# FitRegrRandomForest process
+###############################################################################
+
+@process
+def fit_regr_random_forest():
+
+    return FitRegrRandomForest()
+
+
+class FitRegrRandomForest:
+
+    @staticmethod
+    def exec_xar(predictors, target, training, num_trees = 100, mtry = None, predictors_vars = None, target_var = None, client = None):
+        params = {
+            'learning_rate': 1,
+            'max_depth': 5,
+            'num_parallel_tree': num_trees,
+            'objective': 'reg:squarederror',
+            'subsample': 0.8,
+            'tree_method': 'hist'}
+
+        # TODO: This needs to be fixed to accept the number of columns, rather than a fraction
+        if mtry is not None:
+            params['colsample_bynode'] = mtry
+
+        if type(predictors) == gpd.geodataframe.GeoDataFrame:
+            predictors_pandas = pd.DataFrame(predictors)
+            predictors_pandas = predictors_pandas.drop(columns=['geometry'])
+            predictors_dask = df.from_pandas(predictors_pandas, chunksize=5)
+            for c in predictors_dask.columns:
+                if c not in predictors_vars:
+                    predictors_dask = predictors_dask.drop(columns=c)
+
+            target_pandas = pd.DataFrame(target)
+            target_pandas = target_pandas.drop(columns=['geometry'])
+            target_dask = df.from_pandas(target_pandas, chunksize=5)
+            for c in target_dask.columns:
+                if c != target_var:
+                    target_dask = target_dask.drop(columns=c)
+
+            X_train, X_test, y_train, y_test = train_test_split(predictors_dask, target_dask, train_size=training)
+
+            dtrain = xgb.dask.DaskDMatrix(client, X_train, y_train)
+            dtest = xgb.dask.DaskDMatrix(client, X_test, y_test)
+
+            output = xgb.dask.train(client, params, dtrain, num_boost_round=1, evals=[(dtest, "test")])
+
+            return output
+
+
+###############################################################################
+# PredictRandomForest process
+###############################################################################
+
+@process
+def predict_random_forest():
+
+    return PredictRandomForest()
+
+
+class PredictRandomForest:
+
+    @staticmethod
+    def exec_xar(model, predictors, predictors_vars = None, client = None):
+        predictor_cols = list(predictors.dims)
+        if 'bands' in predictor_cols:
+            predictor_cols.remove('bands')
+        if len(predictor_cols) == 1:
+            stacked = predictors
+            I = stacked[predictor_cols[0]].values
+        else:
+            stacked = predictors.stack(z=predictor_cols)
+            I = stacked['z'].values
+            predictor_cols = ['z']
+
+        X_hat = stacked.to_dataset(dim='bands').to_dask_dataframe().drop(columns=predictor_cols)
+        if 'spatial_ref' in X_hat:
+            X_hat = X_hat.drop(columns=['spatial_ref'])
+        if predictors_vars:
+            for c in X_hat.columns:
+                if c not in predictors_vars:
+                    X_hat = X_hat.drop(columns=c)
+
+        y_hat = xgb.dask.predict(client, model, X_hat).to_frame()
+        y_hat_ds = xarray_dataset_from_dask_dataframe(y_hat)
+        y_hat_da = y_hat_ds.to_array(dim='bands')
+        y_hat_da['index'] = I
+        y_hat_da = y_hat_da.rename({'index': predictor_cols[0]})
+        p = predictors.isel(bands=0)
+        predictions_xr = xr.ones_like(p) * y_hat_da
+        predictions_xr.attrs = predictors.attrs
+        return predictions_xr
+
+
+###############################################################################
+# SaveModel process
+###############################################################################
+
+@process
+def save_model():
+
+    return SaveModel()
+
+
+class SaveModel:
+
+    @staticmethod
+    def exec_num(model):
+        if type(model) == dict and 'booster' in model:
+            m = model['booster']
+        elif type(model) == xgb.core.Booster:
+            m = model
+        else:
+            pass
+        m.save_model("./model.json")
+
+
+###############################################################################
+# LoadModel process
+###############################################################################
+
+@process
+def load_model():
+
+    return LoadModel()
+
+
+class LoadModel:
+
+    @staticmethod
+    def exec_num(model):
+        model_xgb = xgb.Booster()
+        model_xgb.load_model(model)
+        return model_xgb
+
+###############################################################################
+# FlattenDimensions process
+###############################################################################
+
+@process
+def flatten_dimensions():
+
+    return FlattenDimensions()
+
+
+class FlattenDimensions:
+
+    @staticmethod
+    def exec_xar(data, dimensions, target_dimension, label_seperator='~'):
+        stacked = data.stack({target_dimension:(tuple(dimensions))})
+        return stacked
+
+
+###############################################################################
+# UnflattenDimensions process
+###############################################################################
+
+@process
+def unflatten_dimensions():
+
+    return UnflattenDimensions()
+
+
+class UnflattenDimensions:
+
+    @staticmethod
+    def exec_xar(data, dimensions, target_dimension, label_seperator='~'):
+        stacked = data.unstack()
+        return stacked

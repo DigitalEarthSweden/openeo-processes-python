@@ -5,6 +5,7 @@ from typing import Any, Callable, Tuple
 
 import numpy as np
 import xarray as xr
+import geopandas as gpd
 
 
 def eval_datatype(data):
@@ -33,7 +34,7 @@ def eval_datatype(data):
     package_root = package.split(".", 1)[0]
     if package in ("builtins", "datetime"):
         return type(data).__name__
-    elif package_root in ("numpy", "xarray", "dask", "datacube"):
+    elif package_root in ("numpy", "xarray", "dask", "datacube", "geopandas"):
         return package_root
     else:
         return package + '.' + type(data).__name__
@@ -95,17 +96,14 @@ def process(processor):
             datatypes = set(eval_datatype(a) for a in args)
             datatypes.update(eval_datatype(v) for v in kwargs.values())
 
+        datatypes = set(datatypes)
         if "datacube" in datatypes:
             cls_fun = getattr(cls, "exec_odc")
-        elif "xarray" in datatypes:
-            cls_fun = getattr(cls, "exec_xar")
-        elif "numpy" in datatypes and "xarray" in datatypes:
+        elif datatypes.intersection(["xarray", "dask", "geopandas", "xgboost"]):
             cls_fun = getattr(cls, "exec_xar")
         elif "numpy" in datatypes:
             cls_fun = getattr(cls, "exec_np")
-        elif "dask" in datatypes:
-            cls_fun = getattr(cls, "exec_dar")
-        elif datatypes.issubset({"int", "float", "NoneType", "str", "bool", "datetime"}):
+        elif datatypes.issubset({"int", "float", "NoneType", "str", "bool", "datetime", "dict"}):
             cls_fun = getattr(cls, "exec_num")
         elif "tuple" in datatypes:
             args, kwargs = tuple_args_to_np_array(args, kwargs)
@@ -307,6 +305,48 @@ def keep_attrs(x, y, data):
     elif isinstance(y, xr.DataArray):
         data.attrs = y.attrs
     return data
+
+def xarray_dataset_from_dask_dataframe(dataframe):
+    """Utility function snatched from @AyrtonB at https://github.com/pydata/xarray/pull/4659.
+    
+    Convert a dask.dataframe.DataFrame into an xarray.Dataset
+    This method will produce a Dataset from a dask DataFrame.
+    Dimensions are loaded into memory but the data itself remains
+    a dask array.
+    Parameters
+    ----------
+    dataframe : dask.dataframe.DataFrame
+        Dask DataFrame from which to copy data and index.
+    Returns
+    -------
+    Dataset
+        The converted Dataset
+    See also
+    --------
+    xarray.DataArray.from_dask_series
+    xarray.Dataset.from_dataframe
+    xarray.DataArray.from_series
+    """
+    import dask.dataframe as dd
+
+    if not dataframe.columns.is_unique:
+        raise ValueError("cannot convert DataFrame with non-unique columns")
+    if not isinstance(dataframe, dd.DataFrame):
+        raise ValueError("cannot convert non-dask dataframe objects")
+
+    idx = dataframe.index.compute()
+
+    arrays = [(k, v.to_dask_array(lengths=True)) for k, v in dataframe.items()]
+
+    obj = xr.Dataset()
+    index_name = idx.name if idx.name is not None else "index"
+    dims = (index_name,)
+    obj[index_name] = (dims, idx)
+
+    for name, values in arrays:
+        obj[name] = (dims, values)
+
+    return obj
 
 if __name__ == '__main__':
     pass
