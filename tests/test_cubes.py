@@ -12,8 +12,6 @@ import xarray as xr
 import numpy as np
 import pandas as pd
 import geopandas as gpd
-from tests.conftest import test_geojson
-from tests.conftest import equi7xarray
 
 
 @pytest.mark.usefixtures("test_data")
@@ -291,9 +289,8 @@ class CubesTester(unittest.TestCase):
 
     def test_aggregate_spatial(self):
         """Tests 'aggregate_spatial' function. """
-        P = test_geojson('Polygon')
-        vector_points = oeop.vector_to_regular_points(P, 0.01)
-        assert type(oeop.aggregate_spatial(equi7xarray(), vector_points, oeop.mean, 'result')) == gpd.geodataframe.GeoDataFrame
+        vector_points = oeop.vector_to_regular_points(self.test_data.geojson_polygon, 0.01)
+        assert type(oeop.aggregate_spatial(self.test_data.equi7xarray, vector_points, oeop.mean, 'result')) == gpd.geodataframe.GeoDataFrame
 
 if __name__ == "__main__":
     unittest.main()

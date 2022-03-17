@@ -9,7 +9,6 @@ import pytest
 import xarray as xr
 from unittest import TestCase
 import math
-from tests.conftest import test_geojson
 
 
 @pytest.mark.usefixtures("test_data")
@@ -213,5 +212,4 @@ class ArrayTester(TestCase):
 
     def test_vector_to_regular_points(self):
         """ Tests `vector_to_regular_points` function. """
-        P = test_geojson('Polygon')
-        assert type(oeop.vector_to_regular_points(P, 0.01)) == dict
+        assert type(oeop.vector_to_regular_points(self.test_data.geojson_polygon, 0.01)) == dict
