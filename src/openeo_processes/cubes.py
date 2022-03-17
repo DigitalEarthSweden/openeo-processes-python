@@ -1692,10 +1692,6 @@ class Mask:
             pass
         return data
 
-    @staticmethod
-    def exec_da():
-        pass
-
 
 ########################################################################################################################
 # Mask_Polygon Process
@@ -2068,7 +2064,7 @@ def fit_regr_random_forest():
 class FitRegrRandomForest:
 
     @staticmethod
-    def exec_num(predictors, target, training, num_trees = 100, mtry = None, predictors_vars = None, target_var = None, client = None):
+    def exec_xar(predictors, target, training, num_trees = 100, mtry = None, predictors_vars = None, target_var = None, client = None):
         params = {
             'learning_rate': 1,
             'max_depth': 5,
@@ -2104,15 +2100,6 @@ class FitRegrRandomForest:
             output = xgb.dask.train(client, params, dtrain, num_boost_round=1, evals=[(dtest, "test")])
 
             return output
-
-    @staticmethod
-    def exec_np(predictors, target, training, num_trees = 100, mtry = None, predictors_vars = None, target_var = None, client = None):
-        return IsValid.exec_num(predictors, target, training, num_trees = 100, mtry = None, predictors_vars = None, target_var = None, client = None)
-
-    @staticmethod
-    def exec_xar(predictors, target, training, num_trees = 100, mtry = None, predictors_vars = None, target_var = None, client = None):
-        return IsValid.exec_num(predictors, target, training, num_trees = 100, mtry = None, predictors_vars = None, target_var = None, client = None)
-
 
 
 ###############################################################################

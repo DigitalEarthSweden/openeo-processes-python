@@ -96,18 +96,13 @@ def process(processor):
             datatypes = set(eval_datatype(a) for a in args)
             datatypes.update(eval_datatype(v) for v in kwargs.values())
 
+        datatypes = set(datatypes)
         if "datacube" in datatypes:
             cls_fun = getattr(cls, "exec_odc")
-        elif "xarray" in datatypes:
-            cls_fun = getattr(cls, "exec_xar")
-        elif "numpy" in datatypes and "xarray" in datatypes:
+        elif datatypes.intersection(["xarray", "dask", "geopandas", "xgboost"]):
             cls_fun = getattr(cls, "exec_xar")
         elif "numpy" in datatypes:
             cls_fun = getattr(cls, "exec_np")
-        elif "dask" in datatypes:
-            cls_fun = getattr(cls, "exec_dar")
-        elif "geopandas" in datatypes:
-            cls_fun = getattr(cls, "exec_xar")
         elif datatypes.issubset({"int", "float", "NoneType", "str", "bool", "datetime", "dict"}):
             cls_fun = getattr(cls, "exec_num")
         elif "tuple" in datatypes:
