@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 from os.path import splitext
 from typing import Any, Dict, List
@@ -218,7 +219,12 @@ class SaveResult:
         )
 
         # Generate tile list
+        os.environ['PROJ_LIB'] = '/opt/conda/share/proj'
+        input_p4 = '+proj=aeqd +lat_0=53 +lon_0=24 +x_0=5837287.81977 +y_0=2121415.69617 +datum=WGS84 +units=m +no_defs'
+        
         src_crs = osr.SpatialReference(data.crs)
+        src_crs.ImportFromProj4(input_p4)
+
         x_min, x_max = float(data.x.min().values), float(data.x.max().values)
         y_min, y_max = float(data.y.min().values), float(data.y.max().values)
 
