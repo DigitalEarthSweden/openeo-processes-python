@@ -24,6 +24,7 @@ import dask.dataframe as df
 from dask_ml.model_selection import train_test_split
 
 import geopandas as gpd
+import urllib, json
 
 ###############################################################################
 # Load Collection Process
@@ -451,6 +452,19 @@ class MergeCubes:
     """
 
     @staticmethod
+    def exec_num(cube1, cube2, overlap_resolver = None, context={}):
+        if type(cube1) == gpd.geodataframe.GeoDataFrame and type(cube2) == gpd.geodataframe.GeoDataFrame:
+            cube1.append(cube2, ignore_index=True)
+            return cube1
+
+    @staticmethod
+    def exec_np(cube1, cube2, overlap_resolver=None, context={}):
+        if type(cube1) == gpd.geodataframe.GeoDataFrame and type(cube2) == gpd.geodataframe.GeoDataFrame:
+            cube1.append(cube2, ignore_index=True)
+            return cube1
+
+
+    @staticmethod
     def exec_xar(cube1, cube2, overlap_resolver = None, context={}):
         """
         Parameters
@@ -469,6 +483,10 @@ class MergeCubes:
         -------
         xr.DataArray
         """
+        if type(cube1) == gpd.geodataframe.GeoDataFrame and type(cube2) == gpd.geodataframe.GeoDataFrame:
+            cube1.append(cube2, ignore_index=True)
+            return cube1
+
         if (cube1.dims == cube2.dims):  # Check if the dimensions have the same names
             matching = 0
             not_matching = 0
@@ -1974,6 +1992,11 @@ class AggregateSpatial:
         # Case when a vector-cube (result of vector_to_random_points for instance) is provided
         elif type(geometries) == gpd.geodataframe.GeoDataFrame:
             pass
+        # Case where a vector-cube is provided via URL
+        elif type(geometries) == str:
+            response = urllib.request.urlopen(geometries)
+            geometries = json.loads(response.read())
+            geometries = gpd.GeoDataFrame.from_features(geometries)
         else:
             raise Exception('[!] No compatible vector input data has been provided.')
 
@@ -1998,7 +2021,7 @@ class AggregateSpatial:
         geom_crop_list = []
         for i in range(len(vector_cube_utm)):
             if callable(reducer):
-                #try:
+                try:
                     geom_crop = crop.rio.clip(vector_cube_utm.loc[[i]].geometry)
                     valid_data_dict = {}
                     if bands_or_timesteps is not None:
@@ -2010,8 +2033,8 @@ class AggregateSpatial:
                     valid_count = total_count - invalid_count
                     valid_data_dict['total_count'] = float(total_count)
                     valid_data_dict['valid_count'] = float(valid_count)
-
-                    reduced_value = reducer(geom_crop, dimension=['x', 'y'])
+                    reduced_value = reducer(reducer(geom_crop, dimension='x'), dimension='y')
+                    reduced_value = reduced_value.load()
 
                     raster_data_dict = {}
 
@@ -2027,8 +2050,8 @@ class AggregateSpatial:
                     for ic in input_vector_cube_columns:
                         vector_data_dict[ic] = geometries.loc[[i], ic].item()
                     output_vector_cube = output_vector_cube.append(vector_data_dict, ignore_index=True)
-                #except:
-                #    pass
+                except:
+                    pass
         return output_vector_cube
 
 
@@ -2045,7 +2068,7 @@ def fit_regr_random_forest():
 class FitRegrRandomForest:
 
     @staticmethod
-    def exec_xar(predictors, target, training, num_trees = 100, mtry = None, predictors_vars = None, target_var = None, client = None):
+    def exec_num(predictors, target, training, num_trees = 100, mtry = None, predictors_vars = None, target_var = None, client = None):
         params = {
             'learning_rate': 1,
             'max_depth': 5,
@@ -2081,6 +2104,14 @@ class FitRegrRandomForest:
             output = xgb.dask.train(client, params, dtrain, num_boost_round=1, evals=[(dtest, "test")])
 
             return output
+
+    @staticmethod
+    def exec_np(predictors, target, training, num_trees = 100, mtry = None, predictors_vars = None, target_var = None, client = None):
+        return IsValid.exec_num(predictors, target, training, num_trees = 100, mtry = None, predictors_vars = None, target_var = None, client = None)
+
+    @staticmethod
+    def exec_xar(predictors, target, training, num_trees = 100, mtry = None, predictors_vars = None, target_var = None, client = None):
+        return IsValid.exec_num(predictors, target, training, num_trees = 100, mtry = None, predictors_vars = None, target_var = None, client = None)
 
 
 
