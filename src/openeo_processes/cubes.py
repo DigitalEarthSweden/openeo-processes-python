@@ -14,6 +14,7 @@ from openeo_processes.utils import process, get_time_dimension_from_data
 from openeo_processes.errors import DimensionNotAvailable, TooManyDimensions
 from scipy import optimize
 import datacube
+import dask
 from datacube.utils.cog import write_cog
 try:
     from pyproj import Transformer, CRS
@@ -222,7 +223,7 @@ class SaveResult:
         y_min, y_max = float(data.y.min().values), float(data.y.max().values)
 
         bbox = [[x_min, y_min],[x_max, y_max]]
-        
+
         collection_map_to_res = {
                 'boa_landsat_8': 30,
                 'SIG0_Sentinel_1': 20,
@@ -235,7 +236,7 @@ class SaveResult:
                 'gamma0_sentinel_1_sh': 10,
                 'gamma0_sentinel_1_sv': 10,    
             }
-        
+
         if 'id' in data.attrs.keys():
             if data.attrs['id'] in collection_map_to_res:
                 gridder = equi7grid.Equi7Grid(collection_map_to_res[data.attrs['id']])
@@ -243,7 +244,7 @@ class SaveResult:
                 gridder = equi7grid.Equi7Grid(10)
         else:
             gridder = equi7grid.Equi7Grid(10)
-        
+
         tiles = gridder.search_tiles_in_roi(bbox=bbox, osr_spref=src_crs)
 
 
@@ -286,13 +287,14 @@ class SaveResult:
 
                 temp_bbox = [[x_min, y_min],[x_max, y_max]]
 
-                temp_data = data.where(data.x > temp_bbox[0][0],
-                            drop=True).where(data.x < temp_bbox[1][0],
-                                                drop=True).where(data.y > temp_bbox[0][1],
-                                                                drop=True).where(data.y < temp_bbox[1][1],
-                                                                        drop=True)
+                with dask.config.set(**{'array.slicing.split_large_chunks': True}):
+                    temp_data = data.where(data.x > temp_bbox[0][0],
+                                drop=True).where(data.x < temp_bbox[1][0],
+                                                    drop=True).where(data.y > temp_bbox[0][1],
+                                                                    drop=True).where(data.y < temp_bbox[1][1],
+                                                                            drop=True)
 
-                temp_file = 'out_{}_{}.{}'.format(file_time, tile, ext)
+                temp_file = output_filepath + '/out_{}_{}.{}'.format(file_time, tile, ext)
                 datasets.append(temp_data)
                 dataset_filenames.append(temp_file)
 
@@ -300,7 +302,7 @@ class SaveResult:
         # Create your list of netcdfs and save to disk.
         if format.lower() == 'netcdf':
             xr.save_mfdataset(datasets, dataset_filenames)
-        
+
         # Create your list of tifs and save to disk. This is slower as we can't write the xarray in parrallel over dask. Each array is passed to dask independently.
         elif format.lower() in ['gtiff','geotiff']:
             if len(datasets[0].dims) > 3:
