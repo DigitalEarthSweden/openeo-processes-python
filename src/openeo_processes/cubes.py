@@ -300,7 +300,7 @@ class SaveResult:
                                                                     drop=True).where(data.y < temp_bbox[1][1],
                                                                             drop=True)
 
-                temp_file = output_filepath + '/out_{}_{}.{}'.format(file_time, tile, ext)
+                temp_file = output_filepath + '_{}_{}.{}'.format(file_time, tile, ext)
                 datasets.append(temp_data)
                 dataset_filenames.append(temp_file)
 
