@@ -27,7 +27,7 @@ from dask_ml.model_selection import train_test_split
 import geopandas as gpd
 import urllib, json
 
-from .utils import get_equi7_tiles, derive_datasets_and_filenames_for_tiles
+from .utils import get_equi7_tiles, derive_datasets_and_filenames_from_tiles
 
 ###############################################################################
 # Load Collection Process
@@ -254,7 +254,7 @@ class SaveResult:
         else:
             ext = 'tif'
 
-        final_datasets, dataset_filenames = derive_datasets_and_filenames_for_tiles(gridder, times, datasets, tiles, output_filepath, ext)
+        final_datasets, dataset_filenames = derive_datasets_and_filenames_from_tiles(gridder, times, datasets, tiles, output_filepath, ext)
 
         formats = ('GTiff', 'netCDF')
         # Submit list of netcdfs and filepaths to dask to compute
