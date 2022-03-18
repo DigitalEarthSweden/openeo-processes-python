@@ -1,4 +1,3 @@
-import os
 from datetime import datetime
 from os.path import splitext
 from typing import Any, Dict, List
@@ -6,10 +5,8 @@ from typing import Any, Dict, List
 import numpy as np
 import pandas as pd
 import odc.algo
-from osgeo import osr
 import rioxarray  # needed by save_result even if not directly called
 import xarray as xr
-from equi7grid import equi7grid
 from shapely.geometry import Point, LineString, Polygon, MultiPolygon
 from openeo_processes.extension.odc import write_odc_product
 from openeo_processes.utils import process, get_time_dimension_from_data, xarray_dataset_from_dask_dataframe
@@ -29,6 +26,8 @@ from dask_ml.model_selection import train_test_split
 
 import geopandas as gpd
 import urllib, json
+
+from .utils import get_equi7_tiles, derive_datasets_and_filenames_for_tiles
 
 ###############################################################################
 # Load Collection Process
@@ -209,7 +208,7 @@ class SaveResult:
         """
         Save data to disk in specified format. Data is saved to files reflecting the EQUI7 Tiles that the original data
         is loaded from.
-        
+
         Parameters
         ----------
         data : xr.DataArray
@@ -227,41 +226,7 @@ class SaveResult:
             dim='bands'
         )
 
-        # Generate tile list
-        os.environ['PROJ_LIB'] = '/opt/conda/share/proj'
-        input_p4 = '+proj=aeqd +lat_0=53 +lon_0=24 +x_0=5837287.81977 +y_0=2121415.69617 +datum=WGS84 +units=m +no_defs'
-        
-        src_crs = osr.SpatialReference(data.crs)
-        src_crs.ImportFromProj4(input_p4)
-
-        x_min, x_max = float(data.x.min().values), float(data.x.max().values)
-        y_min, y_max = float(data.y.min().values), float(data.y.max().values)
-
-        bbox = [[x_min, y_min],[x_max, y_max]]
-
-        collection_map_to_res = {
-                'boa_landsat_8': 30,
-                'SIG0_Sentinel_1': 20,
-                'corine_land_cover': 10,
-                'forest_type': 10,
-                'tree_cover_density': 10,
-                'boa_sentinel_2': 10,
-                'gamma0_sentinel_1_dh': 10,
-                'gamma0_sentinel_1_dv': 10,
-                'gamma0_sentinel_1_sh': 10,
-                'gamma0_sentinel_1_sv': 10,    
-            }
-
-        if 'id' in data.attrs.keys():
-            if data.attrs['id'] in collection_map_to_res:
-                gridder = equi7grid.Equi7Grid(collection_map_to_res[data.attrs['id']])
-            else:
-                gridder = equi7grid.Equi7Grid(10)
-        else:
-            gridder = equi7grid.Equi7Grid(10)
-
-        tiles = gridder.search_tiles_in_roi(bbox=bbox, osr_spref=src_crs)
-
+        tiles, gridder = get_equi7_tiles(data)
 
         if "crs" not in data.attrs:
             first_data_var = data.data_vars[list(data.data_vars.keys())[0]]
@@ -284,42 +249,19 @@ class SaveResult:
         else:
             times, datasets = zip(*data.groupby("time"))
 
-        final_datasets = []
-        dataset_filenames = []
-
         if format.lower() == 'netcdf':
             ext = 'nc'
         else:
             ext = 'tif'
 
-        for idx, time in enumerate(times):
-            dataset = datasets[idx]
-            file_time = str(time)[0:10].replace('-', '_')
-            for tile in tiles:
-                temp_bbox = gridder.get_tile_bbox_proj(tile)
-
-                x_min, x_max = temp_bbox[0], temp_bbox[2]
-                y_min, y_max = temp_bbox[1], temp_bbox[3]
-
-                temp_bbox = [[x_min, y_min],[x_max, y_max]]
-
-                with dask.config.set(**{'array.slicing.split_large_chunks': True}):
-                    temp_data = dataset.where(dataset.x > temp_bbox[0][0],
-                                drop=True).where(dataset.x < temp_bbox[1][0],
-                                                    drop=True).where(dataset.y > temp_bbox[0][1],
-                                                                    drop=True).where(dataset.y < temp_bbox[1][1],
-                                                                            drop=True)
-
-                temp_file = output_filepath + '_{}_{}.{}'.format(file_time, tile, ext)
-                final_datasets.append(temp_data)
-                dataset_filenames.append(temp_file)
+        final_datasets, dataset_filenames = derive_datasets_and_filenames_for_tiles(gridder, times, datasets, tiles, output_filepath, ext)
 
         formats = ('GTiff', 'netCDF')
-        # Create your list of netcdfs and save to disk.
+        # Submit list of netcdfs and filepaths to dask to compute
         if format.lower() == 'netcdf':
             xr.save_mfdataset(final_datasets, dataset_filenames)
 
-        # Create your list of tifs and save to disk. This is slower as we can't write the xarray in parrallel over dask. Each array is passed to dask independently.
+        # Iterate datasets and save to tif
         elif format.lower() in ['gtiff','geotiff']:
             if len(final_datasets[0].dims) > 3:
                 raise Exception("[!] Not possible to write a 4-dimensional GeoTiff, use NetCDF instead.")

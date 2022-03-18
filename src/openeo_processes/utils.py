@@ -1,11 +1,15 @@
+import os
 import functools
 import re
 from datetime import timezone, timedelta, datetime
 from typing import Any, Callable, Tuple
 
+import dask
 import numpy as np
 import xarray as xr
 import geopandas as gpd
+from equi7grid import equi7grid
+from osgeo import osr
 
 
 def eval_datatype(data):
@@ -347,6 +351,118 @@ def xarray_dataset_from_dask_dataframe(dataframe):
         obj[name] = (dims, values)
 
     return obj
+
+def eodc_collections_to_res():
+    """
+    Function returning a dic to map collections to their related resolution.
+    
+    Parameters
+    ----------
+        None
+
+    Returns
+    ----------
+        dict: A dictionairy containing collection ids and their resolution.
+    """
+    return {
+        'boa_landsat_8': 30,
+        'SIG0_Sentinel_1': 20,
+        'corine_land_cover': 10,
+        'forest_type': 10,
+        'tree_cover_density': 10,
+        'boa_sentinel_2': 10,
+        'gamma0_sentinel_1_dh': 10,
+        'gamma0_sentinel_1_dv': 10,
+        'gamma0_sentinel_1_sh': 10,
+        'gamma0_sentinel_1_sv': 10,    
+    }
+
+def get_equi7_tiles(data: xr.Dataset):
+    """
+    A function taking an xarray.Dataset and returning a list of EQUI7 Tiles at the relevant resolution layer along with
+    an EQUI7Grid object.
+    
+    Parameters
+    ----------
+        xarray.Dataset: data
+
+    Returns
+    ----------
+        list[str]: A dictionairy containing collection ids and their resolution.
+        equi7grid.equi7grid: Grid object with various functions for mapping and searching ROI with coordinates.
+    """
+    # Setting env variable will be moved to environment cfg
+    os.environ['PROJ_LIB'] = '/opt/conda/share/proj'
+    input_p4 = '+proj=aeqd +lat_0=53 +lon_0=24 +x_0=5837287.81977 +y_0=2121415.69617 +datum=WGS84 +units=m +no_defs'
+    
+    src_crs = osr.SpatialReference(data.crs)
+    src_crs.ImportFromProj4(input_p4)
+
+    x_min, x_max = float(data.x.min().values), float(data.x.max().values)
+    y_min, y_max = float(data.y.min().values), float(data.y.max().values)
+
+    bbox = [[x_min, y_min],[x_max, y_max]]
+
+    collection_map_to_res = eodc_collections_to_res()
+
+    if 'id' in data.attrs.keys():
+        if data.attrs['id'] in collection_map_to_res:
+            gridder = equi7grid.Equi7Grid(collection_map_to_res[data.attrs['id']])
+        else:
+            gridder = equi7grid.Equi7Grid(10)
+    else:
+        gridder = equi7grid.Equi7Grid(10)
+
+    tiles = gridder.search_tiles_in_roi(bbox=bbox, osr_spref=src_crs)
+
+    return tiles, gridder
+
+def derive_datasets_and_filenames_for_tiles(gridder: equi7grid.Equi7Grid(), times: list[str], datasets: list[xr.Dataset],
+                                    tiles: list[str], output_filepath: str, ext: str):
+    """
+    A function taking an xarray.Dataset and returning a list of EQUI7 Tiles at the relevant resolution layer along with
+    an EQUI7Grid object.
+    
+    Parameters
+    ----------
+        equi7grid.equi7grid: Grid object for searching ROI to return a temporary bounding box for a tile.
+        list[str]: A list of times.
+        list[xarray.Dataset]:  A list of datasets corresponding to the list of times.
+        list[str]: A list of tiles to split the datasets across.
+        str: A root output filepath for storing results.
+        str: The format extension to store the files with.
+
+    Returns
+    ----------
+        list[xarray.Dataset]: The resulting datasets split across the EQUI7 tile grid.
+        list[str]: The list of filepaths split across the EQUI7 tile grid, corresponding to the list of datasets.
+    """
+    final_datasets = []
+    dataset_filenames = []
+
+    for idx, time in enumerate(times):
+        dataset = datasets[idx]
+        file_time = str(time)[0:10].replace('-', '_')
+        for tile in tiles:
+            temp_bbox = gridder.get_tile_bbox_proj(tile)
+
+            x_min, x_max = temp_bbox[0], temp_bbox[2]
+            y_min, y_max = temp_bbox[1], temp_bbox[3]
+
+            temp_bbox = [[x_min, y_min],[x_max, y_max]]
+
+            with dask.config.set(**{'array.slicing.split_large_chunks': True}):
+                temp_data = dataset.where(dataset.x > temp_bbox[0][0],
+                            drop=True).where(dataset.x < temp_bbox[1][0],
+                                                drop=True).where(dataset.y > temp_bbox[0][1],
+                                                                drop=True).where(dataset.y < temp_bbox[1][1],
+                                                                        drop=True)
+
+            temp_file = output_filepath + '_{}_{}.{}'.format(file_time, tile, ext)
+            final_datasets.append(temp_data)
+            dataset_filenames.append(temp_file)
+    
+    return final_datasets, dataset_filenames 
 
 if __name__ == '__main__':
     pass
