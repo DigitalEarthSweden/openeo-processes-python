@@ -207,7 +207,9 @@ class SaveResult:
     @staticmethod
     def exec_xar(data, output_filepath='out', format='GTiff', options={}, write_prod: bool = True):
         """
-        Save data to disk in specified format.
+        Save data to disk in specified format. Data is saved to files reflecting the EQUI7 Tiles that the original data
+        is loaded from.
+        
         Parameters
         ----------
         data : xr.DataArray
@@ -306,8 +308,7 @@ class SaveResult:
                                 drop=True).where(dataset.x < temp_bbox[1][0],
                                                     drop=True).where(dataset.y > temp_bbox[0][1],
                                                                     drop=True).where(dataset.y < temp_bbox[1][1],
-                                                                            drop=True)#.where(dataset.t == time,
-                                                                                      #      drop=True)
+                                                                            drop=True)
 
                 temp_file = output_filepath + '_{}_{}.{}'.format(file_time, tile, ext)
                 final_datasets.append(temp_data)
@@ -323,7 +324,6 @@ class SaveResult:
             if len(final_datasets[0].dims) > 3:
                 raise Exception("[!] Not possible to write a 4-dimensional GeoTiff, use NetCDF instead.")
             for idx, dataset in enumerate(final_datasets):
-                #dataset = dataset.squeeze('t')
                 dataset.rio.to_raster(raster_path=dataset_filenames[idx], **options)
 
         else:
