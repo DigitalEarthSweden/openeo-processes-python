@@ -282,7 +282,7 @@ class SaveResult:
         else:
             times, datasets = zip(*data.groupby("time"))
 
-        datasets = []
+        final_datasets = []
         dataset_filenames = []
 
         if format.lower() == 'netcdf':
@@ -290,7 +290,8 @@ class SaveResult:
         else:
             ext = 'tif'
 
-        for time in times:
+        for time in enumerate(times):
+            dataset = datasets[idx]
             file_time = str(time)[0:10].replace('-', '_')
             for tile in tiles:
                 temp_bbox = gridder.get_tile_bbox_proj(tile)
@@ -301,12 +302,12 @@ class SaveResult:
                 temp_bbox = [[x_min, y_min],[x_max, y_max]]
 
                 with dask.config.set(**{'array.slicing.split_large_chunks': True}):
-                    temp_data = data.where(data.x > temp_bbox[0][0],
-                                drop=True).where(data.x < temp_bbox[1][0],
-                                                    drop=True).where(data.y > temp_bbox[0][1],
-                                                                    drop=True).where(data.y < temp_bbox[1][1],
-                                                                            drop=True).where(data.t == time,
-                                                                                            drop=True)
+                    temp_data = dataset.where(dataset.x > temp_bbox[0][0],
+                                drop=True).where(dataset.x < temp_bbox[1][0],
+                                                    drop=True).where(dataset.y > temp_bbox[0][1],
+                                                                    drop=True).where(dataset.y < temp_bbox[1][1],
+                                                                            drop=True)#.where(dataset.t == time,
+                                                                                      #      drop=True)
 
                 temp_file = output_filepath + '_{}_{}.{}'.format(file_time, tile, ext)
                 datasets.append(temp_data)
@@ -322,7 +323,7 @@ class SaveResult:
             if len(datasets[0].dims) > 3:
                 raise Exception("[!] Not possible to write a 4-dimensional GeoTiff, use NetCDF instead.")
             for idx, dataset in enumerate(datasets):
-                dataset = dataset.squeeze('t')
+                #dataset = dataset.squeeze('t')
                 dataset.rio.to_raster(raster_path=dataset_filenames[idx], **options)
 
         else:
