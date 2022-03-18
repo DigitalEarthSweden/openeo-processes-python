@@ -290,7 +290,7 @@ class SaveResult:
         else:
             ext = 'tif'
 
-        for time in enumerate(times):
+        for idx, time in enumerate(times):
             dataset = datasets[idx]
             file_time = str(time)[0:10].replace('-', '_')
             for tile in tiles:
