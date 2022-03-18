@@ -310,19 +310,19 @@ class SaveResult:
                                                                                       #      drop=True)
 
                 temp_file = output_filepath + '_{}_{}.{}'.format(file_time, tile, ext)
-                datasets.append(temp_data)
+                final_datasets.append(temp_data)
                 dataset_filenames.append(temp_file)
 
         formats = ('GTiff', 'netCDF')
         # Create your list of netcdfs and save to disk.
         if format.lower() == 'netcdf':
-            xr.save_mfdataset(datasets, dataset_filenames)
+            xr.save_mfdataset(final_datasets, dataset_filenames)
 
         # Create your list of tifs and save to disk. This is slower as we can't write the xarray in parrallel over dask. Each array is passed to dask independently.
         elif format.lower() in ['gtiff','geotiff']:
-            if len(datasets[0].dims) > 3:
+            if len(final_datasets[0].dims) > 3:
                 raise Exception("[!] Not possible to write a 4-dimensional GeoTiff, use NetCDF instead.")
-            for idx, dataset in enumerate(datasets):
+            for idx, dataset in enumerate(final_datasets):
                 #dataset = dataset.squeeze('t')
                 dataset.rio.to_raster(raster_path=dataset_filenames[idx], **options)
 
