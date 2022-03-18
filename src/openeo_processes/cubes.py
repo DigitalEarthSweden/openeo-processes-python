@@ -322,7 +322,7 @@ class SaveResult:
             if len(datasets[0].dims) > 3:
                 raise Exception("[!] Not possible to write a 4-dimensional GeoTiff, use NetCDF instead.")
             for idx, dataset in enumerate(datasets):
-                dataset.squeeze('t')
+                dataset = dataset.squeeze('t')
                 dataset.rio.to_raster(raster_path=dataset_filenames[idx], **options)
 
         else:
