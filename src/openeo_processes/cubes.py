@@ -2057,6 +2057,8 @@ class FitRegrRandomForest:
 
     @staticmethod
     def exec_xar(predictors, target, training, num_trees = 100, mtry = None, predictors_vars = None, target_var = None, client = None):
+        CHUNK_SIZE_ROWS = 1500
+        
         params = {
             'learning_rate': 1,
             'max_depth': 5,
@@ -2072,14 +2074,14 @@ class FitRegrRandomForest:
         if type(predictors) == gpd.geodataframe.GeoDataFrame:
             predictors_pandas = pd.DataFrame(predictors)
             predictors_pandas = predictors_pandas.drop(columns=['geometry'])
-            predictors_dask = df.from_pandas(predictors_pandas, chunksize=5)
+            predictors_dask = df.from_pandas(predictors_pandas, chunksize=CHUNK_SIZE_ROWS)
             for c in predictors_dask.columns:
                 if c not in predictors_vars:
                     predictors_dask = predictors_dask.drop(columns=c)
 
             target_pandas = pd.DataFrame(target)
             target_pandas = target_pandas.drop(columns=['geometry'])
-            target_dask = df.from_pandas(target_pandas, chunksize=5)
+            target_dask = df.from_pandas(target_pandas, chunksize=CHUNK_SIZE_ROWS)
             for c in target_dask.columns:
                 if c != target_var:
                     target_dask = target_dask.drop(columns=c)
