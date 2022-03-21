@@ -1989,14 +1989,18 @@ class AggregateSpatial:
         output_raster_cube_columns = input_vector_cube_columns + [target_dimension, target_dimension + '_meta']
         output_vector_cube = gpd.GeoDataFrame(columns=output_raster_cube_columns)
 
-        ## Input geometries are in EPSG:4326 and the data has a different projection. We reproject the vector-cube
-        geometries = geometries.set_crs(4326)
+        # If not explicitly specified, assume vector-cube is in 4326
+        if not geometries.crs:
+            geometries = geometries.set_crs(4326)
+
+        ## Input geometries are in EPSG:4326 and the data has a different projection. We reproject the vector-cube to fit the data.
         if 'crs' in data.attrs:
-            CRS = data.attrs['crs']
+            data_crs = data.attrs['crs']
         else:
-            CRS = 'PROJCS["Azimuthal_Equidistant",GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]],PROJECTION["Azimuthal_Equidistant"],PARAMETER["latitude_of_center",53],PARAMETER["longitude_of_center",24],PARAMETER["false_easting",5837287.81977],PARAMETER["false_northing",2121415.69617],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["Easting",EAST],AXIS["Northing",NORTH]]'
-        vector_cube_utm = geometries.to_crs(CRS)
-        data = data.rio.set_crs(CRS)
+            data_crs = 'PROJCS["Azimuthal_Equidistant",GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]],PROJECTION["Azimuthal_Equidistant"],PARAMETER["latitude_of_center",53],PARAMETER["longitude_of_center",24],PARAMETER["false_easting",5837287.81977],PARAMETER["false_northing",2121415.69617],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["Easting",EAST],AXIS["Northing",NORTH]]'
+        data = data.rio.set_crs(data_crs)
+        
+        vector_cube_utm = geometries.to_crs(data_crs)
 
         ## First clip the data keeping only the data within the polygons
         crop = data.rio.clip(vector_cube_utm.geometry, drop=True)
