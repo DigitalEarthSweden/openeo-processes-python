@@ -452,19 +452,6 @@ class MergeCubes:
     """
 
     @staticmethod
-    def exec_num(cube1, cube2, overlap_resolver = None, context={}):
-        if type(cube1) == gpd.geodataframe.GeoDataFrame and type(cube2) == gpd.geodataframe.GeoDataFrame:
-            cube1.append(cube2, ignore_index=True)
-            return cube1
-
-    @staticmethod
-    def exec_np(cube1, cube2, overlap_resolver=None, context={}):
-        if type(cube1) == gpd.geodataframe.GeoDataFrame and type(cube2) == gpd.geodataframe.GeoDataFrame:
-            cube1.append(cube2, ignore_index=True)
-            return cube1
-
-
-    @staticmethod
     def exec_xar(cube1, cube2, overlap_resolver = None, context={}):
         """
         Parameters
@@ -484,8 +471,9 @@ class MergeCubes:
         xr.DataArray
         """
         if type(cube1) == gpd.geodataframe.GeoDataFrame and type(cube2) == gpd.geodataframe.GeoDataFrame:
-            cube1.append(cube2, ignore_index=True)
-            return cube1
+            merged_cube = cube1.append(cube2, ignore_index=True)
+            print("Warning - Overlap resolver is not implemented for geopandas vector-cubes, cubes are simply appended!")
+            return merged_cube
 
         if (cube1.dims == cube2.dims):  # Check if the dimensions have the same names
             matching = 0
