@@ -331,8 +331,7 @@ def xarray_dataset_from_dask_dataframe(dataframe):
     xarray.Dataset.from_dataframe
     xarray.DataArray.from_series
     """
-    import dask.dataframe as dd
-
+    
     if not dataframe.columns.is_unique:
         raise ValueError("cannot convert DataFrame with non-unique columns")
     if not isinstance(dataframe, dd.DataFrame):
@@ -417,7 +416,7 @@ def get_equi7_tiles(data: xr.Dataset):
 
     return tiles, gridder
 
-def derive_datasets_and_filenames_from_tiles(gridder: equi7grid.Equi7Grid(), times: list[str], datasets: list[xr.Dataset],
+def derive_datasets_and_filenames_from_tiles(gridder: equi7grid.Equi7Grid, times: list[str], datasets: list[xr.Dataset],
                                     tiles: list[str], output_filepath: str, ext: str):
     """
     A function taking an xarray.Dataset and returning a list of EQUI7 Tiles at the relevant resolution layer along with
