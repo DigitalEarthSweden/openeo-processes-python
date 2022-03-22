@@ -2,7 +2,7 @@ import os
 import functools
 import re
 from datetime import timezone, timedelta, datetime
-from typing import Any, Callable, Tuple
+from typing import Any, Callable, Tuple, List
 
 import dask
 import numpy as np
@@ -416,8 +416,8 @@ def get_equi7_tiles(data: xr.Dataset):
 
     return tiles, gridder
 
-def derive_datasets_and_filenames_from_tiles(gridder: equi7grid.Equi7Grid, times: list[str], datasets: list[Any],
-                                    tiles: list[str], output_filepath: str, ext: str):
+def derive_datasets_and_filenames_from_tiles(gridder: equi7grid.Equi7Grid, times: List[str], datasets: List[xr.Dataset],
+                                    tiles: List[str], output_filepath: str, ext: str):
     """
     A function taking an xarray.Dataset and returning a list of EQUI7 Tiles at the relevant resolution layer along with
     an EQUI7Grid object.
