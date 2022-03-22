@@ -217,6 +217,12 @@ class SaveResult:
         format: str, optional
             data format (default: GTiff)
         """
+        formats = ['gtiff', 'netcdf', 'geotiff']
+        if format.lower() in formats:
+            format == format.lower()
+        else:
+            raise ValueError(f"Error when saving to file. Format '{format}' is not in {formats}.")
+
         data = data.fillna(-9999)
         data.attrs["nodata"] = -9999
         # Convert data array to data set, keeping a nice format on the bands.
@@ -241,33 +247,26 @@ class SaveResult:
         if hasattr(data, 'grid_mapping'):
             data.attrs.pop('grid_mapping')
 
-        if 't' in data.dims:
-            # Group datasets by time. This will help with storing multiple files via dask.
-            times, datasets = zip(*data.groupby("t"))
-        else:
-            times, datasets = zip(*data.groupby("time"))
+        # Group datasets by time. This will help with storing multiple files via dask.
+        times, datasets = zip(*data.groupby("t"))
 
-        if format.lower() == 'netcdf':
+        if format == 'netcdf':
             ext = 'nc'
         else:
             ext = 'tif'
 
         final_datasets, dataset_filenames = derive_datasets_and_filenames_from_tiles(gridder, times, datasets, tiles, output_filepath, ext)
 
-        formats = ('GTiff', 'netCDF')
         # Submit list of netcdfs and filepaths to dask to compute
-        if format.lower() == 'netcdf':
+        if format == 'netcdf':
             xr.save_mfdataset(final_datasets, dataset_filenames)
 
         # Iterate datasets and save to tif
-        elif format.lower() in ['gtiff','geotiff']:
+        elif format in ['gtiff','geotiff']:
             if len(final_datasets[0].dims) > 3:
                 raise Exception("[!] Not possible to write a 4-dimensional GeoTiff, use NetCDF instead.")
             for idx, dataset in enumerate(final_datasets):
                 dataset.rio.to_raster(raster_path=dataset_filenames[idx], **options)
-
-        else:
-            raise ValueError(f"Error when saving to file. Format '{format}' is not in {formats}.")
 
         # Write and odc product yml file
         if write_prod:
