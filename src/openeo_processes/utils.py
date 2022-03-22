@@ -416,7 +416,7 @@ def get_equi7_tiles(data: xr.Dataset):
 
     return tiles, gridder
 
-def derive_datasets_and_filenames_from_tiles(gridder: equi7grid.Equi7Grid, times: list[str], datasets: list[xr.Dataset],
+def derive_datasets_and_filenames_from_tiles(gridder: equi7grid.Equi7Grid, times: list[str], datasets: list[Any],
                                     tiles: list[str], output_filepath: str, ext: str):
     """
     A function taking an xarray.Dataset and returning a list of EQUI7 Tiles at the relevant resolution layer along with
