@@ -27,7 +27,7 @@ from dask_ml.model_selection import train_test_split
 import geopandas as gpd
 import urllib, json
 
-from .utils import get_equi7_tiles, derive_datasets_and_filenames_from_tiles
+from openeo_processes.utils import get_equi7_tiles, derive_datasets_and_filenames_from_tiles
 
 ###############################################################################
 # Load Collection Process
