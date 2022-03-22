@@ -9,7 +9,7 @@ import rioxarray  # needed by save_result even if not directly called
 import xarray as xr
 from shapely.geometry import Point, LineString, Polygon, MultiPolygon
 from openeo_processes.extension.odc import write_odc_product
-from openeo_processes.utils import process, get_time_dimension_from_data, xarray_dataset_from_dask_dataframe
+from openeo_processes.utils import process, get_time_dimension_from_data, xarray_dataset_from_dask_dataframe, get_equi7_tiles, derive_datasets_and_filenames_from_tiles
 from openeo_processes.errors import DimensionNotAvailable
 from scipy import optimize
 import datacube
@@ -26,8 +26,6 @@ from dask_ml.model_selection import train_test_split
 
 import geopandas as gpd
 import urllib, json
-
-from openeo_processes.utils import get_equi7_tiles, derive_datasets_and_filenames_from_tiles
 
 ###############################################################################
 # Load Collection Process
