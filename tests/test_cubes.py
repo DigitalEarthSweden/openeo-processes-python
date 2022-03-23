@@ -297,7 +297,7 @@ class CubesTester(unittest.TestCase):
     def test_aggregate_spatial(self):
         """Tests 'aggregate_spatial' function. """
         vector_points = oeop.vector_to_regular_points(self.test_data.geojson_polygon, 0.01)
-        assert type(oeop.aggregate_spatial(self.test_data.equi7xarray, vector_points, oeop.mean, 'result')) == gpd.geodataframe.GeoDataFrame
+        assert isinstance(oeop.aggregate_spatial(self.test_data.equi7xarray, vector_points, oeop.mean, 'result'), gpd.geodataframe.GeoDataFrame)
 
 
 if __name__ == "__main__":

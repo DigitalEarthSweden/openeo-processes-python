@@ -1,5 +1,6 @@
 from datetime import datetime
 from os.path import splitext
+from pathlib import Path
 from typing import Any, Dict, List
 
 import numpy as np
@@ -26,6 +27,7 @@ from dask_ml.model_selection import train_test_split
 
 import geopandas as gpd
 import urllib, json
+import os
 
 ###############################################################################
 # Load Collection Process
@@ -431,7 +433,7 @@ class MergeCubes:
         -------
         xr.DataArray
         """
-        if type(cube1) == gpd.geodataframe.GeoDataFrame and type(cube2) == gpd.geodataframe.GeoDataFrame:
+        if isinstance(cube1, gpd.geodataframe.GeoDataFrame) and isinstance(cube2, gpd.geodataframe.GeoDataFrame):
             merged_cube = cube1.append(cube2, ignore_index=True)
             print("Warning - Overlap resolver is not implemented for geopandas vector-cubes, cubes are simply appended!")
             return merged_cube
@@ -1932,13 +1934,13 @@ class AggregateSpatial:
             bands_or_timesteps = data[input_raster_cube_dims[0]].values
 
         # Case when geoJSON is provided
-        if type(geometries) == dict:
+        if isinstance(geometries, dict):
             geometries = gpd.GeoDataFrame.from_features(geometries)
         # Case when a vector-cube (result of vector_to_random_points for instance) is provided
-        elif type(geometries) == gpd.geodataframe.GeoDataFrame:
+        elif isinstance(geometries, gpd.geodataframe.GeoDataFrame):
             pass
         # Case where a vector-cube is provided via URL
-        elif type(geometries) == str:
+        elif isinstance(geometries, str):
             response = urllib.request.urlopen(geometries)
             geometries = json.loads(response.read())
             geometries = gpd.GeoDataFrame.from_features(geometries)
@@ -2017,7 +2019,7 @@ def fit_regr_random_forest():
 class FitRegrRandomForest:
 
     @staticmethod
-    def exec_xar(predictors, target, training, num_trees = 100, mtry = None, predictors_vars = None, target_var = None, client = None):
+    def exec_xar(predictors, target, training, num_trees = 100, max_variables = None, seed = None, predictors_vars = None, target_var = None, client = None):
         CHUNK_SIZE_ROWS = 1500
         
         params = {
@@ -2029,10 +2031,20 @@ class FitRegrRandomForest:
             'tree_method': 'hist'}
 
         # TODO: This needs to be fixed to accept the number of columns, rather than a fraction
-        if mtry is not None:
-            params['colsample_bynode'] = mtry
+        if max_variables is not None:
+            params['colsample_bynode'] = max_variables
 
-        if type(predictors) == gpd.geodataframe.GeoDataFrame:
+        if isinstance(predictors, dict):
+            predictors = gpd.GeoDataFrame.from_features(predictors)
+        elif isinstance(predictors, str):
+            predictors = gpd.GeoDataFrame.from_file(predictors)
+
+        if isinstance(target, dict):
+            target = gpd.GeoDataFrame.from_features(target)
+        elif isinstance(target, str):
+            target = gpd.GeoDataFrame.from_file(target)
+
+        if isinstance(predictors, gpd.geodataframe.GeoDataFrame) and isinstance(target, gpd.geodataframe.GeoDataFrame):
             predictors_pandas = pd.DataFrame(predictors)
             predictors_pandas = predictors_pandas.drop(columns=['geometry'])
             predictors_dask = df.from_pandas(predictors_pandas, chunksize=CHUNK_SIZE_ROWS)
@@ -2055,6 +2067,8 @@ class FitRegrRandomForest:
             output = xgb.dask.train(client, params, dtrain, num_boost_round=1, evals=[(dtest, "test")])
 
             return output
+        else:
+            raise Exception('[!] No compatible vector input data has been provided.')
 
 
 ###############################################################################
@@ -2070,19 +2084,19 @@ def predict_random_forest():
 class PredictRandomForest:
 
     @staticmethod
-    def exec_xar(model, predictors, predictors_vars = None, client = None):
-        predictor_cols = list(predictors.dims)
-        if 'bands' in predictor_cols:
-            predictor_cols.remove('bands')
+    def exec_xar(data, model, dimension, predictors_vars = None, client = None):
+        predictor_cols = list(data.dims)
+        if dimension in predictor_cols:
+            predictor_cols.remove(dimension)
         if len(predictor_cols) == 1:
-            stacked = predictors
+            stacked = data
             I = stacked[predictor_cols[0]].values
         else:
-            stacked = predictors.stack(z=predictor_cols)
+            stacked = data.stack(z=predictor_cols)
             I = stacked['z'].values
             predictor_cols = ['z']
 
-        X_hat = stacked.to_dataset(dim='bands').to_dask_dataframe().drop(columns=predictor_cols)
+        X_hat = stacked.to_dataset(dim=dimension).to_dask_dataframe().drop(columns=predictor_cols)
         if 'spatial_ref' in X_hat:
             X_hat = X_hat.drop(columns=['spatial_ref'])
         if predictors_vars:
@@ -2092,54 +2106,61 @@ class PredictRandomForest:
 
         y_hat = xgb.dask.predict(client, model, X_hat).to_frame()
         y_hat_ds = xarray_dataset_from_dask_dataframe(y_hat)
-        y_hat_da = y_hat_ds.to_array(dim='bands')
+        y_hat_da = y_hat_ds.to_array(dim=dimension)
         y_hat_da['index'] = I
         y_hat_da = y_hat_da.rename({'index': predictor_cols[0]})
-        p = predictors.isel(bands=0)
+        p = data.loc[{dimension: data[dimension].values[0]}]
         predictions_xr = xr.ones_like(p) * y_hat_da
-        predictions_xr.attrs = predictors.attrs
+        predictions_xr.attrs = data.attrs
         return predictions_xr
 
 
 ###############################################################################
-# SaveModel process
+# SaveMLModel process
 ###############################################################################
 
 @process
-def save_model():
+def save_ml_model():
 
-    return SaveModel()
+    return SaveMLModel()
 
 
-class SaveModel:
+class SaveMLModel:
 
     @staticmethod
-    def exec_num(model):
-        if type(model) == dict and 'booster' in model:
+    def exec_num(model, output_filepath = 'path'):
+        if isinstance(model, dict) and 'booster' in model:
             m = model['booster']
-        elif type(model) == xgb.core.Booster:
+        elif isinstance(model, xgb.core.Booster):
             m = model
         else:
             pass
-        m.save_model("./model.json")
+        path = f'{output_filepath}/out_model.json'
+        with open(f'{output_filepath}/product.yml', 'a') as product_file:
+            product_file.close()
+        m.save_model(path)
 
 
 ###############################################################################
-# LoadModel process
+# LoadMLModel process
 ###############################################################################
 
 @process
-def load_model():
+def load_ml_model():
 
-    return LoadModel()
+    return LoadMLModel()
 
 
-class LoadModel:
+class LoadMLModel:
 
     @staticmethod
-    def exec_num(model):
+    def exec_num(model, input_filepath = 'path'):
+        date = os.listdir(f'{input_filepath}/jobs/{model}')
+        if len(date) > 0:
+            date = date[0]
+        filepath = f'{input_filepath}/jobs/{model}/{date}/result/out_model.json'
         model_xgb = xgb.Booster()
-        model_xgb.load_model(model)
+        model_xgb.load_model(filepath)
         return model_xgb
 
 ###############################################################################
@@ -2176,3 +2197,55 @@ class UnflattenDimensions:
     def exec_xar(data, dimensions, target_dimension, label_seperator='~'):
         stacked = data.unstack()
         return stacked
+
+@process
+def load_vector_cube():
+
+    return LoadVectorCube()
+
+
+class LoadVectorCube:
+
+    @staticmethod
+    def exec_num(job_id=None, URL=None, input_filepath='path'):
+        if not (job_id or URL):
+            raise Exception("One of these parameters needs to be provided: <job_id>, <URL>")
+        
+        # TODO: Loading random files from untrusted URLs is dangerous, this has to be rethought going forward! 
+        if URL:
+            geometries = gpd.GeoDataFrame.from_file(URL)
+
+        if job_id:
+            date = os.listdir(f'{input_filepath}/jobs/{job_id}')
+            if len(date) > 0:
+                date = date[0]
+            filepath = f'{input_filepath}/jobs/{job_id}/{date}/result/out_vector_cube.json'
+            geometries = gpd.read_file(filepath)
+
+        return geometries
+
+@process
+def save_vector_cube():
+
+    return SaveVectorCube()
+
+
+class SaveVectorCube:
+    """Note that at this stage, this process assumes that each job can only save a single model, using the job-id as an ID for the resulting file."""
+    @staticmethod
+    def exec_xar(data, output_filepath = 'path'):
+        path = f'{output_filepath}/out_vector_cube.json'
+        with open(f'{output_filepath}/product.yml', 'a') as product_file:
+            product_file.close()
+
+        if isinstance(data, gpd.GeoDataFrame):
+            data_gpd = data
+        else:
+            try:
+                data_gpd = gpd.GeoDataFrame.from_features(data)
+            except Exception:
+                raise TypeError("Couldn't transform the provided vector-cube to a geopandas.Geodataframe. \
+                    For the `data` arg, please provide a .geojson or a geopandas.Geodataframe.")
+            
+
+        data_gpd.to_file(path, driver='GeoJSON')

@@ -212,4 +212,4 @@ class ArrayTester(TestCase):
 
     def test_vector_to_regular_points(self):
         """ Tests `vector_to_regular_points` function. """
-        assert type(oeop.vector_to_regular_points(self.test_data.geojson_polygon, 0.01)) == dict
+        assert isinstance(oeop.vector_to_regular_points(self.test_data.geojson_polygon, 0.01), dict)

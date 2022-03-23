@@ -1727,11 +1727,11 @@ class VectorToRandomPoints:
         polygons_gdf = gpd.GeoDataFrame(columns=gdf.columns)
         multipolygons_gdf = gpd.GeoDataFrame(columns=gdf.columns)
         for idx, row in gdf.iterrows():
-            if type(row.geometry) == MultiPolygon:
+            if isinstance(row.geometry, MultiPolygon):
                 multipolygons_gdf = multipolygons_gdf.append(row,ignore_index=True)
-            if type(row.geometry) == Polygon:
+            if isinstance(row.geometry, Polygon):
                 polygons_gdf = polygons_gdf.append(row,ignore_index=True)
-            if type(row.geometry) == Point:
+            if isinstance(row.geometry, Point):
                 points_gdf = points_gdf.append(row,ignore_index=True)
         points_gdf = points_gdf.set_crs(4326)
         polygons_gdf = polygons_gdf.set_crs(4326)
@@ -1888,7 +1888,7 @@ class VectorToRegularPoints:
     def exec_num(data, cell_size):
         if cell_size <= 0:
             raise Exception("Cell size to small.")
-        if type(data) == dict:
+        if isinstance(data, dict):
             sampl = []
             polygon_list = []
             for i in range(len(data["features"])):
