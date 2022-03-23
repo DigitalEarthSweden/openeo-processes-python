@@ -99,7 +99,8 @@ def create_product(data: xr.Dataset) -> Product:
             ),
         ),
         measurements=measurements,
-        extra_dimensions=extra_dimensions if extra_dims else None,
+        extra_dimensions=None
+        #extra_dimensions if extra_dims else None,
     )
     return prod
 

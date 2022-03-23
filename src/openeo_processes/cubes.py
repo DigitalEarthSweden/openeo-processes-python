@@ -9,10 +9,11 @@ import rioxarray  # needed by save_result even if not directly called
 import xarray as xr
 from shapely.geometry import Point, LineString, Polygon, MultiPolygon
 from openeo_processes.extension.odc import write_odc_product
-from openeo_processes.utils import process, get_time_dimension_from_data, xarray_dataset_from_dask_dataframe
+from openeo_processes.utils import process, get_time_dimension_from_data, xarray_dataset_from_dask_dataframe, get_equi7_tiles, derive_datasets_and_filenames_from_tiles
 from openeo_processes.errors import DimensionNotAvailable
 from scipy import optimize
 import datacube
+import dask
 from datacube.utils.cog import write_cog
 try:
     from pyproj import Transformer, CRS
@@ -39,6 +40,9 @@ def odc_load_helper(odc_cube, params: Dict[str, Any]) -> xr.DataArray:
     for name, data_var in datacube.data_vars.items():
         datacube[name] = datacube[name].where(datacube[name] != datacube[name].nodata)
     datacube.attrs['nodata'] = np.nan
+
+    refdata = {'collection': params['product']}
+    datacube.attrs.update(refdata)
 
     # Convert to xr.DataArray
     # TODO: add conversion with multiple and custom dimensions
@@ -200,7 +204,8 @@ class SaveResult:
     @staticmethod
     def exec_xar(data, output_filepath='out', format='GTiff', options={}, write_prod: bool = True):
         """
-        Save data to disk in specified format.
+        Save data to disk in specified format. Data is saved to files reflecting the EQUI7 Tiles that the original data
+        is loaded from.
 
         Parameters
         ----------
@@ -211,105 +216,61 @@ class SaveResult:
             with or without extention
         format: str, optional
             data format (default: GTiff)
-
         """
-        def reformat_dataset(dataset: xr.DataArray, timestamp: datetime = None, has_time_dim: bool = False) \
-                -> xr.Dataset:
-            """Create a xarray Dataset."""
-            data_var = dataset.fillna(-9999)
-            data_var.attrs["nodata"] = -9999
-            if 'bands' in dataset.coords:
-                try:
-                    tmp = data_var.to_dataset(dim="bands")
-                except Exception as e:
-                    print(e)
-                    n = dataset['bands'].values
-                    tmp = data_var.to_dataset(name=str(n))
-            else:
-                tmp = data_var.to_dataset(name='result')
-
-            # fix dimension order
-            current_dims = tuple(tmp.dims)
-            base_dims = ("bands", "time", "y", "x") if has_time_dim else ("bands", "y", "x")
-            additional_dim = list(set(current_dims).difference(set(base_dims)))
-            base_dims = base_dims[1:]  # remove bands elem > not a dimension!
-            if additional_dim and current_dims != (additional_dim[0], *base_dims):
-                tmp = tmp.transpose(additional_dim[0], *base_dims)
-            elif current_dims != base_dims:
-                tmp = tmp.transpose(*base_dims)
-
-            tmp.attrs = data_var.attrs
-            # This is a hack! ODC always(!) expectes to have a time dimension
-            # set datetime to now if no other information is available
-            if has_time_dim:
-                tmp = tmp.rename({"time": "t"})
-            else:
-                tmp.attrs["datetime_from_dim"] = str(timestamp) if timestamp else str(datetime.now())
-            if "crs" not in tmp.attrs:
-                first_data_var = tmp.data_vars[list(tmp.data_vars.keys())[0]]
-                tmp.attrs["crs"] = first_data_var.geobox.crs.to_wkt()
-            return tmp
-
-        def refactor_data(data: xr.DataArray) -> List[xr.Dataset]:
-            """Recreate a Dataset from the final result as Dataarray, to ensure a well formatted netCDF."""
-            all_tmp = []
-            # TODO this must be improved once `rename_dimension` is supported!
-            if 'time' in data.coords:
-                for timestamp in data.time.values:
-                    data_at_timestamp = data.loc[dict(time=timestamp)]
-                    all_tmp.append(reformat_dataset(data_at_timestamp, timestamp))
-            else:
-                all_tmp.append(reformat_dataset(data))
-
-            return all_tmp
-
-        def create_output_filepath(output_filepath: str, idx: int = 0, ext: str = "nc") -> str:
-            """Create the output filepath."""
-            root, _ = splitext(output_filepath)
-            return f'{root}_{str(idx).zfill(5)}.{ext}'
-
-        # start workaround
-        # https://github.com/opendatacube/datacube-core/issues/972
-        # ValueError failed to prevent overwriting existing key units in `attrs` on variable 'time'
-        if hasattr(data, 'time') and hasattr(data.time, 'units'):
-            data.time.attrs.pop('units', None)
-        if hasattr(data, 'grid_mapping'):
-            data.attrs.pop('grid_mapping')
-        # end workaround
-
-        formats = ('GTiff', 'netCDF')
-        if format.lower() == 'netcdf':
-            data_list = refactor_data(data)
-            paths = []
-            for idx in range(len(data_list)):
-                paths.append(create_output_filepath(output_filepath, idx, 'nc'))
-            # combined dataset
-            if 'time' in data.coords:
-                combined_dataset = reformat_dataset(data, None, has_time_dim=True)
-                data_list.append(combined_dataset)
-                combined_path = f'{splitext(output_filepath)[0]}_combined.nc'
-                paths.append(combined_path)
-            xr.save_mfdataset(data_list, paths)
-
-        elif format.lower() in ['gtiff','geotiff']:
-            data_list = refactor_data(data)
-            if len(data_list[0].dims) > 3:
-                raise Exception("[!] Not possible to write a 4-dimensional GeoTiff, use NetCDF instead.")
-            for idx, dataset in enumerate(data_list):
-                cur_output_filepath = create_output_filepath(output_filepath, idx, 'tif')
-                #print('DATASET: ', dataset)
-                #darray = dataset.to_array(dim='bands')
-                #print('DATAARRAY: ', darray)
-                #darray.attrs["datetime_from_dim"] = str(datetime.now())
-                #print('DATAARRAY WITH TIME: ', darray)
-                #write_cog(geo_im=darray, fname=cur_output_filepath).compute()
-                dataset.rio.to_raster(raster_path=cur_output_filepath, **options)
-
+        formats = ['gtiff', 'netcdf', 'geotiff']
+        if format.lower() in formats:
+            format = format.lower()
         else:
             raise ValueError(f"Error when saving to file. Format '{format}' is not in {formats}.")
 
+        data = data.fillna(-9999)
+        data.attrs["nodata"] = -9999
+        # Convert data array to data set, keeping a nice format on the bands.
+        data = data.to_dataset(
+            dim='bands'
+        )
+
+        tiles, gridder = get_equi7_tiles(data)
+
+        if "crs" not in data.attrs:
+            first_data_var = data.data_vars[list(data.data_vars.keys())[0]]
+            data.attrs["crs"] = first_data_var.geobox.crs.to_wkt()
+
+        # Renaming the time dimension
+        if 'time' in data.dims:
+            data = data.rename({'time': 't'})
+
+        # Avoid value error on attrs
+        if hasattr(data, 't') and hasattr(data.t, 'units'):
+            data.t.attrs.pop('units', None)
+
+        if hasattr(data, 'grid_mapping'):
+            data.attrs.pop('grid_mapping')
+
+        # Group datasets by time. This will help with storing multiple files via dask.
+        times, datasets = zip(*data.groupby("t"))
+
+        if format == 'netcdf':
+            ext = 'nc'
+        else:
+            ext = 'tif'
+
+        final_datasets, dataset_filenames = derive_datasets_and_filenames_from_tiles(gridder, times, datasets, tiles, output_filepath, ext)
+
+        # Submit list of netcdfs and filepaths to dask to compute
+        if format == 'netcdf':
+            xr.save_mfdataset(final_datasets, dataset_filenames)
+
+        # Iterate datasets and save to tif
+        elif format in ['gtiff','geotiff']:
+            if len(final_datasets[0].dims) > 3:
+                raise Exception("[!] Not possible to write a 4-dimensional GeoTiff, use NetCDF instead.")
+            for idx, dataset in enumerate(final_datasets):
+                dataset.rio.to_raster(raster_path=dataset_filenames[idx], **options)
+
+        # Write and odc product yml file
         if write_prod:
-            write_odc_product(data_list[0], output_filepath)
+            write_odc_product(datasets[0], output_filepath)
 
 
 ###############################################################################

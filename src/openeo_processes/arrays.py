@@ -52,7 +52,6 @@ class ArrayCreate:
     Class implementing all 'array_create' processes.
 
     """
-
     @staticmethod
     def exec_num(data, repeat = 1):
         """
