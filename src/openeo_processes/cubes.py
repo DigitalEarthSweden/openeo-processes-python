@@ -219,7 +219,7 @@ class SaveResult:
         """
         formats = ['gtiff', 'netcdf', 'geotiff']
         if format.lower() in formats:
-            format == format.lower()
+            format = format.lower()
         else:
             raise ValueError(f"Error when saving to file. Format '{format}' is not in {formats}.")
 
