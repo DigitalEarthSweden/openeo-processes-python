@@ -395,11 +395,20 @@ def get_equi7_tiles(data: xr.Dataset):
     os.environ['PROJ_LIB'] = '/opt/conda/share/proj'
     input_p4 = '+proj=aeqd +lat_0=53 +lon_0=24 +x_0=5837287.81977 +y_0=2121415.69617 +datum=WGS84 +units=m +no_defs'
     
-    src_crs = osr.SpatialReference(data.crs)
+    try:
+        src_crs = osr.SpatialReference(data.crs)
+    except AttributeError:
+        src_crs = data.attrs["crs"]
+
     src_crs.ImportFromProj4(input_p4)
 
     x_min, x_max = float(data.x.min().values), float(data.x.max().values)
     y_min, y_max = float(data.y.min().values), float(data.y.max().values)
+
+    if x_min == x_max:
+        x_max = x_max + 1
+    if y_min == y_max:
+        y_max = y_max + 1
 
     bbox = [[x_min, y_min],[x_max, y_max]]
 

@@ -2,6 +2,7 @@ from datetime import datetime
 from os.path import splitext
 from pathlib import Path
 from typing import Any, Dict, List
+from dbus import ValidationException
 
 import numpy as np
 import pandas as pd
@@ -232,12 +233,12 @@ class SaveResult:
             dim='bands'
         )
 
-        tiles, gridder = get_equi7_tiles(data)
-
         if "crs" not in data.attrs:
             first_data_var = data.data_vars[list(data.data_vars.keys())[0]]
             data.attrs["crs"] = first_data_var.geobox.crs.to_wkt()
 
+        tiles, gridder = get_equi7_tiles(data)
+        
         # Renaming the time dimension
         if 'time' in data.dims:
             data = data.rename({'time': 't'})
@@ -258,6 +259,8 @@ class SaveResult:
             ext = 'tif'
 
         final_datasets, dataset_filenames = derive_datasets_and_filenames_from_tiles(gridder, times, datasets, tiles, output_filepath, ext)
+        if (len(final_datasets) == 0) or (len(dataset_filenames) == 0):
+            raise ValidationException("No tiles could be derived from given dataset")
 
         # Submit list of netcdfs and filepaths to dask to compute
         if format == 'netcdf':
