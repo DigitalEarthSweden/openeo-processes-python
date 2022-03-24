@@ -2,7 +2,6 @@ from datetime import datetime
 from os.path import splitext
 from pathlib import Path
 from typing import Any, Dict, List
-from dbus import ValidationException
 
 import numpy as np
 import pandas as pd
@@ -260,7 +259,7 @@ class SaveResult:
 
         final_datasets, dataset_filenames = derive_datasets_and_filenames_from_tiles(gridder, times, datasets, tiles, output_filepath, ext)
         if (len(final_datasets) == 0) or (len(dataset_filenames) == 0):
-            raise ValidationException("No tiles could be derived from given dataset")
+            raise Exception("No tiles could be derived from given dataset")
 
         # Submit list of netcdfs and filepaths to dask to compute
         if format == 'netcdf':
