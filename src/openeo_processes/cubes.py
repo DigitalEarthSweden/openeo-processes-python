@@ -1961,7 +1961,7 @@ class AggregateSpatial:
                 elif feature['properties'] is None:
                     feature['properties'] = {}
             
-            geometries_crs = geometries['crs'] if geometries['crs'] else DEFAULT_CRS
+            geometries_crs = geometries.get('crs', DEFAULT_CRS) 
             
             try:
                 geometries = gpd.GeoDataFrame.from_features(geometries, crs=geometries_crs)
