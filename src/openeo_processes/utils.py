@@ -9,8 +9,17 @@ import dask.dataframe as dd
 import numpy as np
 import xarray as xr
 import geopandas as gpd
-from equi7grid import equi7grid
-from osgeo import osr
+
+# This is a workaround for this package now requiring gdal, which isn't straightforward to install with pip.
+# TODO: Remove this once we've figured out how to properly integrate the gdal dependency for this library
+try:
+    from equi7grid import equi7grid
+except ImportError:
+    equi7grid = None
+try:
+    from osgeo import osr   
+except ImportError:
+    osr = None
 
 
 def eval_datatype(data):
@@ -426,7 +435,7 @@ def get_equi7_tiles(data: xr.Dataset):
 
     return tiles, gridder
 
-def derive_datasets_and_filenames_from_tiles(gridder: equi7grid.Equi7Grid, times: List[str], datasets: List[xr.Dataset],
+def derive_datasets_and_filenames_from_tiles(gridder, times: List[str], datasets: List[xr.Dataset],
                                     tiles: List[str], output_filepath: str, ext: str):
     """
     A function taking an xarray.Dataset and returning a list of EQUI7 Tiles at the relevant resolution layer along with
