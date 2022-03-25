@@ -460,7 +460,7 @@ def derive_datasets_and_filenames_from_tiles(gridder, times: List[str], datasets
 
     for idx, time in enumerate(times):
         dataset = datasets[idx]
-        file_time = str(time)[0:10].replace('-', '_')
+        file_time = np.datetime_as_string(time)[:19].replace('-', '_').replace(':', '_')
         for tile in tiles:
             temp_bbox = gridder.get_tile_bbox_proj(tile)
 
