@@ -1920,6 +1920,8 @@ class AggregateSpatial:
 
     @staticmethod
     def exec_xar(data, geometries, reducer, target_dimension = "result", context = None):
+        DEFAULT_CRS = 4326
+
         input_raster_cube_dims = list(data.dims)
         if len(input_raster_cube_dims) > 3:
             raise Exception(
@@ -1935,28 +1937,41 @@ class AggregateSpatial:
         if input_raster_cube_dims[0] in list(data.dims):
             bands_or_timesteps = data[input_raster_cube_dims[0]].values
 
-        # Case when geoJSON is provided
-        if isinstance(geometries, dict):
-            geometries = gpd.GeoDataFrame.from_features(geometries)
-        # Case when a vector-cube (result of vector_to_random_points for instance) is provided
-        elif isinstance(geometries, gpd.geodataframe.GeoDataFrame):
-            pass
-        # Case where a vector-cube is provided via URL
-        elif isinstance(geometries, str):
-            response = urllib.request.urlopen(geometries)
-            geometries = json.loads(response.read())
-            geometries = gpd.GeoDataFrame.from_features(geometries)
+        # If raw geojson is provided, construct a gpd.geodataframe.GeoDataFrame from that
+        if not isinstance(geometries, gpd.geodataframe.GeoDataFrame):
+            # Case where a vector-cube is provided via URL
+            if isinstance(geometries, str):
+                try:
+                    response = urllib.request.urlopen(geometries)
+                    geometries = json.loads(response.read())
+                except json.JSONDecodeError:
+                    raise Exception('[!] Unable to parse vector-data from provided URL.')
+                except:
+                    raise Exception('[!] Unable to load vector-data from provided URL.')
+
+            # Each feature must have a properties field, even if there is no property
+            # This is necessary due to this bug in geopandas: https://github.com/geopandas/geopandas/pull/2243
+            for feature in geometries['features']:
+                if 'properties' not in feature:
+                    feature['properties'] = {}
+                elif feature['properties'] is None:
+                    feature['properties'] = {}
+            
+            geometries_crs = geometries['crs'] if geometries['crs'] else DEFAULT_CRS
+            
+            try:
+                geometries = gpd.GeoDataFrame.from_features(geometries, crs=geometries_crs)
+            except:
+                raise Exception('[!] No compatible vector input data has been provided.')
+        # If a geopandas.GeoDataFrame is provided make sure it has a crs set
         else:
-            raise Exception('[!] No compatible vector input data has been provided.')
+            if not geometries.crs:
+                geometries = geometries.set_crs(DEFAULT_CRS)
 
         input_vector_cube_columns = list(geometries.columns)
 
         output_raster_cube_columns = input_vector_cube_columns + [target_dimension, target_dimension + '_meta']
         output_vector_cube = gpd.GeoDataFrame(columns=output_raster_cube_columns)
-
-        # If not explicitly specified, assume vector-cube is in 4326
-        if not geometries.crs:
-            geometries = geometries.set_crs(4326)
 
         ## Input geometries are in EPSG:4326 and the data has a different projection. We reproject the vector-cube to fit the data.
         if 'crs' in data.attrs:
