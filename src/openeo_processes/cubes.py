@@ -13,6 +13,7 @@ from openeo_processes.extension.odc import write_odc_product
 from openeo_processes.utils import process, get_time_dimension_from_data, xarray_dataset_from_dask_dataframe, get_equi7_tiles, derive_datasets_and_filenames_from_tiles
 from openeo_processes.errors import DimensionNotAvailable
 from scipy import optimize
+from datetime import datetime
 import datacube
 import dask
 from datacube.utils.cog import write_cog
@@ -241,6 +242,9 @@ class SaveResult:
         # Renaming the time dimension
         if 'time' in data.dims:
             data = data.rename({'time': 't'})
+        if 't' not in data.dims:
+            data = data.assign_coords(t=datetime.now())
+            data = data.expand_dims('t')
 
         # Avoid value error on attrs
         if hasattr(data, 't') and hasattr(data.t, 'units'):
