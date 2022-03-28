@@ -2066,13 +2066,13 @@ class FitRegrRandomForest:
             target = gpd.GeoDataFrame.from_file(target)
 
         if isinstance(predictors, gpd.geodataframe.GeoDataFrame) and isinstance(target, gpd.geodataframe.GeoDataFrame):
-            if (predictors['geometry'] == target['geometry']).all():
-                predictors_pandas = pd.DataFrame(predictors)
-                predictors_pandas = predictors_pandas.drop(columns=['geometry'])
-                target_pandas = pd.DataFrame(target)
-                target_pandas = target_pandas.drop(columns=['geometry'])
-            else:
+            if not (predictors['geometry'].equals(target['geometry']):
                 raise Exception('Geometries of input predictors and target do not match.')
+
+            predictors_pandas = pd.DataFrame(predictors)
+            predictors_pandas = predictors_pandas.drop(columns=['geometry'])
+            target_pandas = pd.DataFrame(target)
+            target_pandas = target_pandas.drop(columns=['geometry'])
             predictors_dask = df.from_pandas(predictors_pandas, chunksize=CHUNK_SIZE_ROWS)
             for c in predictors_dask.columns:
                 if c not in predictors_vars:
