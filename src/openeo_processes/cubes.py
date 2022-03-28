@@ -246,6 +246,9 @@ class SaveResult:
             data = data.assign_coords(t=datetime.now())
             data = data.expand_dims('t')
 
+        # Add back the odc hack
+        data.attrs["datetime_from_dim"] = str(datetime.now())
+
         # Avoid value error on attrs
         if hasattr(data, 't') and hasattr(data.t, 'units'):
             data.t.attrs.pop('units', None)
