@@ -2253,7 +2253,7 @@ class LoadVectorCube:
             elif feature['properties'] is None:
                 feature['properties'] = {}
         
-        geometries_crs = geometries.get('crs', DEFAULT_CRS) 
+        geometries_crs = geometries.get('crs', {}).get("properties", {}).get("name", DEFAULT_CRS)
         
         try:
             gdf = gpd.GeoDataFrame.from_features(geometries, crs=geometries_crs)
