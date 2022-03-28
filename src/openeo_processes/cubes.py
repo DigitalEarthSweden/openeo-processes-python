@@ -2231,7 +2231,7 @@ class LoadVectorCube:
         # TODO: Loading random files from untrusted URLs is dangerous, this has to be rethought going forward! 
         if URL:
             try:
-                response = urllib.request.urlopen(geometries)
+                response = urllib.request.urlopen(URL)
                 geometries = json.loads(response.read())
             except json.JSONDecodeError:
                 raise Exception('[!] Unable to parse vector-data from provided URL.')
