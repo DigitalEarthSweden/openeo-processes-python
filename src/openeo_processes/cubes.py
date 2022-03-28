@@ -30,6 +30,9 @@ import geopandas as gpd
 import urllib, json
 import os
 
+DEFAULT_CRS = 4326
+
+
 ###############################################################################
 # Load Collection Process
 ###############################################################################
@@ -1927,8 +1930,6 @@ class AggregateSpatial:
 
     @staticmethod
     def exec_xar(data, geometries, reducer, target_dimension = "result", context = None):
-        DEFAULT_CRS = 4326
-
         input_raster_cube_dims = list(data.dims)
         if len(input_raster_cube_dims) > 3:
             raise Exception(
@@ -1944,36 +1945,26 @@ class AggregateSpatial:
         if input_raster_cube_dims[0] in list(data.dims):
             bands_or_timesteps = data[input_raster_cube_dims[0]].values
 
-        # If raw geojson is provided, construct a gpd.geodataframe.GeoDataFrame from that
-        if not isinstance(geometries, gpd.geodataframe.GeoDataFrame):
-            # Case where a vector-cube is provided via URL
-            if isinstance(geometries, str):
-                try:
-                    response = urllib.request.urlopen(geometries)
-                    geometries = json.loads(response.read())
-                except json.JSONDecodeError:
-                    raise Exception('[!] Unable to parse vector-data from provided URL.')
-                except:
-                    raise Exception('[!] Unable to load vector-data from provided URL.')
-
-            # Each feature must have a properties field, even if there is no property
-            # This is necessary due to this bug in geopandas: https://github.com/geopandas/geopandas/pull/2243
-            for feature in geometries['features']:
-                if 'properties' not in feature:
-                    feature['properties'] = {}
-                elif feature['properties'] is None:
-                    feature['properties'] = {}
-            
-            geometries_crs = geometries.get('crs', DEFAULT_CRS) 
-            
+        if isinstance(geometries, gpd.geodataframe.GeoDataFrame):
+            if not geometries.crs:
+                geometries = geometries.set_crs(DEFAULT_CRS)
+        # If a geopandas.GeoDataFrame is provided make sure it has a crs set
+        else:
+            # If raw geojson is provided, construct a gpd.geodataframe.GeoDataFrame from that
             try:
+
+                # Each feature must have a properties field, even if there is no property
+                # This is necessary due to this bug in geopandas: https://github.com/geopandas/geopandas/pull/2243
+                for feature in geometries['features']:
+                    if 'properties' not in feature:
+                        feature['properties'] = {}
+                    elif feature['properties'] is None:
+                        feature['properties'] = {}
+                
+                geometries_crs = geometries.get('crs', DEFAULT_CRS) 
                 geometries = gpd.GeoDataFrame.from_features(geometries, crs=geometries_crs)
             except:
                 raise Exception('[!] No compatible vector input data has been provided.')
-        # If a geopandas.GeoDataFrame is provided make sure it has a crs set
-        else:
-            if not geometries.crs:
-                geometries = geometries.set_crs(DEFAULT_CRS)
 
         input_vector_cube_columns = list(geometries.columns)
 
@@ -2239,16 +2230,37 @@ class LoadVectorCube:
         
         # TODO: Loading random files from untrusted URLs is dangerous, this has to be rethought going forward! 
         if URL:
-            geometries = gpd.GeoDataFrame.from_file(URL)
+            try:
+                response = urllib.request.urlopen(geometries)
+                geometries = json.loads(response.read())
+            except json.JSONDecodeError:
+                raise Exception('[!] Unable to parse vector-data from provided URL.')
+            except:
+                raise Exception('[!] Unable to load vector-data from provided URL.')
 
         if job_id:
-            date = os.listdir(f'{input_filepath}/jobs/{job_id}')
-            if len(date) > 0:
-                date = date[0]
-            filepath = f'{input_filepath}/jobs/{job_id}/{date}/result/out_vector_cube.json'
-            geometries = gpd.read_file(filepath)
+            result_files = os.listdir(f'{input_filepath}/jobs/{job_id}')
+            if len(result_files) > 0:
+                latest_date = result_files[0]
+            filepath = f'{input_filepath}/jobs/{job_id}/{latest_date}/result/out_vector_cube.json'
+            geometries = json.load(filepath)
 
-        return geometries
+        # Each feature must have a properties field, even if there is no property
+        # This is necessary due to this bug in geopandas: https://github.com/geopandas/geopandas/pull/2243
+        for feature in geometries['features']:
+            if 'properties' not in feature:
+                feature['properties'] = {}
+            elif feature['properties'] is None:
+                feature['properties'] = {}
+        
+        geometries_crs = geometries.get('crs', DEFAULT_CRS) 
+        
+        try:
+            gdf = gpd.GeoDataFrame.from_features(geometries, crs=geometries_crs)
+        except:
+            raise Exception('[!] No compatible vector input data has been provided.')
+
+        return gdf
 
 @process
 def save_vector_cube():
@@ -2257,6 +2269,7 @@ def save_vector_cube():
 
 
 class SaveVectorCube:
+
     """Note that at this stage, this process assumes that each job can only save a single model, using the job-id as an ID for the resulting file."""
     @staticmethod
     def exec_xar(data, output_filepath = 'path'):
