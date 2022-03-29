@@ -450,7 +450,7 @@ class MergeCubes:
                 print("Warning - Overlap resolver is not implemented for geopandas vector-cubes, cubes are simply appended!")
             else:
                 if 'geometry' in cube1.columns and 'geometry' in cube2.columns and cube1['geometry'].equals(cube2['geometry']):
-                    merged_cube = cube1.merge(cube2)
+                    merged_cube = cube1.merge(cube2, on='geometry')
             return merged_cube
 
         if (cube1.dims == cube2.dims):  # Check if the dimensions have the same names
