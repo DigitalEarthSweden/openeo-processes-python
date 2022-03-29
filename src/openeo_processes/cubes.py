@@ -445,8 +445,12 @@ class MergeCubes:
         xr.DataArray
         """
         if isinstance(cube1, gpd.geodataframe.GeoDataFrame) and isinstance(cube2, gpd.geodataframe.GeoDataFrame):
-            merged_cube = cube1.append(cube2, ignore_index=True)
-            print("Warning - Overlap resolver is not implemented for geopandas vector-cubes, cubes are simply appended!")
+            if cube1.columns.equals(cube2.columns):
+                merged_cube = cube1.append(cube2, ignore_index=True)
+                print("Warning - Overlap resolver is not implemented for geopandas vector-cubes, cubes are simply appended!")
+            else:
+                if 'geometry' in cube1.columns and 'geometry' in cube2.columns and cube1['geometry'].equals(cube2['geometry']):
+                    merged_cube = cube1.merge(cube2)
             return merged_cube
 
         if (cube1.dims == cube2.dims):  # Check if the dimensions have the same names
@@ -2239,7 +2243,8 @@ class LoadVectorCube:
             if len(result_files) > 0:
                 latest_date = result_files[0]
             filepath = f'{input_filepath}/jobs/{job_id}/{latest_date}/result/out_vector_cube.json'
-            geometries = json.load(filepath)
+            f = open(filepath)
+            geometries = json.load(f)
 
         # Each feature must have a properties field, even if there is no property
         # This is necessary due to this bug in geopandas: https://github.com/geopandas/geopandas/pull/2243
