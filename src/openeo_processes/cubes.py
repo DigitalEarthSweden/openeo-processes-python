@@ -24,7 +24,6 @@ except ImportError:
     CRS = None
 import xgboost as xgb
 import dask.dataframe as df
-from dask_ml.model_selection import train_test_split
 
 import geopandas as gpd
 import urllib, json
@@ -2034,7 +2033,7 @@ def fit_regr_random_forest():
 class FitRegrRandomForest:
 
     @staticmethod
-    def exec_xar(predictors, target, training, num_trees = 100, max_variables = None, seed = None, predictors_vars = None, target_var = None, client = None):
+    def exec_xar(predictors, target, num_trees = 100, max_variables = None, seed = None, predictors_vars = None, target_var = None, client = None):
         CHUNK_SIZE_ROWS = 1500
         
         params = {
@@ -2066,22 +2065,19 @@ class FitRegrRandomForest:
             predictors_pandas = predictors_pandas.drop(columns=['geometry'])
             target_pandas = pd.DataFrame(target)
             target_pandas = target_pandas.drop(columns=['geometry'])
-            predictors_dask = df.from_pandas(predictors_pandas, chunksize=CHUNK_SIZE_ROWS)
-            for c in predictors_dask.columns:
+            X = df.from_pandas(predictors_pandas, chunksize=CHUNK_SIZE_ROWS)
+            for c in X.columns:
                 if c not in predictors_vars:
-                    predictors_dask = predictors_dask.drop(columns=c)
+                    X = X.drop(columns=c)
 
-            target_dask = df.from_pandas(target_pandas, chunksize=CHUNK_SIZE_ROWS)
-            for c in target_dask.columns:
+            y = df.from_pandas(target_pandas, chunksize=CHUNK_SIZE_ROWS)
+            for c in y.columns:
                 if c != target_var:
-                    target_dask = target_dask.drop(columns=c)
+                    y = y.drop(columns=c)
 
-            X_train, X_test, y_train, y_test = train_test_split(predictors_dask, target_dask, train_size=training)
+            dtrain = xgb.dask.DaskDMatrix(client, X, y)
 
-            dtrain = xgb.dask.DaskDMatrix(client, X_train, y_train)
-            dtest = xgb.dask.DaskDMatrix(client, X_test, y_test)
-
-            output = xgb.dask.train(client, params, dtrain, num_boost_round=1, evals=[(dtest, "test")])
+            output = xgb.dask.train(client, params, dtrain, num_boost_round=1)
 
             return output
         else:
