@@ -852,37 +852,25 @@ class ResampleCubeTemporal:
             dimension = get_time_dimension_from_data(data, dimension)
         else:
             raise Exception('DimensionNotAvailable')
-        if len(data[dimension].values) >= len(target[dimension].values):
-            index = np.array([])
-            for d in data[dimension].values:
-                difference = (np.abs(d - target[dimension].values))
-                nearest = np.argwhere(difference == np.min(difference))
-                index = np.append(index, nearest)
-            t = []
-            for i in index:
-                t.append(target[dimension].values[int(i)])
-            filter_values = data[dimension].values
-            new_data = data #ATTENTION new_data is a shallow copy of data! When you change new_data also data is changed.
-            new_data[dimension] = t
-        else:
-            index = []
-            for d in target[dimension].values:
-                difference = (np.abs(d - data[dimension].values))
-                nearest = np.argwhere(difference == np.min(difference))
-                index.append(int(nearest))
-            data_t = data.transpose(dimension, ...)
-            new_data = data_t[index]
-            new_data = new_data.transpose(*data.dims)
-            filter_values = new_data[dimension].values
-            new_data[dimension] = target[dimension].values
+        if dimension not in target.dims:
+            target_time = get_time_dimension_from_data(target, dimension)
+            target = target.rename({target_time: dimension})
+        index = []
+        for d in target[dimension].values:
+            difference = (np.abs(d - data[dimension].values))
+            nearest = np.argwhere(difference == np.min(difference))
+            index.append(int(nearest))
+        times_at_target_time = data[dimension].values[index]
+        new_data = data.loc[{dimension: times_at_target_time}]
+        filter_values = new_data[dimension].values
+        new_data[dimension] = target[dimension].values
         if valid_within is None:
             new_data = new_data
         else:
             minimum = np.timedelta64(valid_within, 'D')
             filter = (np.abs(filter_values - new_data[dimension].values) <= minimum)
-            new_data_t = new_data.transpose(dimension, ...)
-            new_data_t = new_data_t[filter]
-            new_data = new_data_t.transpose(*new_data.dims)
+            times_valid = new_data[dimension].values[filter]
+            new_data = new_data.loc[{dimension: times_valid}]
         new_data.attrs = data.attrs
         return new_data
 
