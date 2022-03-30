@@ -2116,7 +2116,7 @@ class PredictRandomForest:
         X_hat = stacked.to_dataset(dim=dimension).to_dask_dataframe().drop(columns=predictor_cols)
         if 'spatial_ref' in X_hat:
             X_hat = X_hat.drop(columns=['spatial_ref'])
-        if predictors_vars:
+        if predictors_vars is not None:
             for c in X_hat.columns:
                 if c not in predictors_vars:
                     X_hat = X_hat.drop(columns=c)
@@ -2203,15 +2203,15 @@ class FlattenDimensions:
 ###############################################################################
 
 @process
-def unflatten_dimensions():
+def unflatten_dimension():
 
-    return UnflattenDimensions()
+    return UnflattenDimension()
 
 
-class UnflattenDimensions:
+class UnflattenDimension:
 
     @staticmethod
-    def exec_xar(data, dimensions, target_dimension, label_seperator='~'):
+    def exec_xar(data, dimensions=None, target_dimension=None, label_seperator='~'):
         stacked = data.unstack()
         return stacked
 
