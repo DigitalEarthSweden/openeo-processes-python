@@ -2090,6 +2090,8 @@ class PredictRandomForest:
 
     @staticmethod
     def exec_xar(data, model, dimension, predictors_vars = None, client = None):
+        if dimension in ['time', 't', 'times']:  # time dimension must be converted into values
+            dimension = get_time_dimension_from_data(data, dimension)
         predictor_cols = list(data.dims)
         if dimension in predictor_cols:
             predictor_cols.remove(dimension)
@@ -2117,6 +2119,7 @@ class PredictRandomForest:
         p = data.loc[{dimension: data[dimension].values[0]}]
         predictions_xr = xr.ones_like(p) * y_hat_da
         predictions_xr.attrs = data.attrs
+        predictions_xr[dimension] = np.array(['prediction'])
         return predictions_xr
 
 
@@ -2182,6 +2185,10 @@ class FlattenDimensions:
 
     @staticmethod
     def exec_xar(data, dimensions, target_dimension, label_seperator='~'):
+        for i in range(len(dimensions)):
+            if dimensions[i] in ['time', 't', 'times']:  # time dimension must be converted into values
+                t = get_time_dimension_from_data(data, dimensions[i])
+                dimensions[i] = t
         stacked = data.stack({target_dimension:(tuple(dimensions))})
         return stacked
 
