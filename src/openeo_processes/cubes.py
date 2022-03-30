@@ -1972,7 +1972,7 @@ class AggregateSpatial:
         vector_cube_utm = geometries.to_crs(data_crs)
 
         ## First clip the data keeping only the data within the polygons
-        crop = data.rio.clip(vector_cube_utm.geometry, drop=True)
+        crop = data.rio.clip(vector_cube_utm.geometry, drop=True).load()
 
         ## Loop over the geometries in the FeatureCollection and apply the reducer
         geom_crop_list = []
@@ -1991,7 +1991,7 @@ class AggregateSpatial:
                     valid_data_dict['total_count'] = float(total_count)
                     valid_data_dict['valid_count'] = float(valid_count)
                     reduced_value = reducer(reducer(geom_crop, dimension='x'), dimension='y')
-                    reduced_value = reduced_value.load()
+                    reduced_value = reduced_value
 
                     raster_data_dict = {}
 
