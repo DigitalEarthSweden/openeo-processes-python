@@ -766,7 +766,7 @@ class ResampleCubeSpatial:
     """
 
     @staticmethod
-    def exec_xar(data, target, method, options={}):
+    def exec_xar(data, target, method=None, options={}):
         """
         Save data to disk in specified format.
 
