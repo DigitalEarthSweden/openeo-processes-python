@@ -2664,7 +2664,7 @@ class Mean:
             return np.nan
         if not dimension:
             dimension = data.dims[0]
-        m = data.mean(dim=dimension, skipna=~ignore_nodata)
+        m = data.mean(dim=dimension, skipna=ignore_nodata)
         if isinstance(data, xr.DataArray):
             m.attrs = data.attrs
         return m
@@ -2762,7 +2762,7 @@ class Min:
 
         if not dimension:
             dimension = data.dims[0]
-        m = data.min(dim=dimension, skipna=~ignore_nodata)
+        m = data.min(dim=dimension, skipna=ignore_nodata)
         if isinstance(data, xr.DataArray):
             m.attrs = data.attrs
         return m
@@ -2854,7 +2854,7 @@ class Max():
 
         if not dimension:
             dimension = data.dims[0]
-        m = data.max(dim=dimension, skipna=~ignore_nodata)
+        m = data.max(dim=dimension, skipna=ignore_nodata)
         if isinstance(data, xr.DataArray):
             m.attrs = data.attrs
         return m
@@ -2960,7 +2960,7 @@ class Median:
             return np.nan
         if not dimension:
             dimension = data.dims[0]
-        m = data.median(dim=dimension, skipna=~ignore_nodata)
+        m = data.median(dim=dimension, skipna=ignore_nodata)
         if isinstance(data, xr.DataArray):
             m.attrs = data.attrs
         return m
@@ -3069,7 +3069,7 @@ class Sd:
             return np.nan
         if not dimension:
             dimension = data.dims[0]
-        s = data.std(dim=dimension, skipna=~ignore_nodata)
+        s = data.std(dim=dimension, skipna=ignore_nodata)
         if isinstance(data, xr.DataArray):
             s.attrs = data.attrs
         return s
@@ -3167,7 +3167,7 @@ class Variance:
             return np.nan
         if not dimension:
             dimension = data.dims[0]
-        v = data.var(dim=dimension, skipna=~ignore_nodata)
+        v = data.var(dim=dimension, skipna=ignore_nodata)
         if isinstance(data, xr.DataArray):
             v.attrs = data.attrs
         return v
@@ -3262,8 +3262,8 @@ class Extrema:
         if is_empty(data):
             return xr.DataArray(np.nan)
         else:
-            minimum = data.min(dim=dimension, skipna=~ignore_nodata)
-            maximum = data.max(dim=dimension, skipna=~ignore_nodata)
+            minimum = data.min(dim=dimension, skipna=ignore_nodata)
+            maximum = data.max(dim=dimension, skipna=ignore_nodata)
             extrema = xr.concat([minimum, maximum], dim='extrema')
             extrema['extrema'] = ['min', 'max']
             extrema.attrs = data.attrs
@@ -3528,7 +3528,7 @@ class Quantiles:
             return [np.nan] * len(probabilities)
         if not dimension:
             dimension = data.dims[0]
-        q = data.quantile(np.array(probabilities), dim=dimension, skipna=~ignore_nodata)
+        q = data.quantile(np.array(probabilities), dim=dimension, skipna=ignore_nodata)
         if isinstance(data, xr.DataArray):
             q.attrs = data.attrs
         return q
@@ -3877,7 +3877,7 @@ class Cumproduct:
         if is_empty(data):
             return np.nan
 
-        return xar_addons.cumulatives.compound_prod(data, dim=dimension, skipna=~ignore_nodata)
+        return xar_addons.cumulatives.compound_prod(data, dim=dimension, skipna=ignore_nodata)
 
     @staticmethod
     def exec_da():
@@ -3975,7 +3975,7 @@ class Cumsum:
         if is_empty(data):
             return np.nan
 
-        return xar_addons.cumulatives.compound_sum(data, dim=dimension, skipna=~ignore_nodata)
+        return xar_addons.cumulatives.compound_sum(data, dim=dimension, skipna=ignore_nodata)
 
     @staticmethod
     def exec_da():
@@ -4093,14 +4093,14 @@ class Sum:
             data = xr.concat(data_tmp, dim='new_dim')
             if not dimension:
                 dimension = data.dims[0]
-            return data.sum(dim=dimension, skipna=~ignore_nodata) + summand
+            return data.sum(dim=dimension, skipna=ignore_nodata) + summand
         if is_empty(data):
             return np.nan
 
         if isinstance(data, xr.DataArray):
             if not dimension:
                 dimension = data.dims[0]
-            s = data.sum(dim=dimension, skipna=~ignore_nodata)
+            s = data.sum(dim=dimension, skipna=ignore_nodata)
             s.attrs = data.attrs
             return s
 
