@@ -11,7 +11,7 @@ import xarray as xr
 from shapely.geometry import Point, LineString, Polygon, MultiPolygon
 from openeo_processes.extension.odc import write_odc_product
 from openeo_processes.utils import process, get_time_dimension_from_data, xarray_dataset_from_dask_dataframe, get_equi7_tiles, derive_datasets_and_filenames_from_tiles
-from openeo_processes.errors import DimensionNotAvailable
+from openeo_processes.errors import DimensionNotAvailable, TooManyDimensions
 from scipy import optimize
 from datetime import datetime
 import datacube
@@ -24,10 +24,14 @@ except ImportError:
     CRS = None
 import xgboost as xgb
 import dask.dataframe as df
+from geocube.api.core import make_geocube
+import dask_geopandas
 
 import geopandas as gpd
 import urllib, json
 import os
+
+from functools import partial
 
 DEFAULT_CRS = 4326
 
@@ -1920,25 +1924,14 @@ def aggregate_spatial():
 class AggregateSpatial:
 
     @staticmethod
-    def exec_xar(data, geometries, reducer, target_dimension = "result", context = None):
-        input_raster_cube_dims = list(data.dims)
-        if len(input_raster_cube_dims) > 3:
-            raise Exception(
-                'TooManyDimensions - The number of dimensions must be reduced to three for aggregate_spatial. Input raster-cube dimensions: {}'.format(
-                    input_raster_cube_dims))
-        if 'x' in input_raster_cube_dims:
-            input_raster_cube_dims.remove('x')
-        if 'y' in input_raster_cube_dims:
-            input_raster_cube_dims.remove('y')
-        if len(input_raster_cube_dims) == 0:
-            input_raster_cube_dims = [target_dimension]
-        bands_or_timesteps = None
-        if input_raster_cube_dims[0] in list(data.dims):
-            bands_or_timesteps = data[input_raster_cube_dims[0]].values
+    def exec_xar(data, geometries, reducer, target_dimension="result", context=None):
+        if len(data.dims) > 3:
+            raise TooManyDimensions(f'The number of dimensions must be reduced to three for aggregate_spatial. Input raster-cube dimensions: {data.dims}')
 
         if isinstance(geometries, gpd.geodataframe.GeoDataFrame):
             if not geometries.crs:
                 geometries = geometries.set_crs(DEFAULT_CRS)
+
         # If a geopandas.GeoDataFrame is provided make sure it has a crs set
         else:
             # If raw geojson is provided, construct a gpd.geodataframe.GeoDataFrame from that
@@ -1957,11 +1950,6 @@ class AggregateSpatial:
             except:
                 raise Exception('[!] No compatible vector input data has been provided.')
 
-        input_vector_cube_columns = list(geometries.columns)
-
-        output_raster_cube_columns = input_vector_cube_columns + [target_dimension, target_dimension + '_meta']
-        output_vector_cube = gpd.GeoDataFrame(columns=output_raster_cube_columns)
-
         ## Input geometries are in EPSG:4326 and the data has a different projection. We reproject the vector-cube to fit the data.
         if 'crs' in data.attrs:
             data_crs = data.attrs['crs']
@@ -1971,45 +1959,53 @@ class AggregateSpatial:
         
         vector_cube_utm = geometries.to_crs(data_crs)
 
-        ## First clip the data keeping only the data within the polygons
-        crop = data.rio.clip(vector_cube_utm.geometry, drop=True).load()
+        # This is to make sure the geopandas GeoDataFrame index enumerates the geometries starting from 0 to len(geometries) 
+        vector_cube_utm = vector_cube_utm.reset_index(drop=True)
 
-        ## Loop over the geometries in the FeatureCollection and apply the reducer
-        geom_crop_list = []
-        for i in range(len(vector_cube_utm)):
-            if callable(reducer):
-                try:
-                    geom_crop = crop.rio.clip(vector_cube_utm.loc[[i]].geometry)
-                    valid_data_dict = {}
-                    if bands_or_timesteps is not None:
-                        total_count = len(geom_crop.x) * len(geom_crop.y) * len(geom_crop[input_raster_cube_dims[0]])
-                    else:
-                        total_count = len(geom_crop.x) * len(geom_crop.y)
-                    invalid_count = np.isnan(geom_crop).sum().values
+        # Add mask column
+        crop_list = []
+        valid_count_list = []
+        total_count_list = []
 
-                    valid_count = total_count - invalid_count
-                    valid_data_dict['total_count'] = float(total_count)
-                    valid_data_dict['valid_count'] = float(valid_count)
-                    reduced_value = reducer(reducer(geom_crop, dimension='x'), dimension='y')
-                    reduced_value = reduced_value
+        ## Loop over the geometries in the FeatureCollection
+        for _, row in vector_cube_utm.iterrows():
+            # rasterise geometry to create mask. This will 
+            mask = make_geocube(gpd.GeoDataFrame({ 'geometry': [row["geometry"]], "mask": [1] }), measurements=["mask"], like=data)
+            geom_crop = data.where(mask.mask == 1).stack(dimensions={"flattened": ["x", "y"]}).reset_index('flattened')
+            crop_list.append(geom_crop)
 
-                    raster_data_dict = {}
+            total_count = geom_crop.count(dim="flattened")
+            valid_count = geom_crop.where(~geom_crop.isnull()).count(dim="flattened")
+            valid_count_list.append(valid_count)
+            total_count_list.append(total_count)
 
-                    vector_data_dict = {}
-                    vector_data_dict[target_dimension] = i
-                    if bands_or_timesteps is not None:
-                        for b_or_t in bands_or_timesteps:
-                            vector_data_dict[str(b_or_t)] = reduced_value.loc[
-                                {input_raster_cube_dims[0]: b_or_t}].item()
-                    else:
-                        vector_data_dict[target_dimension] = reduced_value.item()
-                    vector_data_dict[target_dimension + '_meta'] = valid_data_dict
-                    for ic in input_vector_cube_columns:
-                        vector_data_dict[ic] = geometries.loc[[i], ic].item()
-                    output_vector_cube = output_vector_cube.append(vector_data_dict, ignore_index=True)
-                except:
-                    pass
-        return output_vector_cube
+        try:
+            # Make sure that NaN values are ignored
+            reducer = partial(reducer, ignore_nodata=True)
+        except TypeError:
+            pass
+
+        # Reduce operation
+        xr_crop_list = xr.concat(crop_list, "result")
+        xr_crop_list_reduced = reducer(xr_crop_list, dimension="flattened")
+        xr_crop_list_reduced_dropped = xr_crop_list_reduced.drop(["spatial_ref"])
+        xr_crop_list_reduced_dropped_ddf = xr_crop_list_reduced_dropped.to_dataset(dim="bands").to_dask_dataframe().drop("result", axis=1)
+        output_ddf_merged = xr_crop_list_reduced_dropped_ddf.merge(vector_cube_utm)
+
+        # Metadata gathering operation
+        valid_count_list_xr = xr.concat(valid_count_list, dim="valid_count").drop("spatial_ref")
+        total_count_list_xr = xr.concat(total_count_list, dim="total_count").drop("spatial_ref")
+        valid_count_list_xr_ddf = valid_count_list_xr.to_dataset(dim="bands").to_dask_dataframe().drop("valid_count", axis=1).add_suffix("_valid_count")
+        total_count_list_xr_ddf = total_count_list_xr.to_dataset(dim="bands").to_dask_dataframe().drop("total_count", axis=1).add_suffix("_total_count")
+
+        # Merge all these dataframes
+        output_vector_cube = dask.dataframe.concat([output_ddf_merged, valid_count_list_xr_ddf, total_count_list_xr_ddf], axis=1)
+
+        # turn the output back in to a dask-geopandas GeoDataFrame
+        output_vector_cube_ddf = dask_geopandas.from_dask_dataframe(output_vector_cube)
+        output_vector_cube_ddf = output_vector_cube_ddf.set_crs(data_crs)
+
+        return output_vector_cube_ddf
 
 
 ###############################################################################
