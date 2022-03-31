@@ -2107,6 +2107,9 @@ class PredictRandomForest:
                 if c not in predictors_vars:
                     X_hat = X_hat.drop(columns=c)
 
+        # Make sure that feature names fit to those of the trained model
+        X_hat = X_hat[model.feature_names]
+
         y_hat = xgb.dask.predict(client, model, X_hat).to_frame()
         y_hat_ds = xarray_dataset_from_dask_dataframe(y_hat)
         y_hat_da = y_hat_ds.to_array(dim=dimension)
