@@ -1936,27 +1936,12 @@ class AggregateSpatial:
         if len(data.dims) > 3:
             raise TooManyDimensions(f'The number of dimensions must be reduced to three for aggregate_spatial. Input raster-cube dimensions: {data.dims}')
 
-        if isinstance(geometries, gpd.geodataframe.GeoDataFrame):
+        # If a geopandas.GeoDataFrame is provided make sure it has a crs set
+        if isinstance(geometries, gpd.geodataframe.GeoDataFrame) or isinstance(geometries, dask_geopandas.core.GeoDataFrame):
             if not geometries.crs:
                 geometries = geometries.set_crs(DEFAULT_CRS)
-
-        # If a geopandas.GeoDataFrame is provided make sure it has a crs set
         else:
-            # If raw geojson is provided, construct a gpd.geodataframe.GeoDataFrame from that
-            try:
-
-                # Each feature must have a properties field, even if there is no property
-                # This is necessary due to this bug in geopandas: https://github.com/geopandas/geopandas/pull/2243
-                for feature in geometries['features']:
-                    if 'properties' not in feature:
-                        feature['properties'] = {}
-                    elif feature['properties'] is None:
-                        feature['properties'] = {}
-                
-                geometries_crs = geometries.get('crs', DEFAULT_CRS) 
-                geometries = gpd.GeoDataFrame.from_features(geometries, crs=geometries_crs)
-            except:
-                raise Exception('[!] No compatible vector input data has been provided.')
+            raise Exception('[!] No compatible vector input data has been provided.')
 
         ## Input geometries are in EPSG:4326 and the data has a different projection. We reproject the vector-cube to fit the data.
         if 'crs' in data.attrs:
@@ -2262,7 +2247,9 @@ class SaveVectorCube:
         with open(f'{output_filepath}/product.yml', 'a') as product_file:
             product_file.close()
 
-        if isinstance(data, gpd.GeoDataFrame):
+        if isinstance(data, dask_geopandas.core.GeoDataFrame):
+            data_gpd = data.compute()
+        elif isinstance(data, gpd.GeoDataFrame):
             data_gpd = data
         else:
             try:

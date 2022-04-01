@@ -303,7 +303,12 @@ class CubesTester(unittest.TestCase):
     def test_aggregate_spatial(self):
         """Tests 'aggregate_spatial' function. """
         vector_points = oeop.vector_to_regular_points(self.test_data.geojson_polygon, 0.01)
-        assert isinstance(oeop.aggregate_spatial(self.test_data.equi7xarray, vector_points, oeop.mean, 'result'), dask_geopandas.core.GeoDataFrame)
+        vector_cube = gpd.GeoDataFrame.from_features(vector_points)
+        vector_cube_lazy = dask_geopandas.from_geopandas(vector_cube, chunksize=1500)
+        assert isinstance(oeop.aggregate_spatial(self.test_data.equi7xarray, vector_cube, oeop.mean, 'result'), dask_geopandas.core.GeoDataFrame)
+        assert isinstance(oeop.aggregate_spatial(self.test_data.equi7xarray, vector_cube_lazy, oeop.mean, 'result'), dask_geopandas.core.GeoDataFrame)
+
+        
 
 
 
