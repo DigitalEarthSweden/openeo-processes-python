@@ -2005,7 +2005,7 @@ class AggregateSpatial:
         output_vector_cube_ddf = dask_geopandas.from_dask_dataframe(output_vector_cube)
         output_vector_cube_ddf = output_vector_cube_ddf.set_crs(data_crs)
 
-        return output_vector_cube_ddf
+        return output_vector_cube_ddf.compute()
 
 
 ###############################################################################
