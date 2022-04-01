@@ -48,7 +48,7 @@ def eval_datatype(data):
     package_root = package.split(".", 1)[0]
     if package in ("builtins", "datetime"):
         return type(data).__name__
-    elif package_root in ("numpy", "xarray", "dask", "datacube", "geopandas"):
+    elif package_root in ("numpy", "xarray", "dask", "datacube", "geopandas", "dask_geopandas", "xgboost"):
         return package_root
     else:
         return package + '.' + type(data).__name__
@@ -113,7 +113,7 @@ def process(processor):
         datatypes = set(datatypes)
         if "datacube" in datatypes:
             cls_fun = getattr(cls, "exec_odc")
-        elif datatypes.intersection(["xarray", "dask", "geopandas", "xgboost"]):
+        elif datatypes.intersection(["xarray", "dask", "geopandas", "xgboost", "dask_geopandas"]):
             cls_fun = getattr(cls, "exec_xar")
         elif "numpy" in datatypes:
             cls_fun = getattr(cls, "exec_np")

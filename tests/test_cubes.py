@@ -54,12 +54,17 @@ class CubesTester(unittest.TestCase):
         merged3 = oeop.merge_cubes(self.test_data.xr_data_factor(5, 9), self.test_data.xr_data_factor(2, 3))
         assert (merged3.shape == (2, 2, 5, 3))  # added first dimension, so shape is now longer
 
+
     # @pytest.mark.skip(reason="Behaviour is not correctly implemented for vector cubes yet.")
     def test_merge_cubes_vector_cubes(self):
         # Test when both cubes are geopandas dataframes
         geopandas1 = (gpd.GeoDataFrame.from_features(self.test_data.geojson_polygon))
         assert len(oeop.merge_cubes(geopandas1, geopandas1)) == len(geopandas1) + len(geopandas1)
         assert ((oeop.merge_cubes(geopandas1, geopandas1)).shape) == (2,1)
+
+        delayed_vector_cube = dask_geopandas.from_geopandas(geopandas1, chunksize=1500)
+        assert ((oeop.merge_cubes(delayed_vector_cube, delayed_vector_cube)).compute().shape) == (2,1)
+
 
     def test_save_result(self):
         # TODO improve file check
@@ -299,6 +304,8 @@ class CubesTester(unittest.TestCase):
         """Tests 'aggregate_spatial' function. """
         vector_points = oeop.vector_to_regular_points(self.test_data.geojson_polygon, 0.01)
         assert isinstance(oeop.aggregate_spatial(self.test_data.equi7xarray, vector_points, oeop.mean, 'result'), dask_geopandas.core.GeoDataFrame)
+
+
 
 
 if __name__ == "__main__":
