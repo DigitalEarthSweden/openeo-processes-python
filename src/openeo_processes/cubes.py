@@ -448,12 +448,18 @@ class MergeCubes:
         -------
         xr.DataArray
         """
-        if isinstance(cube1, gpd.geodataframe.GeoDataFrame) and isinstance(cube2, gpd.geodataframe.GeoDataFrame):
-            if cube1.columns.equals(cube2.columns):
+        if not isinstance(cube1, type(cube2)):
+            raise Exception(f"Provided cubes have incompatible types. cube1: {type(cube1)}, cube2: {type(cube2)}")
+        
+        is_geopandas = (isinstance(cube1, gpd.geodataframe.GeoDataFrame) and isinstance(cube2, gpd.geodataframe.GeoDataFrame)) or \
+                       (isinstance(cube1, dask_geopandas.core.GeoDataFrame) and isinstance(cube2, dask_geopandas.core.GeoDataFrame))
+        
+        if is_geopandas:
+            if list(cube1.columns) == list(cube2.columns):
                 merged_cube = cube1.append(cube2, ignore_index=True)
                 print("Warning - Overlap resolver is not implemented for geopandas vector-cubes, cubes are simply appended!")
             else:
-                if 'geometry' in cube1.columns and 'geometry' in cube2.columns and cube1['geometry'].equals(cube2['geometry']):
+                if 'geometry' in cube1.columns and 'geometry' in cube2.columns:
                     merged_cube = cube1.merge(cube2, on='geometry')
             return merged_cube
 
