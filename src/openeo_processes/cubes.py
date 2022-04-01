@@ -2243,10 +2243,9 @@ class LoadVectorCube:
         
         try:
             gdf = gpd.GeoDataFrame.from_features(geometries, crs=geometries_crs)
+            return dask_geopandas.from_geopandas(gdf, chunksize=1500)        
         except:
             raise Exception('[!] No compatible vector input data has been provided.')
-
-        return gdf
 
 @process
 def save_vector_cube():
