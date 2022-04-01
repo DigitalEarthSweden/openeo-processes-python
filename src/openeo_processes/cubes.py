@@ -2027,9 +2027,8 @@ def fit_regr_random_forest():
 class FitRegrRandomForest:
 
     @staticmethod
-    def exec_xar(predictors, target, num_trees = 100, max_variables = None, seed = None, predictors_vars = None, target_var = None, client = None):
-        CHUNK_SIZE_ROWS = 1500
-        
+    def exec_xar(data, num_trees=100, max_variables=None, seed=None, predictors_vars=None, target_var=None, client=None):
+        CHUNK_SIZE = 1500
         params = {
             'learning_rate': 1,
             'max_depth': 5,
@@ -2042,40 +2041,24 @@ class FitRegrRandomForest:
         if max_variables is not None:
             params['colsample_bynode'] = max_variables
 
-        if isinstance(predictors, dict):
-            predictors = gpd.GeoDataFrame.from_features(predictors)
-        elif isinstance(predictors, str):
-            predictors = gpd.GeoDataFrame.from_file(predictors)
+        if isinstance(data, gpd.GeoDataFrame):
+            data = dask_geopandas.from_geopandas(data, chunksize=CHUNK_SIZE)
 
-        if isinstance(target, dict):
-            target = gpd.GeoDataFrame.from_features(target)
-        elif isinstance(target, str):
-            target = gpd.GeoDataFrame.from_file(target)
-
-        if isinstance(predictors, gpd.geodataframe.GeoDataFrame) and isinstance(target, gpd.geodataframe.GeoDataFrame):
-            if not predictors['geometry'].equals(target['geometry']):
-                raise Exception('Geometries of input predictors and target do not match.')
-            predictors_pandas = pd.DataFrame(predictors)
-            predictors_pandas = predictors_pandas.drop(columns=['geometry'])
-            target_pandas = pd.DataFrame(target)
-            target_pandas = target_pandas.drop(columns=['geometry'])
-            X = df.from_pandas(predictors_pandas, chunksize=CHUNK_SIZE_ROWS)
-            for c in X.columns:
-                if c not in predictors_vars:
-                    X = X.drop(columns=c)
-
-            y = df.from_pandas(target_pandas, chunksize=CHUNK_SIZE_ROWS)
-            for c in y.columns:
-                if c != target_var:
-                    y = y.drop(columns=c)
-
-            dtrain = xgb.dask.DaskDMatrix(client, X, y)
-
-            output = xgb.dask.train(client, params, dtrain, num_boost_round=1)
-
-            return output
-        else:
+        if isinstance(data, dask_geopandas.core.GeoDataFrame):
+            data_ddf = data.to_dask_dataframe().reset_index()
+            
+        if not isinstance(data, df.DataFrame):
             raise Exception('[!] No compatible vector input data has been provided.')
+
+        X = data_ddf.drop(data_ddf.columns.difference(predictors_vars), axis=1)
+        y = data_ddf[[target_var]]
+        
+        dtrain = xgb.dask.DaskDMatrix(client, X, y)
+
+        output = xgb.dask.train(client, params, dtrain, num_boost_round=1)
+
+        return output
+
 
 
 ###############################################################################
