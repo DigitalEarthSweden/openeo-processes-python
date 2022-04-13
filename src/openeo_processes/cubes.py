@@ -1949,36 +1949,10 @@ class AggregateSpatial:
         else:
             data_crs = 'PROJCS["Azimuthal_Equidistant",GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]],PROJECTION["Azimuthal_Equidistant"],PARAMETER["latitude_of_center",53],PARAMETER["longitude_of_center",24],PARAMETER["false_easting",5837287.81977],PARAMETER["false_northing",2121415.69617],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["Easting",EAST],AXIS["Northing",NORTH]]'
         data = data.rio.set_crs(data_crs)
-
+        
         vector_cube_utm = geometries.to_crs(data_crs)
-        ## This is a hack
-        if 'id' in vector_cube_utm:  # and len(vector_cube_utm) > 1000:
-            ids = vector_cube_utm.id.compute()
-            id_list = [0]
-            subset = []
-            for i in ids:
-                if i not in subset:
-                    subset.append((i))
-                else:
-                    id_list.append(id_list[-1] + len(subset))
-                    subset = []
-                    subset.append((i))
 
-            data_x = data['x'].values
-            data_y = data['y'].values
-            x_sel = np.array([])
-            y_sel = np.array([])
-            for i in range(len(id_list) - 1):
-                l = np.arange(id_list[i], id_list[i + 1])
-                bounds = vector_cube_utm.loc[list(l), :].total_bounds.compute()
-                xx = data_x[data_x > bounds[0]][data_x[data_x > bounds[0]] < bounds[2]]
-                yy = data_y[data_y > bounds[1]][data_y[data_y > bounds[1]] < bounds[3]]
-                x_sel = np.append(x_sel, xx)
-                y_sel = np.append(y_sel, yy)
-            x_sel = np.sort(np.unique(x_sel))
-            y_sel = np.sort(np.unique(y_sel))
-            data = data.sel(x=x_sel).sel(y=y_sel)
-        # This is to make sure the geopandas GeoDataFrame index enumerates the geometries starting from 0 to len(geometries)
+        # This is to make sure the geopandas GeoDataFrame index enumerates the geometries starting from 0 to len(geometries) 
         vector_cube_utm = vector_cube_utm.reset_index(drop=True)
 
         # Add mask column
@@ -1988,7 +1962,7 @@ class AggregateSpatial:
 
         ## Loop over the geometries in the FeatureCollection
         for _, row in vector_cube_utm.iterrows():
-            # rasterise geometry to create mask. This will
+            # rasterise geometry to create mask. This will 
             mask = make_geocube(gpd.GeoDataFrame({ 'geometry': [row["geometry"]], "mask": [1] }), measurements=["mask"], like=data)
             geom_crop = data.where(mask.mask == 1).stack(dimensions={"flattened": ["x", "y"]}).reset_index('flattened')
             crop_list.append(geom_crop)
