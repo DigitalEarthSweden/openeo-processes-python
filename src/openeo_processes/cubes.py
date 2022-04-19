@@ -1963,12 +1963,12 @@ class AggregateSpatial:
         ## Loop over the geometries in the FeatureCollection
         for _, row in vector_cube_utm.iterrows():
             # rasterise geometry to create mask. This will 
-            mask = make_geocube(gpd.GeoDataFrame({ 'geometry': [row["geometry"]], "mask": [1] }), measurements=["mask"], like=data)
-            geom_crop = data.where(mask.mask == 1).stack(dimensions={"flattened": ["x", "y"]}).reset_index('flattened')
+            mask = make_geocube(gpd.GeoDataFrame({ 'geometry': [row["geometry"]], "mask": [1] }, crs=vector_cube_utm.crs), measurements=["mask"], like=data)
+            geom_crop = data.where(mask.mask == 1)
             crop_list.append(geom_crop)
 
-            total_count = geom_crop.count(dim="flattened")
-            valid_count = geom_crop.where(~geom_crop.isnull()).count(dim="flattened")
+            total_count = geom_crop.count(dim=["x", "y"])
+            valid_count = geom_crop.where(~geom_crop.isnull()).count(dim=["x", "y"])
             valid_count_list.append(valid_count)
             total_count_list.append(total_count)
 
@@ -1980,7 +1980,7 @@ class AggregateSpatial:
 
         # Reduce operation
         xr_crop_list = xr.concat(crop_list, "result")
-        xr_crop_list_reduced = reducer(xr_crop_list, dimension="flattened")
+        xr_crop_list_reduced = reducer(reducer(xr_crop_list, dimension="x"), dimension="y")
         xr_crop_list_reduced_dropped = xr_crop_list_reduced.drop(["spatial_ref"])
         xr_crop_list_reduced_dropped_ddf = xr_crop_list_reduced_dropped.to_dataset(dim="bands").to_dask_dataframe().drop("result", axis=1)
         output_ddf_merged = xr_crop_list_reduced_dropped_ddf.merge(vector_cube_utm)
