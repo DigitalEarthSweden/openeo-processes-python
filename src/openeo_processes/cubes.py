@@ -2061,12 +2061,13 @@ def predict_random_forest():
 class PredictRandomForest:
 
     @staticmethod
-    def exec_xar(data, model, dimension, predictors_vars = None, client = None):
+    def exec_xar(data, model, dimension, client = None):
         if dimension in ['time', 't', 'times']:  # time dimension must be converted into values
             dimension = get_time_dimension_from_data(data, dimension)
         predictor_cols = list(data.dims)
         if dimension in predictor_cols:
             predictor_cols.remove(dimension)
+        unstack = False
         if len(predictor_cols) == 1:
             stacked = data
             I = stacked[predictor_cols[0]].values
@@ -2074,14 +2075,14 @@ class PredictRandomForest:
             stacked = data.stack(z=predictor_cols)
             I = stacked['z'].values
             predictor_cols = ['z']
+            unstack = True
 
         X_hat = stacked.to_dataset(dim=dimension).to_dask_dataframe().drop(columns=predictor_cols)
-        if 'spatial_ref' in X_hat:
-            X_hat = X_hat.drop(columns=['spatial_ref'])
-        if predictors_vars is not None:
-            for c in X_hat.columns:
-                if c not in predictors_vars:
-                    X_hat = X_hat.drop(columns=c)
+
+        predictors_vars = data[dimension].values
+        for c in X_hat.columns:
+            if c not in predictors_vars:
+                X_hat = X_hat.drop(columns=c)
 
         # Make sure that feature names fit to those of the trained model
         X_hat = X_hat[model.feature_names]
@@ -2095,6 +2096,8 @@ class PredictRandomForest:
         predictions_xr = xr.ones_like(p) * y_hat_da
         predictions_xr.attrs = data.attrs
         predictions_xr[dimension] = np.array(['prediction'])
+        if unstack:
+            predictions_xr = predictions_xr.unstack()
         return predictions_xr
 
 
