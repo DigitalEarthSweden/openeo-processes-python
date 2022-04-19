@@ -469,7 +469,7 @@ def derive_datasets_and_filenames_from_tiles(gridder, times: List[str], datasets
 
             temp_bbox = [[x_min, y_min],[x_max, y_max]]
 
-            with dask.config.set(**{'array.slicing.split_large_chunks': True}):
+            with dask.config.set(**{'array.slicing.split_large_chunks': False}):
                 temp_data = dataset.where(dataset.x > temp_bbox[0][0],
                             drop=True).where(dataset.x < temp_bbox[1][0],
                                                 drop=True).where(dataset.y > temp_bbox[0][1],
