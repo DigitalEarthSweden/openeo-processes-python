@@ -2142,11 +2142,11 @@ def load_ml_model():
 class LoadMLModel:
 
     @staticmethod
-    def exec_num(model, input_filepath = 'path'):
-        date = os.listdir(f'{input_filepath}/jobs/{model}')
+    def exec_num(id, input_filepath = 'path'):
+        date = os.listdir(f'{input_filepath}/jobs/{id}')
         if len(date) > 0:
             date = date[0]
-        filepath = f'{input_filepath}/jobs/{model}/{date}/result/out_model.json'
+        filepath = f'{input_filepath}/jobs/{id}/{date}/result/out_model.json'
         model_xgb = xgb.Booster()
         model_xgb.load_model(filepath)
         return model_xgb
