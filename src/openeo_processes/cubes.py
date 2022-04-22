@@ -43,7 +43,7 @@ DEFAULT_CRS = 4326
 
 def odc_load_helper(odc_cube, params: Dict[str, Any]) -> xr.DataArray:
     """Helper method to load a xarray DataArray from ODC."""
-    datacube = odc_cube.load(**params)
+    datacube = odc_cube.load(skip_broken_datasets=True, **params)
 
     # Improve CPU and MEM USAGE
     for name, data_var in datacube.data_vars.items():
