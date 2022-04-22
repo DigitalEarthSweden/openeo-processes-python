@@ -235,9 +235,12 @@ class SaveResult:
         data = data.fillna(-9999)
         data.attrs["nodata"] = -9999
         # Convert data array to data set, keeping a nice format on the bands.
-        data = data.to_dataset(
-            dim='bands'
-        )
+        if 'bands' in data.dims:
+            data = data.to_dataset(
+                dim='bands'
+            )
+        else:
+            data = data.to_dataset()
 
         if "crs" not in data.attrs:
             first_data_var = data.data_vars[list(data.data_vars.keys())[0]]
