@@ -2064,9 +2064,11 @@ def predict_random_forest():
 class PredictRandomForest:
 
     @staticmethod
-    def exec_xar(data, model, dimension, client = None, input_filepath = None):
+    def exec_xar(data, dimension, model = None, context = None, client = None, input_filepath = None):
         if isinstance(model, str):
             model = load_ml_model(model, input_filepath = input_filepath)
+        if context is not None:
+            model = context
         if dimension in ['time', 't', 'times']:  # time dimension must be converted into values
             dimension = get_time_dimension_from_data(data, dimension)
         predictor_cols = list(data.dims)
