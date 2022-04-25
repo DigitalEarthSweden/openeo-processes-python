@@ -2065,6 +2065,10 @@ class PredictRandomForest:
 
     @staticmethod
     def exec_xar(data, dimension, model = None, context = None, client = None, input_filepath = None):
+        unstack = False
+        if 'x' in data.dims and 'y' in data.dims:
+            data = flatten_dimensions(data=data, dimensions=["y", "x"], target_dimension="result")
+            unstack = True
         if isinstance(model, str):
             model = load_ml_model(model, input_filepath = input_filepath)
         if context is not None:
@@ -2074,7 +2078,6 @@ class PredictRandomForest:
         predictor_cols = list(data.dims)
         if dimension in predictor_cols:
             predictor_cols.remove(dimension)
-        unstack = False
         if len(predictor_cols) == 1:
             stacked = data
             I = stacked[predictor_cols[0]].values
