@@ -13,10 +13,8 @@ from openeo_processes.extension.odc import write_odc_product
 from openeo_processes.utils import process, get_time_dimension_from_data, xarray_dataset_from_dask_dataframe, get_equi7_tiles, derive_datasets_and_filenames_from_tiles
 from openeo_processes.errors import DimensionNotAvailable, TooManyDimensions
 from scipy import optimize
-from datetime import datetime
 import datacube
 import dask
-from datacube.utils.cog import write_cog
 try:
     from pyproj import Transformer, CRS
 except ImportError:
@@ -286,8 +284,8 @@ class SaveResult:
             if len(final_datasets[0].dims) > 3:
                 raise Exception("[!] Not possible to write a 4-dimensional GeoTiff, use NetCDF instead.")
             for idx, dataset in enumerate(final_datasets):
-                dataset.rio.to_raster(raster_path=dataset_filenames[idx], **options)
-
+                dataset.rio.to_raster(raster_path=dataset_filenames[idx], driver='COG', **options)
+        
         # Write and odc product yml file
         if write_prod:
             write_odc_product(datasets[0], output_filepath)
