@@ -238,8 +238,10 @@ class SaveResult:
                 dim='bands'
             )
         else:
-            data = data.to_dataset()
-
+            data = xr.Dataset(
+                data_vars={'result':data}
+            )
+            
         if "crs" not in data.attrs:
             first_data_var = data.data_vars[list(data.data_vars.keys())[0]]
             data.attrs["crs"] = first_data_var.geobox.crs.to_wkt()
