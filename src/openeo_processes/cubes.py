@@ -32,7 +32,7 @@ import os
 from functools import partial
 
 DEFAULT_CRS = 4326
-
+EQUI7 = False
 
 ###############################################################################
 # Load Collection Process
@@ -245,8 +245,9 @@ class SaveResult:
         if "crs" not in data.attrs:
             first_data_var = data.data_vars[list(data.data_vars.keys())[0]]
             data.attrs["crs"] = first_data_var.geobox.crs.to_wkt()
-
-        tiles, gridder = get_equi7_tiles(data)
+        
+        if EQUI7:
+            tiles, gridder = get_equi7_tiles(data)
         
         # Renaming the time dimension
         if 'time' in data.dims:
@@ -272,22 +273,34 @@ class SaveResult:
             ext = 'nc'
         else:
             ext = 'tif'
+            
+        if EQUI7:
+            final_datasets, dataset_filenames = derive_datasets_and_filenames_from_tiles(gridder, times, datasets, tiles, output_filepath, ext)
+            
+            if (len(final_datasets) == 0) or (len(dataset_filenames) == 0):
+                raise Exception("No tiles could be derived from given dataset")
 
-        final_datasets, dataset_filenames = derive_datasets_and_filenames_from_tiles(gridder, times, datasets, tiles, output_filepath, ext)
-        if (len(final_datasets) == 0) or (len(dataset_filenames) == 0):
-            raise Exception("No tiles could be derived from given dataset")
+            # Submit list of netcdfs and filepaths to dask to compute
+            if format == 'netcdf':
+                xr.save_mfdataset(final_datasets, dataset_filenames)
 
-        # Submit list of netcdfs and filepaths to dask to compute
-        if format == 'netcdf':
-            xr.save_mfdataset(final_datasets, dataset_filenames)
+            # Iterate datasets and save to tif
+            elif format in ['gtiff','geotiff']:
+                if len(final_datasets[0].dims) > 3:
+                    raise Exception("[!] Not possible to write a 4-dimensional GeoTiff, use NetCDF instead.")
+                for idx, dataset in enumerate(final_datasets):
+                    dataset.rio.to_raster(raster_path=dataset_filenames[idx], driver='COG', **options)
+        else:
+            # Submit list of netcdfs and filepaths to dask to compute
+            if format == 'netcdf':
+                data.to_netcdf('output.nc')
 
-        # Iterate datasets and save to tif
-        elif format in ['gtiff','geotiff']:
-            if len(final_datasets[0].dims) > 3:
-                raise Exception("[!] Not possible to write a 4-dimensional GeoTiff, use NetCDF instead.")
-            for idx, dataset in enumerate(final_datasets):
-                dataset.rio.to_raster(raster_path=dataset_filenames[idx], driver='COG', **options)
-        
+            # Iterate datasets and save to tif
+            elif format in ['gtiff','geotiff']:
+                if len(final_datasets[0].dims) > 3:
+                    raise Exception("[!] Not possible to write a 4-dimensional GeoTiff, use NetCDF instead.")
+                for idx, dataset in enumerate(final_datasets):
+                    data.rio.to_raster(raster_path='output.tif', driver='COG', **options)
         # Write and odc product yml file
         if write_prod:
             write_odc_product(datasets[0], output_filepath)
