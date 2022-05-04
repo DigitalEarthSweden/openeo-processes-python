@@ -9,6 +9,7 @@ import dask.dataframe as dd
 import numpy as np
 import xarray as xr
 import geopandas as gpd
+import rasterio
 
 # This is a workaround for this package now requiring gdal, which isn't straightforward to install with pip.
 # TODO: Remove this once we've figured out how to properly integrate the gdal dependency for this library
@@ -481,6 +482,28 @@ def derive_datasets_and_filenames_from_tiles(gridder, times: List[str], datasets
             dataset_filenames.append(temp_file)
     
     return final_datasets, dataset_filenames 
+
+
+def geometry_mask(geoms, geobox, all_touched=False, invert=False):
+    """
+    Create a mask from shapes.
+
+    By default, mask is intended for use as a
+    numpy mask, where pixels that overlap shapes are False.
+    :param list[Geometry] geoms: geometries to be rasterized
+    :param datacube.utils.GeoBox geobox:
+    :param bool all_touched: If True, all pixels touched by geometries will be burned in. If
+                             false, only pixels whose center is within the polygon or that
+                             are selected by Bresenham's line algorithm will be burned in.
+    :param bool invert: If True, mask will be True for pixels that overlap shapes.
+    """
+    return rasterio.features.geometry_mask([geom.to_crs(geobox.crs) for geom in geoms],
+                                           out_shape=geobox.shape,
+                                           transform=geobox.affine,
+                                           all_touched=all_touched,
+                                           invert=invert)
+
+
 
 if __name__ == '__main__':
     pass

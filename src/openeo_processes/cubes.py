@@ -15,6 +15,8 @@ from openeo_processes.errors import DimensionNotAvailable, TooManyDimensions
 from scipy import optimize
 import datacube
 import dask
+from datacube.utils.geometry import Geometry
+
 try:
     from pyproj import Transformer, CRS
 except ImportError:
@@ -24,6 +26,7 @@ import xgboost as xgb
 import dask.dataframe as df
 from geocube.api.core import make_geocube
 import dask_geopandas
+from src.openeo_processes.utils import geometry_mask
 
 import geopandas as gpd
 import urllib, json
@@ -1965,9 +1968,10 @@ class AggregateSpatial:
 
         ## Loop over the geometries in the FeatureCollection
         for _, row in vector_cube_utm.iterrows():
-            # rasterise geometry to create mask. This will 
-            mask = make_geocube(gpd.GeoDataFrame({ 'geometry': [row["geometry"]], "mask": [1] }, crs=vector_cube_utm.crs), measurements=["mask"], like=data)
-            geom_crop = data.where(mask.mask == 1)
+            # rasterise geometry to create mask
+            mask = geometry_mask([Geometry(row["geometry"], crs=vector_cube_utm.crs)], data.geobox, invert=True)
+            xr_mask = xr.DataArray(mask, coords=[data.coords["y"], data.coords["x"]])
+            geom_crop = data.where(xr_mask).drop(["spatial_ref"], errors='ignore')
             crop_list.append(geom_crop)
 
             total_count = geom_crop.count(dim=["x", "y"])
@@ -1984,13 +1988,12 @@ class AggregateSpatial:
         # Reduce operation
         xr_crop_list = xr.concat(crop_list, "result")
         xr_crop_list_reduced = reducer(reducer(xr_crop_list, dimension="x"), dimension="y")
-        xr_crop_list_reduced_dropped = xr_crop_list_reduced.drop(["spatial_ref"])
-        xr_crop_list_reduced_dropped_ddf = xr_crop_list_reduced_dropped.to_dataset(dim="bands").to_dask_dataframe().drop("result", axis=1)
-        output_ddf_merged = xr_crop_list_reduced_dropped_ddf.merge(vector_cube_utm)
+        xr_crop_list_reduced_ddf = xr_crop_list_reduced.to_dataset(dim="bands").to_dask_dataframe().drop("result", axis=1)
+        output_ddf_merged = xr_crop_list_reduced_ddf.merge(vector_cube_utm)
 
         # Metadata gathering operation
-        valid_count_list_xr = xr.concat(valid_count_list, dim="valid_count").drop("spatial_ref")
-        total_count_list_xr = xr.concat(total_count_list, dim="total_count").drop("spatial_ref")
+        valid_count_list_xr = xr.concat(valid_count_list, dim="valid_count")
+        total_count_list_xr = xr.concat(total_count_list, dim="total_count")
         valid_count_list_xr_ddf = valid_count_list_xr.to_dataset(dim="bands").to_dask_dataframe().drop("valid_count", axis=1).add_suffix("_valid_count")
         total_count_list_xr_ddf = total_count_list_xr.to_dataset(dim="bands").to_dask_dataframe().drop("total_count", axis=1).add_suffix("_total_count")
 
