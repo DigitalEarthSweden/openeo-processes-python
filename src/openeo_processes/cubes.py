@@ -25,7 +25,7 @@ except ImportError:
 import xgboost as xgb
 import dask.dataframe as df
 import dask_geopandas
-from src.openeo_processes.utils import geometry_mask
+from openeo_processes.utils import geometry_mask
 
 import geopandas as gpd
 import urllib, json
