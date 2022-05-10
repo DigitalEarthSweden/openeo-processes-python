@@ -24,7 +24,6 @@ except ImportError:
     CRS = None
 import xgboost as xgb
 import dask.dataframe as df
-from geocube.api.core import make_geocube
 import dask_geopandas
 from src.openeo_processes.utils import geometry_mask
 
