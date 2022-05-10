@@ -10,7 +10,7 @@ import rioxarray  # needed by save_result even if not directly called
 import xarray as xr
 from shapely.geometry import Point, LineString, Polygon, MultiPolygon
 from openeo_processes.extension.odc import write_odc_product
-from openeo_processes.utils import process, get_time_dimension_from_data, xarray_dataset_from_dask_dataframe, get_equi7_tiles, derive_datasets_and_filenames_from_tiles
+from openeo_processes.utils import process, get_time_dimension_from_data, get_equi7_tiles, derive_datasets_and_filenames_from_tiles
 from openeo_processes.errors import DimensionNotAvailable, TooManyDimensions
 from scipy import optimize
 import datacube
@@ -2068,50 +2068,44 @@ class PredictRandomForest:
 
     @staticmethod
     def exec_xar(data, dimension, model = None, context = None, client = None, input_filepath = None):
-        unstack = False
-        if 'x' in data.dims and 'y' in data.dims:
-            data = flatten_dimensions(data=data, dimensions=["y", "x"], target_dimension="result")
-            unstack = True
-        if isinstance(model, str):
-            model = load_ml_model(model, input_filepath = input_filepath)
-        if context is not None:
+        if dimension not in data.dims:
+            raise Exception(f"Provided dimension not found in data.dims: {data.dims}")
+
+        if context:
             model = context
-        if dimension in ['time', 't', 'times']:  # time dimension must be converted into values
-            dimension = get_time_dimension_from_data(data, dimension)
-        predictor_cols = list(data.dims)
-        if dimension in predictor_cols:
-            predictor_cols.remove(dimension)
-        if len(predictor_cols) == 1:
-            stacked = data
-            I = stacked[predictor_cols[0]].values
-        else:
-            stacked = data.stack(z=predictor_cols)
-            I = stacked['z'].values
-            predictor_cols = ['z']
-            unstack = True
 
-        X_hat = stacked.to_dataset(dim=dimension).to_dask_dataframe().drop(columns=predictor_cols)
+        # drop features that weren't used in the prediction
+        model_features = np.array(model.feature_names, dtype=object)
+        data_features = data.get_index(dimension).values
+        missing_features = np.setdiff1d(model_features, data_features)
+        if missing_features.size > 0:
+            raise Exception(f"Provided predictors are missing the following features: {missing_features.tolist()}")
 
-        predictors_vars = data[dimension].values
-        for c in X_hat.columns:
-            if c not in predictors_vars:
-                X_hat = X_hat.drop(columns=c)
+        idx_to_drop = np.setdiff1d(data_features, model_features)
+        data_features_dropped = data.drop_sel({dimension: idx_to_drop})
 
-        # Make sure that feature names fit to those of the trained model
-        X_hat = X_hat[model.feature_names]
+        # reshape data for prediction
+        X = dask.array.reshape(data_features_dropped.data, (len(model_features), -1)).rechunk((len(model_features), "auto")).transpose()
+        
+        preds_flat = xgb.dask.inplace_predict(client, model, X)
 
-        y_hat = xgb.dask.predict(client, model, X_hat).to_frame()
-        y_hat_ds = xarray_dataset_from_dask_dataframe(y_hat)
-        y_hat_da = y_hat_ds.to_array(dim=dimension)
-        y_hat_da['index'] = I
-        y_hat_da = y_hat_da.rename({'index': predictor_cols[0]})
-        p = data.loc[{dimension: data[dimension].values[0]}]
-        predictions_xr = xr.ones_like(p) * y_hat_da
-        predictions_xr.attrs = data.attrs
-        predictions_xr[dimension] = np.array(['prediction'])
-        if unstack:
-            predictions_xr = predictions_xr.unstack()
-        return predictions_xr
+        # Output shape needs to be (1, data.x, data.y)
+        output_shape_list = []
+        output_dims_list = []
+        for dim in data.dims:
+            if dim == dimension:
+                output_shape_list.append(1)
+                output_dims_list.append("preds")
+            else:
+                output_shape_list.append(data.get_index(dim).size)
+                output_dims_list.append(dim)
+                
+        output_shape = tuple(output_shape_list)
+
+        preds = preds_flat.reshape(output_shape)
+        preds_xr = xr.DataArray(data=preds, dims=output_dims_list)
+        preds_xr.attrs = data.attrs
+        return preds_xr
 
 
 ###############################################################################

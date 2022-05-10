@@ -321,47 +321,6 @@ def keep_attrs(x, y, data):
         data.attrs = y.attrs
     return data
 
-def xarray_dataset_from_dask_dataframe(dataframe):
-    """Utility function snatched from @AyrtonB at https://github.com/pydata/xarray/pull/4659.
-    
-    Convert a dask.dataframe.DataFrame into an xarray.Dataset
-    This method will produce a Dataset from a dask DataFrame.
-    Dimensions are loaded into memory but the data itself remains
-    a dask array.
-    Parameters
-    ----------
-    dataframe : dask.dataframe.DataFrame
-        Dask DataFrame from which to copy data and index.
-    Returns
-    -------
-    Dataset
-        The converted Dataset
-    See also
-    --------
-    xarray.DataArray.from_dask_series
-    xarray.Dataset.from_dataframe
-    xarray.DataArray.from_series
-    """
-    
-    if not dataframe.columns.is_unique:
-        raise ValueError("cannot convert DataFrame with non-unique columns")
-    if not isinstance(dataframe, dd.DataFrame):
-        raise ValueError("cannot convert non-dask dataframe objects")
-
-    idx = dataframe.index.compute()
-
-    arrays = [(k, v.to_dask_array(lengths=True)) for k, v in dataframe.items()]
-
-    obj = xr.Dataset()
-    index_name = idx.name if idx.name is not None else "index"
-    dims = (index_name,)
-    obj[index_name] = (dims, idx)
-
-    for name, values in arrays:
-        obj[name] = (dims, values)
-
-    return obj
-
 def eodc_collections_to_res():
     """
     Function returning a dic to map collections to their related resolution.
