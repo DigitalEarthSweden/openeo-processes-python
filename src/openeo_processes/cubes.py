@@ -1507,46 +1507,42 @@ class FilterBbox:
         """
         if type(extent) == dict:
             if "crs" in extent and extent["crs"] is not None:
-                crs = extent["crs"]
+                input_crs = extent["crs"]
             else:
-                crs = 4326
-            crs_input = CRS.from_user_input(crs)
+                input_crs = DEFAULT_CRS
 
             if "west" in extent and "east" in extent and "south" in extent and "north" in extent:
-                bbox = [[extent["south"], extent["west"]],
-                        [extent["south"], extent["east"]],
-                        [extent["north"], extent["east"]],
-                        [extent["north"], extent["west"]]]
+                geometries = {"type": "FeatureCollection", "features":
+                    [{"properties": {},
+                      "geometry": {"type": "MultiPoint",
+                                   "coordinates": [
+                                       [extent["west"], extent["south"]],
+                                       [extent["east"], extent["south"]],
+                                       [extent["east"], extent["north"]],
+                                       [extent["west"], extent["north"]]]
+                                   }
+                      }]
+                              }
+                gdf = gpd.GeoDataFrame.from_features(geometries, crs=input_crs)
             else:
                 raise Exception("Coordinate missing!")
             if "crs" in data.attrs:
                 data_crs = data.attrs["crs"]
-                crs_data = CRS.from_user_input(data_crs)
 
-            transformer = Transformer.from_crs(crs_input, crs_data)
+            gdf_equi7 = gdf.to_crs(data_crs)
 
-            x_t = []
-            y_t = []
-            for p in bbox:
-                x1, y1 = p
-                x2, y2 = transformer.transform(x1, y1)
-                x_t.append(x2)
-                y_t.append(y2)
-            x_t = np.array(x_t)
-            y_t = np.array(y_t)
-            x_min = x_t.min()
-            x_max = x_t.max()
-            y_min = y_t.min()
-            y_max = y_t.max()
+            x_min = gdf_equi7.total_bounds[0]
+            x_max = gdf_equi7.total_bounds[2]
+            y_min = gdf_equi7.total_bounds[1]
+            y_max = gdf_equi7.total_bounds[3]
 
             data_x = data['x'].values
             data_x = data_x[data_x > x_min][data_x[data_x > x_min] < x_max]
             data = data.sel(x=data_x)
             data_y = data['y'].values
             data_y = data_y[data_y > y_min][data_y[data_y > y_min] < y_max]
-            data = data.sel(y= data_y)
+            data = data.sel(y=data_y)
         return data
-
 
 ########################################################################################################################
 # Mask Process
@@ -2094,7 +2090,7 @@ class PredictRandomForest:
         for dim in data.dims:
             if dim == dimension:
                 output_shape_list.append(1)
-                output_dims_list.append("preds")
+                output_dims_list.append(dimension)
             else:
                 output_shape_list.append(data.get_index(dim).size)
                 output_dims_list.append(dim)
@@ -2103,8 +2099,11 @@ class PredictRandomForest:
 
         preds = preds_flat.reshape(output_shape)
         preds_xr = xr.DataArray(data=preds, dims=output_dims_list)
-        preds_xr.attrs = data.attrs
-        return preds_xr
+        p = data.loc[{dimension: data[dimension].values[0]}]
+        preds_xr_dims = xr.ones_like(p) * preds_xr
+        preds_xr_dims[dimension] = np.array(['prediction'])
+        preds_xr_dims.attrs = data.attrs
+        return preds_xr_dims
 
 
 ###############################################################################
