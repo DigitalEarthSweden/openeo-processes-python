@@ -10,13 +10,13 @@ import rioxarray  # needed by save_result even if not directly called
 import xarray as xr
 from shapely.geometry import Point, LineString, Polygon, MultiPolygon
 from openeo_processes.extension.odc import write_odc_product
-from openeo_processes.utils import process, get_time_dimension_from_data, xarray_dataset_from_dask_dataframe, get_equi7_tiles, derive_datasets_and_filenames_from_tiles
+from openeo_processes.utils import process, get_time_dimension_from_data, get_equi7_tiles, derive_datasets_and_filenames_from_tiles
 from openeo_processes.errors import DimensionNotAvailable, TooManyDimensions
 from scipy import optimize
-from datetime import datetime
 import datacube
 import dask
-from datacube.utils.cog import write_cog
+from datacube.utils.geometry import Geometry
+
 try:
     from pyproj import Transformer, CRS
 except ImportError:
@@ -24,8 +24,8 @@ except ImportError:
     CRS = None
 import xgboost as xgb
 import dask.dataframe as df
-from geocube.api.core import make_geocube
 import dask_geopandas
+from openeo_processes.utils import geometry_mask
 
 import geopandas as gpd
 import urllib, json
@@ -240,8 +240,10 @@ class SaveResult:
                 dim='bands'
             )
         else:
-            data = data.to_dataset()
-
+            data = xr.Dataset(
+                data_vars={'result':data}
+            )
+            
         if "crs" not in data.attrs:
             first_data_var = data.data_vars[list(data.data_vars.keys())[0]]
             data.attrs["crs"] = first_data_var.geobox.crs.to_wkt()
@@ -286,8 +288,8 @@ class SaveResult:
             if len(final_datasets[0].dims) > 3:
                 raise Exception("[!] Not possible to write a 4-dimensional GeoTiff, use NetCDF instead.")
             for idx, dataset in enumerate(final_datasets):
-                dataset.rio.to_raster(raster_path=dataset_filenames[idx], **options)
-
+                dataset.rio.to_raster(raster_path=dataset_filenames[idx], driver='COG', **options)
+        
         # Write and odc product yml file
         if write_prod:
             write_odc_product(datasets[0], output_filepath)
@@ -1961,9 +1963,10 @@ class AggregateSpatial:
 
         ## Loop over the geometries in the FeatureCollection
         for _, row in vector_cube_utm.iterrows():
-            # rasterise geometry to create mask. This will 
-            mask = make_geocube(gpd.GeoDataFrame({ 'geometry': [row["geometry"]], "mask": [1] }, crs=vector_cube_utm.crs), measurements=["mask"], like=data)
-            geom_crop = data.where(mask.mask == 1)
+            # rasterise geometry to create mask
+            mask = geometry_mask([Geometry(row["geometry"], crs=vector_cube_utm.crs)], data.geobox, invert=True)
+            xr_mask = xr.DataArray(mask, coords=[data.coords["y"], data.coords["x"]])
+            geom_crop = data.where(xr_mask).drop(["spatial_ref"], errors='ignore')
             crop_list.append(geom_crop)
 
             total_count = geom_crop.count(dim=["x", "y"])
@@ -1980,13 +1983,12 @@ class AggregateSpatial:
         # Reduce operation
         xr_crop_list = xr.concat(crop_list, "result")
         xr_crop_list_reduced = reducer(reducer(xr_crop_list, dimension="x"), dimension="y")
-        xr_crop_list_reduced_dropped = xr_crop_list_reduced.drop(["spatial_ref"])
-        xr_crop_list_reduced_dropped_ddf = xr_crop_list_reduced_dropped.to_dataset(dim="bands").to_dask_dataframe().drop("result", axis=1)
-        output_ddf_merged = xr_crop_list_reduced_dropped_ddf.merge(vector_cube_utm)
+        xr_crop_list_reduced_ddf = xr_crop_list_reduced.to_dataset(dim="bands").to_dask_dataframe().drop("result", axis=1)
+        output_ddf_merged = xr_crop_list_reduced_ddf.merge(vector_cube_utm)
 
         # Metadata gathering operation
-        valid_count_list_xr = xr.concat(valid_count_list, dim="valid_count").drop("spatial_ref")
-        total_count_list_xr = xr.concat(total_count_list, dim="total_count").drop("spatial_ref")
+        valid_count_list_xr = xr.concat(valid_count_list, dim="valid_count")
+        total_count_list_xr = xr.concat(total_count_list, dim="total_count")
         valid_count_list_xr_ddf = valid_count_list_xr.to_dataset(dim="bands").to_dask_dataframe().drop("valid_count", axis=1).add_suffix("_valid_count")
         total_count_list_xr_ddf = total_count_list_xr.to_dataset(dim="bands").to_dask_dataframe().drop("total_count", axis=1).add_suffix("_total_count")
 
@@ -2061,50 +2063,44 @@ class PredictRandomForest:
 
     @staticmethod
     def exec_xar(data, dimension, model = None, context = None, client = None, input_filepath = None):
-        unstack = False
-        if 'x' in data.dims and 'y' in data.dims:
-            data = flatten_dimensions(data=data, dimensions=["y", "x"], target_dimension="result")
-            unstack = True
-        if isinstance(model, str):
-            model = load_ml_model(model, input_filepath = input_filepath)
-        if context is not None:
+        if dimension not in data.dims:
+            raise Exception(f"Provided dimension not found in data.dims: {data.dims}")
+
+        if context:
             model = context
-        if dimension in ['time', 't', 'times']:  # time dimension must be converted into values
-            dimension = get_time_dimension_from_data(data, dimension)
-        predictor_cols = list(data.dims)
-        if dimension in predictor_cols:
-            predictor_cols.remove(dimension)
-        if len(predictor_cols) == 1:
-            stacked = data
-            I = stacked[predictor_cols[0]].values
-        else:
-            stacked = data.stack(z=predictor_cols)
-            I = stacked['z'].values
-            predictor_cols = ['z']
-            unstack = True
 
-        X_hat = stacked.to_dataset(dim=dimension).to_dask_dataframe().drop(columns=predictor_cols)
+        # drop features that weren't used in the prediction
+        model_features = np.array(model.feature_names, dtype=object)
+        data_features = data.get_index(dimension).values
+        missing_features = np.setdiff1d(model_features, data_features)
+        if missing_features.size > 0:
+            raise Exception(f"Provided predictors are missing the following features: {missing_features.tolist()}")
 
-        predictors_vars = data[dimension].values
-        for c in X_hat.columns:
-            if c not in predictors_vars:
-                X_hat = X_hat.drop(columns=c)
+        idx_to_drop = np.setdiff1d(data_features, model_features)
+        data_features_dropped = data.drop_sel({dimension: idx_to_drop})
 
-        # Make sure that feature names fit to those of the trained model
-        X_hat = X_hat[model.feature_names]
+        # reshape data for prediction
+        X = dask.array.reshape(data_features_dropped.data, (len(model_features), -1)).rechunk((len(model_features), "auto")).transpose()
+        
+        preds_flat = xgb.dask.inplace_predict(client, model, X)
 
-        y_hat = xgb.dask.predict(client, model, X_hat).to_frame()
-        y_hat_ds = xarray_dataset_from_dask_dataframe(y_hat)
-        y_hat_da = y_hat_ds.to_array(dim=dimension)
-        y_hat_da['index'] = I
-        y_hat_da = y_hat_da.rename({'index': predictor_cols[0]})
-        p = data.loc[{dimension: data[dimension].values[0]}]
-        predictions_xr = xr.ones_like(p) * y_hat_da
-        predictions_xr.attrs = data.attrs
-        predictions_xr[dimension] = np.array(['prediction'])
-        if unstack:
-            predictions_xr = predictions_xr.unstack()
-        return predictions_xr
+        # Output shape needs to be (1, data.x, data.y)
+        output_shape_list = []
+        output_dims_list = []
+        for dim in data.dims:
+            if dim == dimension:
+                output_shape_list.append(1)
+                output_dims_list.append("preds")
+            else:
+                output_shape_list.append(data.get_index(dim).size)
+                output_dims_list.append(dim)
+                
+        output_shape = tuple(output_shape_list)
+
+        preds = preds_flat.reshape(output_shape)
+        preds_xr = xr.DataArray(data=preds, dims=output_dims_list)
+        preds_xr.attrs = data.attrs
+        return preds_xr
 
 
 ###############################################################################

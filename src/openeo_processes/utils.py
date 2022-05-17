@@ -9,6 +9,7 @@ import dask.dataframe as dd
 import numpy as np
 import xarray as xr
 import geopandas as gpd
+import rasterio
 
 # This is a workaround for this package now requiring gdal, which isn't straightforward to install with pip.
 # TODO: Remove this once we've figured out how to properly integrate the gdal dependency for this library
@@ -320,47 +321,6 @@ def keep_attrs(x, y, data):
         data.attrs = y.attrs
     return data
 
-def xarray_dataset_from_dask_dataframe(dataframe):
-    """Utility function snatched from @AyrtonB at https://github.com/pydata/xarray/pull/4659.
-    
-    Convert a dask.dataframe.DataFrame into an xarray.Dataset
-    This method will produce a Dataset from a dask DataFrame.
-    Dimensions are loaded into memory but the data itself remains
-    a dask array.
-    Parameters
-    ----------
-    dataframe : dask.dataframe.DataFrame
-        Dask DataFrame from which to copy data and index.
-    Returns
-    -------
-    Dataset
-        The converted Dataset
-    See also
-    --------
-    xarray.DataArray.from_dask_series
-    xarray.Dataset.from_dataframe
-    xarray.DataArray.from_series
-    """
-    
-    if not dataframe.columns.is_unique:
-        raise ValueError("cannot convert DataFrame with non-unique columns")
-    if not isinstance(dataframe, dd.DataFrame):
-        raise ValueError("cannot convert non-dask dataframe objects")
-
-    idx = dataframe.index.compute()
-
-    arrays = [(k, v.to_dask_array(lengths=True)) for k, v in dataframe.items()]
-
-    obj = xr.Dataset()
-    index_name = idx.name if idx.name is not None else "index"
-    dims = (index_name,)
-    obj[index_name] = (dims, idx)
-
-    for name, values in arrays:
-        obj[name] = (dims, values)
-
-    return obj
-
 def eodc_collections_to_res():
     """
     Function returning a dic to map collections to their related resolution.
@@ -481,6 +441,28 @@ def derive_datasets_and_filenames_from_tiles(gridder, times: List[str], datasets
             dataset_filenames.append(temp_file)
     
     return final_datasets, dataset_filenames 
+
+
+def geometry_mask(geoms, geobox, all_touched=False, invert=False):
+    """
+    Create a mask from shapes.
+
+    By default, mask is intended for use as a
+    numpy mask, where pixels that overlap shapes are False.
+    :param list[Geometry] geoms: geometries to be rasterized
+    :param datacube.utils.GeoBox geobox:
+    :param bool all_touched: If True, all pixels touched by geometries will be burned in. If
+                             false, only pixels whose center is within the polygon or that
+                             are selected by Bresenham's line algorithm will be burned in.
+    :param bool invert: If True, mask will be True for pixels that overlap shapes.
+    """
+    return rasterio.features.geometry_mask([geom.to_crs(geobox.crs) for geom in geoms],
+                                           out_shape=geobox.shape,
+                                           transform=geobox.affine,
+                                           all_touched=all_touched,
+                                           invert=invert)
+
+
 
 if __name__ == '__main__':
     pass
