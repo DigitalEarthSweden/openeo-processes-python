@@ -2090,7 +2090,7 @@ class PredictRandomForest:
         for dim in data.dims:
             if dim == dimension:
                 output_shape_list.append(1)
-                output_dims_list.append("preds")
+                output_dims_list.append(dimension)
             else:
                 output_shape_list.append(data.get_index(dim).size)
                 output_dims_list.append(dim)
@@ -2099,8 +2099,11 @@ class PredictRandomForest:
 
         preds = preds_flat.reshape(output_shape)
         preds_xr = xr.DataArray(data=preds, dims=output_dims_list)
-        preds_xr.attrs = data.attrs
-        return preds_xr
+        p = data.loc[{dimension: data[dimension].values[0]}]
+        preds_xr_dims = xr.ones_like(p) * preds_xr
+        preds_xr_dims[dimension] = np.array(['prediction'])
+        preds_xr_dims.attrs = data.attrs
+        return preds_xr_dims
 
 
 ###############################################################################
