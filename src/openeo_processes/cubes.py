@@ -59,9 +59,17 @@ class LoadCollection:
                  x: tuple = (), y: tuple = (), time: list = [],
                  measurements: list = [], crs: str = "EPSG:4326"):
 
+        res = (-100, 100)
+        if product == "s2_msi_l2a":
+            res = (-10, 10)
+        elif product == "s3_olci_l2wfr":
+            res = (-300, 300)
+
         odc_params = {
-            'product': product,
-            'dask_chunks': dask_chunks
+            "product": product,
+            "dask_chunks": dask_chunks,
+            "output_crs": "EPSG:3006",
+            "resolution": res,
         }
         if x:
             odc_params['x'] = x
