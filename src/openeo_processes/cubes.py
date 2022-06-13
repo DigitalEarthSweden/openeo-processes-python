@@ -1338,69 +1338,56 @@ class FilterSpatial:
            (name, type, labels, reference system and resolution) remain unchanged, except that the spatial dimensions
            have less (or the same) dimension labels.
         """
-        lon = data['x'].values
-        lat = data['y'].values
+        if isinstance(geometries, dict):
+            for feature in geometries['features']:
+                if 'properties' not in feature:
+                    feature['properties'] = {}
+                elif feature['properties'] is None:
+                    feature['properties'] = {}
 
-        if geometries['type'] == 'Point':
-            coord = geometries['coordinates']
-            arg = np.argmin(abs(lon - coord[0]))
-            x = lon[arg]
-            arg = np.argmin(abs(lat - coord[1]))
-            y = lat[arg]
-            return data.loc[{'x': x, 'y': y}]
-
-        elif geometries['type'] == 'LineString' or geometries['type'] == 'Lines' or geometries['type'] == 'Polygon':
-            coord = geometries['coordinates']
-            if geometries['type'] == 'Polygon':
-                P = Polygon(coord)
-            else:
-                P = LineString(coord)
-            coord = np.array(coord)
-            lon = lon[lon >= np.min(coord[:, 0])]
-            lon = lon[lon <= np.max(coord[:, 0])]
-            lat = lat[lat >= np.min(coord[:, 1])]
-            lat = lat[lat <= np.max(coord[:, 1])]
-            d2 = data.loc[{'x': lon, 'y': lat}]
-
-        elif geometries['type'] == 'MultiPolygon':
-            coord = geometries['coordinates']
-            polygons = [Polygon(x) for x in coord]
-            P = MultiPolygon(polygons)
-            coord = np.array(coord)
-            lon = lon[lon >= np.min(coord[:, :, 0])]
-            lon = lon[lon <= np.max(coord[:, :, 0])]
-            lat = lat[lat >= np.min(coord[:, :, 1])]
-            lat = lat[lat <= np.max(coord[:, :, 1])]
-            d2 = data.loc[{'x': lon, 'y': lat}]
-
-        def insides(x, y):
-            y0 = y[0]
-            val = np.array([])
-            for i in range(len(x)):
-                x0 = x[i]
-                p = Point(x0, y0)
-                val = np.append(val, p.within(P))
-            return val
-
-        if 'time' in d2.dims:
-            D = d2.isel(time=0)
-            if 'bands' in D.dims:
-                D = D.isel(bands=0)
-        elif 'bands' in d2.dims:
-            D = d2.isel(bands=0)
+            geometries_crs = geometries.get('crs', {}).get("properties", {}).get("name", DEFAULT_CRS)
+            try:
+                gdf = gpd.GeoDataFrame.from_features(geometries, crs=geometries_crs)
+                geometries = dask_geopandas.from_geopandas(gdf, chunksize=1500)
+            except:
+                raise Exception('[!] No compatible vector input data has been provided.')
+        if isinstance(geometries, gpd.geodataframe.GeoDataFrame) or isinstance(geometries,
+                                                                               dask_geopandas.core.GeoDataFrame):
+            if not geometries.crs:
+                geometries = geometries.set_crs(DEFAULT_CRS)
         else:
-            D = d2
-        D = D.where(np.isnan(D), D['y'])
-        values = xr.apply_ufunc(
-            insides, D['x'].values, D,
-            vectorize=True,
-            input_core_dims=[['x'], ['x']],
-            output_core_dims=[['x']],
-            dask="parallelized",
-            output_dtypes=[np.float32],
-            dask_gufunc_kwargs={'allow_rechunk': True}
-        )
-        return d2.where(values == 1, np.nan)
+            raise Exception('[!] No compatible vector input data has been provided.')
+
+            ## Input geometries are in EPSG:4326 and the data has a different projection. We reproject the vector-cube to fit the data.
+        if 'crs' in data.attrs:
+            data_crs = data.attrs['crs']
+        else:
+            data_crs = 'PROJCS["Azimuthal_Equidistant",GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]],PROJECTION["Azimuthal_Equidistant"],PARAMETER["latitude_of_center",53],PARAMETER["longitude_of_center",24],PARAMETER["false_easting",5837287.81977],PARAMETER["false_northing",2121415.69617],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["Easting",EAST],AXIS["Northing",NORTH]]'
+        data = data.rio.set_crs(data_crs)
+
+        vector_cube_utm = geometries.to_crs(data_crs)
+        vector_cube_utm = vector_cube_utm.reset_index(drop=True)
+
+        bounds = vector_cube_utm.total_bounds.compute()
+        x_vals = data["x"].values
+        x_vals = x_vals[x_vals > bounds[0]]
+        x_vals = x_vals[x_vals < bounds[2]]
+        y_vals = data["y"].values
+        y_vals = y_vals[y_vals > bounds[1]]
+        y_vals = y_vals[y_vals < bounds[3]]
+        data_sel = data.sel(x=x_vals).sel(y=y_vals)
+        geom_crop = None
+        for _, row in vector_cube_utm.iterrows():
+            # rasterise geometry to create mask
+            mask = geometry_mask([Geometry(row["geometry"], crs=vector_cube_utm.crs)], data_sel.geobox, invert=True)
+            xr_mask = xr.DataArray(mask, coords=[data_sel.coords["y"], data_sel.coords["x"]])
+            if geom_crop is None:
+                geom_crop = data_sel.where(xr_mask).drop(["spatial_ref"], errors='ignore')
+            else:
+                tmp_geom = data_sel.where(xr_mask).drop(["spatial_ref"], errors='ignore')
+                geom_crop = geom_crop.fillna(tmp_geom)
+
+        return geom_crop
 
 ########################################################################################################################
 # Filter Labels Process
@@ -1543,6 +1530,102 @@ class FilterBbox:
             data_y = data_y[data_y > y_min][data_y[data_y > y_min] < y_max]
             data = data.sel(y=data_y)
         return data
+
+###############################################################################
+# FilterBands process
+###############################################################################
+
+
+@process
+def filter_bands():
+    """
+    Filter the bands by names.
+
+    Returns
+    -------
+    xr.DataArray :
+           A data cube limited to a subset of its original bands.
+           The dimensions and dimension properties (name, type, labels, reference system and resolution) remain
+           unchanged, except that the dimension of type bands has less (or the same) dimension labels.
+
+    """
+    return FilterBands()
+
+
+class FilterBands:
+    """
+    Filters the bands in the data cube so that bands that don't match any of the criteria are dropped from the data cube.
+    The data cube is expected to have only one dimension of type bands.
+    Fails with a DimensionMissing exception if no such dimension exists.
+    The following criteria can be used to select bands:
+    bands: band name or common band name (e.g. B01, B8A, red or nir)
+    wavelengths: ranges of wavelengths in micrometers (μm) (e.g. 0.5 - 0.6)
+    All these information are exposed in the band metadata of the collection.
+    To keep algorithms interoperable it is recommended to prefer the common band names or the wavelengths over band names that are specific to the collection and/or back-end.
+    If multiple criteria are specified, any of them must match and not all of them, i.e. they are combined with an OR-operation.
+    If no criteria are specified, the BandFilterParameterMissing exception must be thrown.
+    Important: The order of the specified array defines the order of the bands in the data cube, which can be important for subsequent processes.
+    If multiple bands are matched by a single criterion (e.g. a range of wavelengths), they stay in the original order.
+    """
+
+    @staticmethod
+    def exec_xar(data, bands = [], wavelengths = []):
+        """
+        Parameters
+        ----------
+        data : xr.DataArray
+           A data cube with bands.
+        bands : str
+           A list of band names. Either the unique band name (metadata field name in bands)
+           or one of the common band names (metadata field common_name in bands).
+           If the unique band name and the common name conflict, the unique band name has a higher priority.
+           The order of the specified array defines the order of the bands in the data cube.
+           If multiple bands match a common name, all matched bands are included in the original order..
+        wavelengths : array
+           A list of sub-lists with each sub-list consisting of two elements.
+           The first element is the minimum wavelength and the second element is the maximum wavelength.
+           Wavelengths are specified in micrometers (μm).
+           The order of the specified array defines the order of the bands in the data cube.
+           If multiple bands match the wavelengths, all matched bands are included in the original order.
+
+        Returns
+        -------
+        xr.DataArray :
+           A data cube limited to a subset of its original bands.
+           The dimensions and dimension properties (name, type, labels, reference system and resolution) remain
+           unchanged, except that the dimension of type bands has less (or the same) dimension labels.
+        """
+        if 'bands' not in data.dims:
+            raise Exception('DimensionMissing')
+        if bands == [] and wavelengths == []:
+            raise Exception('BandFilterParameterMissing')
+        if wavelengths != [] and len(np.shape(wavelengths)) == 1:
+            wavelengths = [wavelengths]
+        collection = []
+        for b in bands:
+            collection.append(b)
+        for w in wavelengths:
+            if 'B12' in data['bands'].values:
+                table = [[0.443, 'B01'], [0.492, 'B02'], [0.56, 'B03'], [0.665, 'B04'], [0.704, 'B05'], [0.741, 'B06'],
+                         [0.783, 'B07'], [0.833, 'B08'], [0.865, 'B8A'], [0.945, 'B09'], [1.374, 'B10'], [1.614, 'B11'],
+                         [2.202, 'B12']]
+            elif 'B10' in data['bands'].values:
+                table = [[0.489, 'B01'], [0.559, 'B02'], [0.665, 'B03'], [0.704, 'B04'], [0.74, 'B05'], [0.783, 'B06'],
+                         [0.834, 'B07'], [0.865, 'B08'], [1.611, 'B09'], [2.199, 'B10']]
+            else:
+                table = [[0.482, 'B01'], [0.561, 'B02'], [0.655, 'B03'], [0.865, 'B04'], [1.609, 'B05'], [2.2, 'B06']]
+            for line in table:
+                if w[0] <= line[0] <= w[1] and line[1] not in collection:
+                    collection.append(line[1])
+        collection = np.array(collection)
+        if 'bands' in data.dims:
+            for i, c in enumerate(collection):
+                if c not in data['bands'].values:
+                    collection = np.delete(collection, i)
+            filtered = data.sel(bands=collection)
+        return filtered
+
+
 
 ########################################################################################################################
 # Mask Process
@@ -1714,59 +1797,50 @@ class Mask_Polygon:
             The dimension properties (name, type, labels, reference system and resolution) remain unchanged.
         """
 
-        def insides(x, y):
-            y0 = y[0]
-            val = np.array([])
-            for i in range(len(x)):
-                x0 = x[i]
-                p = Point(x0, y0)
-                val = np.append(val, p.within(polygon))
-            return val
+        if isinstance(mask, dict):
+            for feature in mask['features']:
+                if 'properties' not in feature:
+                    feature['properties'] = {}
+                elif feature['properties'] is None:
+                    feature['properties'] = {}
 
-        if mask['type'] == 'Point':
-            lon = data['x'].values
-            lat = data['y'].values
-            coord = mask['coordinates']
-            arg = np.argmin(abs(lon - coord[0]))
-            x = lon[arg]
-            arg = np.argmin(abs(lat - coord[1]))
-            y = lat[arg]
-            if inside:
-                return data.where(data.x != x, replacement).where(data.y != y, replacement)
+            mask_crs = mask.get('crs', {}).get("properties", {}).get("name", DEFAULT_CRS)
+            try:
+                gdf = gpd.GeoDataFrame.from_features(mask, crs=mask_crs)
+                mask = dask_geopandas.from_geopandas(gdf, chunksize=1500)
+            except:
+                raise Exception('[!] No compatible vector input data has been provided.')
+        if isinstance(mask, gpd.geodataframe.GeoDataFrame) or isinstance(mask, dask_geopandas.core.GeoDataFrame):
+            if not mask.crs:
+                mask = mask.set_crs(DEFAULT_CRS)
+        else:
+            raise Exception('[!] No compatible vector input data has been provided.')
+
+        ## Input geometries are in EPSG:4326 and the data has a different projection. We reproject the vector-cube to fit the data.
+        if 'crs' in data.attrs:
+            data_crs = data.attrs['crs']
+        else:
+            data_crs = 'PROJCS["Azimuthal_Equidistant",GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]],PROJECTION["Azimuthal_Equidistant"],PARAMETER["latitude_of_center",53],PARAMETER["longitude_of_center",24],PARAMETER["false_easting",5837287.81977],PARAMETER["false_northing",2121415.69617],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["Easting",EAST],AXIS["Northing",NORTH]]'
+        data = data.rio.set_crs(data_crs)
+
+        vector_cube_utm = mask.to_crs(data_crs)
+        vector_cube_utm = vector_cube_utm.reset_index(drop=True)
+        geom_crop = None
+        for _, row in vector_cube_utm.iterrows():
+            # rasterise geometry to create mask
+            mask = geometry_mask([Geometry(row["geometry"], crs=vector_cube_utm.crs)], data.geobox, invert=True)
+            xr_mask = xr.DataArray(mask, coords=[data.coords["y"], data.coords["x"]])
+            if geom_crop is None:
+                geom_crop = data.where(xr_mask).drop(["spatial_ref"], errors='ignore')
             else:
-                return data.where(data.x == x, replacement).where(data.y == y, replacement)
-        elif mask['type'] == 'Polygon':
-            coord = mask['coordinates']
-            polygon = Polygon(coord)
-
-        elif mask['type'] == 'MultiPolygon':
-            coord = mask['coordinates']
-            polygons = [Polygon(x) for x in coord]
-            polygon = MultiPolygon(polygons)
-
-        if 'time' in data.dims:
-            D = data.isel(time=0)
-            if 'bands' in D.dims:
-                D = D.isel(bands=0)
-        elif 'bands' in data.dims:
-            D = data.isel(bands=0)
-        else:
-            D = data
-        D = D.fillna(1)
-        D = D.where(np.isnan(D), D['y'])
-        values = xr.apply_ufunc(
-            insides, D['x'].values, D,
-            vectorize=True,
-            input_core_dims=[['x'], ['x']],
-            output_core_dims=[['x']],
-            dask="parallelized",
-            output_dtypes=[np.float32],
-            dask_gufunc_kwargs={'allow_rechunk': True}
-        )
+                tmp_geom = data.where(xr_mask).drop(["spatial_ref"], errors='ignore')
+                geom_crop = geom_crop.fillna(tmp_geom)
         if inside:
-            return data.where(values == 1, replacement)
-        else:
-            return data.where(values == 0, replacement)
+            geom_crop = data.where(data != geom_crop).drop(["spatial_ref"], errors='ignore')
+        if replacement:
+            geom_crop = geom_crop.fillna(replacement)
+
+        return geom_crop
 
 
 

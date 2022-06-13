@@ -259,8 +259,8 @@ class CubesTester(unittest.TestCase):
 
     def test_filter_spatial(self):
         """Tests 'filter_spatial' function. """
-        geo = {'type': 'Polygon', 'coordinates': [[117.9, 55.2], [120.5, 58.4], [120.5, 55.2]]}
-        assert (oeop.filter_spatial(self.test_data.xr_data_factor(), geo).dims == self.test_data.xr_data_factor(1, 1)[:,:4, :2].dims)
+        geo = self.test_data.geojson_polygon
+        assert (oeop.filter_spatial(self.test_data.equi7xarray, geo).dims == self.test_data.equi7xarray.dims)
 
     def test_filter_labels(self):
         """Tests 'filter_labels' function. """
@@ -281,10 +281,8 @@ class CubesTester(unittest.TestCase):
 
     def test_mask_polygon(self):
         """Tests 'mask_polygon function. """
-        geojson = {'type' : 'Polygon', 'coordinates': [[117.9, 55.2], [120.5, 58.4], [120.5, 55.2]]}
-        assert ((oeop.mask_polygon(self.test_data.xr_data_factor(1,1), geojson))['x'].values == self.test_data.xr_data_factor(1,1)['x'].values).all()
-        geojson = {'type': 'MultiPolygon', 'coordinates': [[(117.9, 55.2), (120.5, 58.4), (120.5, 55.2)], [(120.5, 55.2), (121, 58.4), (120.5, 55.2)]]}
-        #print(oeop.mask_polygon(self.test_data.xr_data_factor(1,1), geojson))
+        geo = self.test_data.geojson_polygon
+        assert (oeop.mask_polygon(self.test_data.equi7xarray, geo).dims == self.test_data.equi7xarray.dims)
 
     def test_aggregate_temporal_period(self):
         """ Tests 'aggregate_temporal_period' function. """
