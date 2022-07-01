@@ -302,6 +302,7 @@ def get_time_dimension_from_data(data: xr.DataArray, dim: str = "time") -> str:
     for time_dim in time_dimensions:
         if time_dim in data.dims:
             return time_dim
+    raise Exception("Time dimension could not be identified in the data.")
 
 def keep_attrs(x, y, data):
     """Keeps the attributes of the inputs x and y in the output data.

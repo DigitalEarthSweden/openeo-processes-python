@@ -32,7 +32,7 @@ class Measurement:
     dtype: str
     nodata: Any
     aliases: List[str] = field(default_factory=list)
-    extra_dim: str = None
+    extra_dim: str = None  # type: ignore
 
 
 @dataclass
@@ -64,7 +64,7 @@ def create_product(data: xr.Dataset) -> Product:
             ExtraDimensions(
                 name=dim,
                 values=getattr(first_data_var, dim).values.tolist(),
-                dtype=str(getattr(first_data_var, dim).values.dtype),
+                dtype=str(getattr(first_data_var, dim).values.dtype),  # type: ignore
             )
             for dim in extra_dims]
 

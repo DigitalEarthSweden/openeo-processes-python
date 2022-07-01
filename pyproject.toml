@@ -1,0 +1,45 @@
+[tool.poetry]
+name = "openeo-processes"
+version = "0.1.11"
+description = "Python implementations of many OpenEO processes."
+authors = ["Your Name <you@example.com>"]
+license = "Apache 2.0"
+packages = [
+    {include = "openeo_processes", from = "src"}
+]
+
+[[tool.poetry.source]]
+name = "packages.dea.ga.gov.au"
+url = "https://packages.dea.ga.gov.au"
+secondary = true
+
+[tool.poetry.dependencies]
+python = "^3.8"
+numpy = "^1"
+pandas = "^1"
+xarray = ">=0.18.2"
+pyproj = "^3"
+xgboost = "^1.5.0"
+rioxarray = "^0.9"
+geopandas = "^0.10"
+Equi7Grid = "^0.1.0"
+datacube = "^1.8.4"
+dask-geopandas = "^v0.1.0a7"
+dask = {extras = ["array"], version = "^2022.02.1"}
+odc-algo = {extras = ["xarray"], version = "^0.2.2"}
+GDAL = "^3.5.0"
+PyYAML = "^6.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.1.2"
+mypy = "^0.961"
+types-PyYAML = "^6.0"
+
+[tool.mypy]
+files = "src"
+mypy_path = "src"
+ignore_missing_imports = true
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

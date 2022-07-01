@@ -1,0 +1,29 @@
+{
+	"name": "openeo-processes-python",
+
+	"dockerFile": "./Dockerfile",
+
+	// Sets the run context to one level up instead of the .devcontainer folder.
+	"context": "..",
+	
+	// Set *default* container specific settings.json values on container create.
+	"settings": {
+		"python.defaultInterpreterPath": ".venv/bin/python",
+		"python.venvPath": ".venv",
+		"python.pythonPath": ".venv/bin/python",
+		"python.testing.pytestArgs": [
+			"tests"
+		],
+		"python.testing.unittestEnabled": false,
+		"python.testing.pytestEnabled": true,
+		"python.linting.enabled": true
+	},
+	
+	// Add the IDs of extensions you want installed when the container is created.
+	"extensions": [
+		"ms-python.python",
+		"ms-python.vscode-pylance"
+	],
+
+	"postCreateCommand": "poetry install"
+}

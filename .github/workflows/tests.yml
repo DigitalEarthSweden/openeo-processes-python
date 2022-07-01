@@ -1,0 +1,109 @@
+# Inspired by https://github.com/python-poetry/poetry/blob/master/.github/workflows/main.yml
+
+name: CI Pipeline
+
+on:
+  push:
+    paths-ignore:
+      - 'docs/**'
+    branches:
+      - master
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+    branches:
+      - '**'
+  workflow_dispatch:
+
+env:
+  POETRY_VERSION: 1.1.13
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  image-build:
+    name: Build devcontainer
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v2
+
+    - name: Setup buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Downcase IMAGE_NAME
+      run: |
+        echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >>${GITHUB_ENV}
+
+    - name: Add env variables
+      run: |
+        echo "USER_UID=$( id --user )" >>${GITHUB_ENV} 
+        echo "USERNAME=$( id --user --name )" >>${GITHUB_ENV} 
+        echo "USER_GID=$( id --group )" >>${GITHUB_ENV} 
+
+    - name: Build image
+      id: image-build
+      uses: docker/build-push-action@v3
+      with:
+        file: ./.devcontainer/Dockerfile
+        context: .
+        tags: ${{ env.IMAGE_NAME }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          "USER_UID=${{ env.USER_UID }}"
+          "USERNAME=${{ env.USERNAME }}"
+          "USER_GID=${{ env.USER_GID }}"
+
+  tests:
+    name: ${{ matrix.python-version }} / ${{ matrix.session }}
+    needs: [image-build]
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false  # This prevents the entire matrix from stopping early if any job in the matrix fails.
+      matrix:
+        python-version: ["3.9", "3.8"]
+        session: ["tests", "mypy"]
+    env:
+      NOXSESSION: ${{ matrix.session }}
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Downcase IMAGE_NAME
+      run: |
+        echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >>${GITHUB_ENV}
+
+    - name: Add env variables
+      run: |
+        echo "USER_UID=$( id --user )" >>${GITHUB_ENV} 
+        echo "USERNAME=$( id --user --name )" >>${GITHUB_ENV} 
+        echo "USER_GID=$( id --group )" >>${GITHUB_ENV} 
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v2
+
+    - name: Setup buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Build image
+      id: image-build
+      uses: docker/build-push-action@v3
+      with:
+        file: ./.devcontainer/Dockerfile
+        context: .
+        load: true
+        tags: ${{ env.IMAGE_NAME }}
+        cache-from: type=gha
+        build-args: |
+          "USER_UID=${{ env.USER_UID }}"
+          "USERNAME=${{ env.USERNAME }}"
+          "USER_GID=${{ env.USER_GID }}"
+
+    - name: Run nox session
+      run: |
+        docker run --rm --mount type=bind,source="$GITHUB_WORKSPACE",target="$GITHUB_WORKSPACE" --workdir="$GITHUB_WORKSPACE" --env NOXSESSION=$NOXSESSION ${IMAGE_NAME} nox --python=${{ matrix.python-version }}
