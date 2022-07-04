@@ -365,6 +365,11 @@ class MathTester(unittest.TestCase):
         assert np.isclose(oeop.cumproduct([1, 2, 3, np.nan, 3, 1]), [1, 2, 6, np.nan, 18, 18], equal_nan=True).all()
         assert np.isclose(oeop.cumproduct([1, 2, 3, np.nan, 3, 1], ignore_nodata=False),
                           [1, 2, 6, np.nan, np.nan, np.nan], equal_nan=True).all()
+        assert (oeop.cumproduct(xr.DataArray(np.array([3, 5, 2]))) == [3, 15, 30]).all()
+        xr.testing.assert_equal(oeop.cumproduct(xr.DataArray(np.array([3, np.nan, 2])), ignore_nodata=True),
+                                (xr.DataArray(np.array([3, np.nan, 6]))))
+        xr.testing.assert_equal(oeop.cumproduct(xr.DataArray(np.array([3, np.nan, 2])), ignore_nodata=False),
+                                (xr.DataArray(np.array([3, np.nan, np.nan]))))
 
     def test_cumsum(self):
         """ Tests `cumsum` function. """
@@ -372,6 +377,12 @@ class MathTester(unittest.TestCase):
         assert np.isclose(oeop.cumsum([1, 3, np.nan, 3, 1]), [1, 4, np.nan, 7, 8], equal_nan=True).all()
         assert np.isclose(oeop.cumsum([1, 3, np.nan, 3, 1], ignore_nodata=False),
                           [1, 4, np.nan, np.nan, np.nan], equal_nan=True).all()
+        assert (oeop.cumsum(xr.DataArray(np.array([3, 5, 2]))) == [3, 8, 10]).all()
+        xr.testing.assert_equal(oeop.cumsum(xr.DataArray(np.array([3, np.nan, 2])), ignore_nodata=True),
+                                xr.DataArray(np.array([3, np.nan, 5])))
+        xr.testing.assert_equal(oeop.cumsum(xr.DataArray(np.array([3, np.nan, 2])), ignore_nodata=False),
+                                xr.DataArray(np.array([3, np.nan, np.nan])))
+
 
     def test_sum(self):
         """ Tests `sum` function. """

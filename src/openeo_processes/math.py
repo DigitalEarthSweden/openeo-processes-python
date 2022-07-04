@@ -5,12 +5,7 @@ import xarray as xr
 import scipy
 import scipy.ndimage
 
-try:
-    import xarray_extras as xar_addons
-except ImportError:
-    xar_addons = None
-
-from openeo_processes.utils import process, keep_attrs
+from openeo_processes.utils import process, keep_attrs, get_time_dimension_from_data
 from openeo_processes.comparison import is_empty
 
 from openeo_processes.errors import QuantilesParameterConflict
@@ -3851,7 +3846,7 @@ class Cumproduct:
             return data_cumprod
 
     @staticmethod
-    def exec_xar(data, ignore_nodata=True, dimension=0):
+    def exec_xar(data, ignore_nodata=True, dimension=None):
         """
         Computes cumulative products of an array of numbers. Every computed element is equal to the product of current
         and all previous values. The returned array and the input array have always the same length. By default,
@@ -3876,8 +3871,16 @@ class Cumproduct:
         """
         if is_empty(data):
             return np.nan
+        if not dimension:
+            dimension = data.dims[0]
+        if dimension in ['time', 't', 'times']:
+            dimension = get_time_dimension_from_data(data, dimension)
 
-        return xar_addons.cumulatives.compound_prod(data, dim=dimension, skipna=ignore_nodata)
+        prod = data.cumprod(dim=dimension, skipna=ignore_nodata)
+        data_nan = data.isnull()
+        prod = prod.where(~data_nan, np.nan)
+        prod.attrs = data.attrs
+        return prod
 
     @staticmethod
     def exec_da():
@@ -3949,7 +3952,7 @@ class Cumsum:
             return data_cumsum
 
     @staticmethod
-    def exec_xar(data, ignore_nodata=True, dimension=0):
+    def exec_xar(data, ignore_nodata=True, dimension=None):
         """
         Computes cumulative sums of an array of numbers. Every computed element is equal to the sum of current and all
         previous values. The returned array and the input array have always the same length. By default, no-data values
@@ -3974,8 +3977,16 @@ class Cumsum:
         """
         if is_empty(data):
             return np.nan
+        if not dimension:
+            dimension = data.dims[0]
+        if dimension in ['time', 't', 'times']:
+            dimension = get_time_dimension_from_data(data, dimension)
 
-        return xar_addons.cumulatives.compound_sum(data, dim=dimension, skipna=ignore_nodata)
+        sum = data.cumsum(dim=dimension, skipna=ignore_nodata)
+        data_nan = data.isnull()
+        sum = sum.where(~data_nan, np.nan)
+        sum.attrs = data.attrs
+        return sum
 
     @staticmethod
     def exec_da():
