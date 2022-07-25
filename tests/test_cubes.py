@@ -116,11 +116,9 @@ class CubesTester(unittest.TestCase):
 
     @pytest.mark.skip(reason="This is failing at the time CI was setup - fix asap!")
     def test_save_result_from_file(self):
-        src = os.path.join(os.path.dirname(__file__), "data", "out.time.nc")
-        ref_ds = xr.load_dataset(src)
-        ref_ds_0 = ref_ds.loc[dict(time="2016-01-13T12:00:00.000000000")]
-        data_array = ref_ds.to_array(dim="bands")
-        oeop.save_result(data_array, format='netCDF')
+        src = os.path.join(os.path.dirname(__file__), "data", "array.nc")
+        ref_ds = xr.open_dataarray(src)
+        oeop.save_result(ref_ds, format='netCDF')
         actual_ds_0 = xr.load_dataset("out_00000.nc")
         assert ref_ds_0.dims == actual_ds_0.dims
         assert ref_ds_0.coords == actual_ds_0.coords
@@ -267,11 +265,12 @@ class CubesTester(unittest.TestCase):
         """Tests 'filter_labels' function. """
         xr.testing.assert_equal(oeop.filter_labels(self.test_data.xr_data_factor(), oeop.gt, 'x', {'y': 120}), self.test_data.xr_data_factor().loc[{'x': [120.9]}])
 
-    @pytest.mark.skip(reason="This is failing at the time CI was setup - fix asap!")
     def test_filter_bbox(self):
         """Tests 'filter_bbox' function. """
-        extent = {'west': 60, 'east': 56, 'north': 120, 'south': 118, 'crs':'EPSG:4326'}
-        xr.testing.assert_equal(oeop.filter_bbox(self.test_data.xr_data_factor(), extent), self.test_data.xr_data_factor().loc[{'x': [118.9, 119.9], 'y': [56.3, 57.3, 58.3, 59.3]}])
+        extent = {'west': 11.4, 'east': 11.45, 'north': 46.35, 'south': 46.30, 'crs':'EPSG:4326'}
+        xr.testing.assert_equal(oeop.filter_bbox(self.test_data.equi7xarray, extent), self.test_data.equi7xarray)
+        extent = {'west': 11.41, 'east': 11.44, 'north': 46.35, 'south': 46.31, 'crs':'EPSG:4326'}
+        xr.testing.assert_equal(oeop.filter_bbox(self.test_data.equi7xarray, extent), self.test_data.equi7xarray[1:, 1:])
         extent = {'west': 63, 'east': 62, 'north': 124, 'south': 123, 'crs': 4326}
         assert len((oeop.filter_bbox(self.test_data.xr_data_factor(), extent)).values[0])==0
 

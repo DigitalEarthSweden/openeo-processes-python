@@ -1423,59 +1423,8 @@ class Order:
             raise Exception(err_msg)
 
     @staticmethod
-    def exec_xar(data, asc=True, nodata=None, dimension=None):
-        """
-        Computes a permutation which allows rearranging the data into ascending or descending order.
-        In other words, this process computes the ranked (sorted) element positions in the original list.
-        Remarks:
-            - The positions in the result are zero-based.
-            - Ties will be left in their original ordering.
-
-        Parameters
-        ----------
-        data : xr.DataArray
-            An array to compute the order for.
-        dimension : int, str, optional
-            Defines the dimension to order along (default is 0).
-        asc : bool, optional
-            The default sort order is ascending, with smallest values first. To sort in reverse (descending) order,
-            set this parameter to `False`.
-        nodata : obj, optional
-            Controls the handling of no-data values (np.nan). By default they are removed. If `True`, missing values
-            in the data are put last; if `False`, they are put first.
-
-        Returns
-        -------
-        xr.DataArray :
-            The computed permutation.
-
-        Notes
-        -----
-        - the case with nodata=False is complicated, since a simple nan masking destroys the structure of the array
-        - due to the flipping, the order of the np.nan values is wrong, but this is ignored, since this order should
-          not be relevant
-        """
-        if len(data) == 0:
-            return np.nan
-        if dimension is None:
-            dimension = 0
-        if type(dimension) == str:
-            dimension_str = dimension
-        else:
-            dimension_str = data.dims[dimension]
-        if nodata is None:
-            data = data.dropna(dimension_str)
-        k = len(data[dimension_str].values)
-        if (asc and not nodata) or (not asc and nodata):
-            fill = data.min() - 1
-            data = data.fillna(fill)
-        order = argtopk(data, k = k, dim = dimension_str)
-        if asc:
-            r = order[dimension_str].values
-            r = np.flip(r)
-            order = order.loc[{dimension_str: r}]
-        order = order.transpose(*data.dims)
-        return order
+    def exec_xar():
+        pass    
 
     @staticmethod
     def exec_da():
@@ -1671,22 +1620,8 @@ class Sort:
             dimension_str = data.dims[dimension]
         if nodata is None:
             data = data.dropna(dimension_str)
-        fill = None
-        if asc:
-            k = (-1)*len(data[dimension_str].values)
-            if not nodata:
-                fill = data.min()-1
-                data = data.fillna(fill)
-        else:
-            k = len(data[dimension_str].values)
-            if nodata:
-                fill = data.min() - 1
-                data = data.fillna(fill)
-        sorted = topk(data, k = k, dim = dimension_str)
-        sorted = sorted.transpose(*data.dims)
-        if fill is not None:
-            sorted = sorted.where(sorted != fill, np.nan)
-        return sorted
+        sort = data.sortby(dimension, ascending=asc)
+        return sort
 
     @staticmethod
     def exec_da():

@@ -80,12 +80,12 @@ class MathTester(unittest.TestCase):
         xr.testing.assert_equal(
             oeop.log(self.test_data.xr_data_factor(10, 10), 10), self.test_data.xr_data_factor(1, 1))
 
-    @pytest.mark.skip(reason="This is failing at the time CI was setup - fix asap!")
     def test_ln(self):
         """ Tests `ln` function. """
-        assert oeop.ln(oeop.e()) == 1
+        # since ln(e) returns 0.9999999999999999 it needs to be almost equal
+        np.testing.assert_almost_equal(oeop.ln(oeop.e()), 1)
         assert oeop.ln(1) == 0
-        xr.testing.assert_equal(
+        xr.testing.assert_allclose(
             oeop.ln(self.test_data.xr_data_factor(oeop.e(), 1)), self.test_data.xr_data_factor(1, 0))
 
     def test_cos(self):
