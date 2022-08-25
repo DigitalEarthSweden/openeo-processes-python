@@ -68,7 +68,9 @@ def bitwise_operators(x, y, op):
     # Fasttrack for int input, both array and singles.
     # We don not need to mask anything
     # Broadcasting also works out of the box
-    if x_type == int and y_type == int:
+    # Bool is actually wrong, but the real logical and is missing
+    # in openeo-processes-python
+    if (x_type == int and y_type == int) or (x_type == bool and y_type == bool):
         if op == "&":
             res = x & y
         elif op == "|":
