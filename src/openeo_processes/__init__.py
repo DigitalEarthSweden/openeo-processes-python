@@ -11,6 +11,7 @@ except DistributionNotFound:
 
 
 from openeo_processes.arrays import *
+from openeo_processes.bitwise import *
 from openeo_processes.comparison import *
 from openeo_processes.cubes import *
 from openeo_processes.logic import *
