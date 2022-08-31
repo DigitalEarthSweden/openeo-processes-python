@@ -1,15 +1,15 @@
-import os
 import functools
+import os
 import re
-from datetime import timezone, timedelta, datetime
-from typing import Any, Callable, Tuple, List
+from datetime import datetime, timedelta, timezone
+from typing import Any, Callable, List, Tuple
 
 import dask
 import dask.dataframe as dd
-import numpy as np
-import xarray as xr
 import geopandas as gpd
+import numpy as np
 import rasterio
+import xarray as xr
 
 # This is a workaround for this package now requiring gdal, which isn't straightforward to install with pip.
 # TODO: Remove this once we've figured out how to properly integrate the gdal dependency for this library
@@ -22,6 +22,7 @@ try:
 except ImportError:
     osr = None
 
+ 
 
 def eval_datatype(data):
     """
@@ -396,8 +397,22 @@ def get_equi7_tiles(data: xr.Dataset):
 
     return tiles, gridder
 
-def derive_datasets_and_filenames_from_tiles(gridder, times: List[str], datasets: List[xr.Dataset],
-                                    tiles: List[str], output_filepath: str, ext: str):
+def derive_datasets_and_filenames_without_tiles(times: List[str], datasets: List[xr.Dataset],
+                                                output_filepath: str, ext: str):
+    final_datasets = []
+    dataset_filenames = []
+
+    for idx, time in enumerate(times):
+        dataset = datasets[idx]
+        file_time = np.datetime_as_string(time)[:19].replace('-', '_').replace(':', '_')   
+        temp_file = output_filepath + '_{}.{}'.format(file_time, ext)
+        final_datasets.append(dataset)
+        dataset_filenames.append(temp_file)         
+
+    return final_datasets, dataset_filenames 
+
+def derive_datasets_and_filenames_from_tiles(times: List[str], data, datasets: List[xr.Dataset],
+                                              output_filepath: str, ext: str):
     """
     A function taking an xarray.Dataset and returning a list of EQUI7 Tiles at the relevant resolution layer along with
     an EQUI7Grid object.
@@ -416,9 +431,13 @@ def derive_datasets_and_filenames_from_tiles(gridder, times: List[str], datasets
         list[xarray.Dataset]: The resulting datasets split across the EQUI7 tile grid.
         list[str]: The list of filepaths split across the EQUI7 tile grid, corresponding to the list of datasets.
     """
+    if equi7grid is None:
+        return derive_datasets_and_filenames_without_tiles(times, datasets, output_filepath, ext)
+    
     final_datasets = []
     dataset_filenames = []
-
+     
+    tiles, gridder = get_equi7_tiles(data)
     for idx, time in enumerate(times):
         dataset = datasets[idx]
         file_time = np.datetime_as_string(time)[:19].replace('-', '_').replace(':', '_')
