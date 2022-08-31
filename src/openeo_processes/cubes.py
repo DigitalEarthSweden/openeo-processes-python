@@ -255,7 +255,7 @@ class SaveResult:
             first_data_var = data.data_vars[list(data.data_vars.keys())[0]]
             data.attrs["crs"] = first_data_var.geobox.crs.to_wkt()
 
-        tiles, gridder = get_equi7_tiles(data)
+       
         
         # Renaming the time dimension
         if 'time' in data.dims:
@@ -282,7 +282,7 @@ class SaveResult:
         else:
             ext = 'tif'
 
-        final_datasets, dataset_filenames = derive_datasets_and_filenames_from_tiles(gridder, times, datasets, tiles, output_filepath, ext)
+        final_datasets, dataset_filenames = derive_datasets_and_filenames_from_tiles(times,data, datasets, output_filepath, ext)
         if (len(final_datasets) == 0) or (len(dataset_filenames) == 0):
             raise Exception("No tiles could be derived from given dataset")
 
