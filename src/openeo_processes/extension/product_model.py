@@ -1,8 +1,9 @@
-from dataclasses import dataclass, asdict, field
+from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Literal, Optional, Union
 
 import numpy as np
 import xarray as xr
+
 
 @dataclass
 class Storage:
@@ -87,15 +88,15 @@ def create_product(data: xr.Dataset) -> Product:
         resolution = {"y": res[0], "x": res[1]}
 
     prod = Product(
-        name="PLACEHOLDER_PRODCUT_NAME",
-        description=f"Results of job PLACEHOLDER_JOB_ID.",
+        name=data.attrs.get('collection', "PLACEHOLDER_PRODCUT_NAME"),
+        description=data.attrs.get('job_id', "Results of job PLACEHOLDER_JOB_ID."),
         storage=Storage(
             crs=first_data_var.geobox.crs.to_wkt(),
             resolution=resolution,
         ),
         metadata=Metadata(
             product=MetadataProduct(
-                name="PLACEHOLDER_PRODCUT_NAME",
+                name=data.attrs.get('collection', "PLACEHOLDER_PRODCUT_NAME"),
             ),
         ),
         measurements=measurements,
