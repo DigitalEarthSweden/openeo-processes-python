@@ -94,7 +94,7 @@ class And:
         """
         x_nan = x.where(x == True, False)  # Set NaN to False
         y_nan = y.where(y == True, False)
-        logical_and = xr.ufuncs.logical_and(x, y)
+        logical_and = np.logical_and(x, y)
         logical_and = logical_and.where(x == x_nan, np.nan)
         logical_and = logical_and.where(y == y_nan, np.nan)
         return logical_and
@@ -192,7 +192,7 @@ class Or:
         """
         x_nan = x.where(x == True, False)  # Set NaN to False
         y_nan = y.where(y == True, False)
-        logical_or = xr.ufuncs.logical_or(x, y)
+        logical_or = np.logical_or(x, y)
         logical_or = logical_or.where(x == x_nan, np.nan)
         logical_or = logical_or.where(y == y_nan, np.nan)
         return logical_or
@@ -292,7 +292,7 @@ class Xor:
         """
         x_nan = x.where(x == True, False)  # Set NaN to False
         y_nan = y.where(y == True, False)
-        logical_xor = xr.ufuncs.logical_xor(x, y)
+        logical_xor = np.logical_xor(x, y)
         logical_xor = logical_xor.where(x == x_nan, np.nan)
         logical_xor = logical_xor.where(y == y_nan, np.nan)
         return logical_xor
@@ -380,7 +380,7 @@ class Not:
         xr.DataArray :
             Inverted boolean values.
         """
-        return xr.ufuncs.logical_not(x)
+        return np.logical_not(x)
 
     @staticmethod
     def exec_da():
