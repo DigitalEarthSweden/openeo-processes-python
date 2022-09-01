@@ -146,7 +146,7 @@ class Floor:
         xr.DataArray :
             Numbers rounded down.
         """
-        return xr.ufuncs.floor(x)
+        return np.floor(x)
 
     @staticmethod
     def exec_da():
@@ -232,7 +232,7 @@ class Ceil:
         xr.DataArray :
             Numbers rounded up.
         """
-        return xr.ufuncs.ceil(x)
+        return np.ceil(x)
 
     @staticmethod
     def exec_da():
@@ -325,7 +325,7 @@ class Int:
         xr.DataArray :
             Integer part of the numbers.
         """
-        return xr.ufuncs.trunc(x)
+        return np.trunc(x)
 
     @staticmethod
     def exec_da():
@@ -522,7 +522,7 @@ class Exp:
         xr.DataArray :
             The computed values for e raised to the power of `p`.
         """
-        return xr.ufuncs.exp(p)
+        return np.exp(p)
 
     @staticmethod
     def exec_da():
@@ -620,7 +620,7 @@ class Log:
         xr.DataArray :
             The computed logarithm.
         """
-        l = xr.ufuncs.log(x)/xr.ufuncs.log(base)
+        l = np.log(x)/np.log(base)
         if isinstance(x, xr.DataArray):
             l.attrs = x.attrs
         return l
@@ -715,7 +715,7 @@ class Ln:
         xr.DataArray :
             The computed natural logarithms.
         """
-        return xr.ufuncs.log(x)
+        return np.log(x)
 
     @staticmethod
     def exec_da():
@@ -802,7 +802,7 @@ class Cos:
             The computed cosines of `x`.
 
         """
-        return xr.ufuncs.cos(x)
+        return np.cos(x)
 
     @staticmethod
     def exec_da():
@@ -892,7 +892,7 @@ class Arccos:
             The computed angles in radians.
 
         """
-        return xr.ufuncs.arccos(x)
+        return np.arccos(x)
 
     @staticmethod
     def exec_da():
@@ -978,7 +978,7 @@ class Cosh:
         xr.DataArray :
             The computed hyperbolic cosines of `x`.
         """
-        return xr.ufuncs.cosh(x)
+        return np.cosh(x)
 
     @staticmethod
     def exec_da():
@@ -1068,7 +1068,7 @@ class Arcosh:
             The computed angles in radians.
 
         """
-        return xr.ufuncs.arccosh(x)
+        return np.arccosh(x)
 
     @staticmethod
     def exec_da():
@@ -1154,7 +1154,7 @@ class Sin:
         xr.DataArray :
             The computed sines of `x`.
         """
-        return xr.ufuncs.sin(x)
+        return np.sin(x)
 
     @staticmethod
     def exec_da():
@@ -1243,7 +1243,7 @@ class Arcsin:
         xr.DataArray :
             The computed angles in radians.
         """
-        return xr.ufuncs.arcsin(x)
+        return np.arcsin(x)
 
     @staticmethod
     def exec_da():
@@ -1329,7 +1329,7 @@ class Sinh:
         xr.DataArray :
             The computed hyperbolic sines of `x`.
         """
-        return xr.ufuncs.sinh(x)
+        return np.sinh(x)
 
     @staticmethod
     def exec_da():
@@ -1418,7 +1418,7 @@ class Arsinh:
         xr.DataArray :
             The computed angles in radians.
         """
-        return xr.ufuncs.arcsinh(x)
+        return np.arcsinh(x)
 
     @staticmethod
     def exec_da():
@@ -1507,7 +1507,7 @@ class Tan:
         xr.DataArray :
             The computed tangents of `x`.
         """
-        return xr.ufuncs.tan(x)
+        return np.tan(x)
 
     @staticmethod
     def exec_da():
@@ -1597,7 +1597,7 @@ class Arctan:
             The computed angles in radians.
 
         """
-        return xr.ufuncs.arctan(x)
+        return np.arctan(x)
 
     @staticmethod
     def exec_da():
@@ -1686,7 +1686,7 @@ class Tanh:
         xr.DataArray :
             The computed hyperbolic tangents of `x`.
         """
-        return xr.ufuncs.tanh(x)
+        return np.tanh(x)
 
     @staticmethod
     def exec_da():
@@ -1775,7 +1775,7 @@ class Artanh:
         xr.DataArray :
             The computed angles in radians.
         """
-        return xr.ufuncs.arctanh(x)
+        return np.arctanh(x)
 
     @staticmethod
     def exec_da():
@@ -1871,7 +1871,7 @@ class Arctan2:
             The computed angles in radians.
 
         """
-        arct = xr.ufuncs.arctan2(y, x)
+        arct = np.arctan2(y, x)
         return keep_attrs(x, y, arct)
 
     @staticmethod
@@ -2277,7 +2277,7 @@ class Absolute:
         xr.DataArray :
             The computed absolute values.
         """
-        return xr.ufuncs.fabs(x)
+        return np.fabs(x)
 
     @staticmethod
     def exec_da():
@@ -2378,7 +2378,7 @@ class Sgn:
         xr.DataArray :
             The computed signum values of `x`.
         """
-        return xr.ufuncs.sign(x)
+        return np.sign(x)
 
     @staticmethod
     def exec_da():
@@ -2470,7 +2470,7 @@ class Sqrt:
         xr.DataArray :
             The computed square roots.
         """
-        return xr.ufuncs.sqrt(x)
+        return np.sqrt(x)
 
     @staticmethod
     def exec_da():
