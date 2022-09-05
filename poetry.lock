@@ -1199,9 +1199,7 @@ distributed = [
     {file = "distributed-2022.6.0-py3-none-any.whl", hash = "sha256:80c63a1ee3efb38c6f8634daaaa00f7992b246914a003202b687cedd6299b9c9"},
     {file = "distributed-2022.6.0.tar.gz", hash = "sha256:2050d7cf9479766a6f4ad9cf85e97dee548401a19f8bb97af6a73dda9ffd3d05"},
 ]
-equi7grid = [
-    {file = "Equi7Grid-0.1.0.tar.gz", hash = "sha256:82cdedba3ad098be4dfb5ff5971262a1272c95b31b4a9f34e20469287cfe5203"},
-]
+ 
 fiona = [
     {file = "Fiona-1.8.21-cp310-cp310-macosx_10_10_x86_64.whl", hash = "sha256:39c656421e25b4d0d73d0b6acdcbf9848e71f3d9b74f44c27d2d516d463409ae"},
     {file = "Fiona-1.8.21-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:43b1d2e45506e56cf3a9f59ba5d6f7981f3f75f4725d1e6cb9a33ba856371ebd"},
