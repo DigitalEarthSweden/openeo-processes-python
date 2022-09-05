@@ -22,7 +22,7 @@ pyproj = "^3"
 xgboost = "^1.5.0"
 rioxarray = "^0.9"
 geopandas = "^0.10"
-Equi7Grid = "^0.1.0"
+#Equi7Grid = "^0.1.0"
 datacube = "^1.8.4"
 dask-geopandas = "^v0.1.0a7"
 dask = {extras = ["array"], version = "^2022.02.1"}
