@@ -304,17 +304,18 @@ SQLAlchemy = ">=1.4"
 
 [[package]]
 name = "geopandas"
-version = "0.10.2"
+version = "0.11.1"
 description = "Geographic pandas extensions"
 category = "main"
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.8"
 
 [package.dependencies]
 fiona = ">=1.8"
-pandas = ">=0.25.0"
-pyproj = ">=2.2.0"
-shapely = ">=1.6"
+packaging = "*"
+pandas = ">=1.0.0"
+pyproj = ">=2.6.1.post1"
+shapely = ">=1.7,<2"
 
 [[package]]
 name = "greenlet"
@@ -1100,7 +1101,7 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "flake8 
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "9fe4a5322b91f8fcde75c58a83e09bc849809405cfc7ff8479c18fb360c5271c"
+content-hash = "57d69379bd0cce95aff6d26b807cf1d40d933090d4c88894fe9a764975b275b7"
 
 [metadata.files]
 affine = [
@@ -1137,10 +1138,7 @@ fiona = []
 fsspec = []
 gdal = []
 geoalchemy2 = []
-geopandas = [
-    {file = "geopandas-0.10.2-py2.py3-none-any.whl", hash = "sha256:1722853464441b603d9be3d35baf8bde43831424a891e82a8545eb8997b65d6c"},
-    {file = "geopandas-0.10.2.tar.gz", hash = "sha256:efbf47e70732e25c3727222019c92b39b2e0a66ebe4fe379fbe1aa43a2a871db"},
-]
+geopandas = []
 greenlet = []
 heapdict = [
     {file = "HeapDict-1.0.1-py3-none-any.whl", hash = "sha256:6065f90933ab1bb7e50db403b90cab653c853690c5992e69294c2de2b253fc92"},

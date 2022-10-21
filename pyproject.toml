@@ -15,15 +15,16 @@ secondary = true
 
 [tool.poetry.dependencies]
 python = "^3.8"
+geopandas = "^0.11.0"
 numpy = "^1"
 pandas = "^1"
 xarray = ">=0.18.2"
 pyproj = "^3"
 xgboost = "^1.5.0"
 rioxarray = "^0.9"
-geopandas = "^0.10"
+
 #Equi7Grid = "^0.1.0"
-datacube = "^1.8.4"
+datacube = "^1.8.7"
 dask-geopandas = "^v0.1.0a7"
 dask = {extras = ["array"], version = "^2022.02.1"}
 odc-algo = {extras = ["xarray"], version = "^0.2.2"}
