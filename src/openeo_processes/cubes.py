@@ -84,11 +84,18 @@ class LoadCollection:
     def exec_odc(odc_cube, product: str, dask_chunks: dict,
                  x: tuple = (), y: tuple = (), time: list = [],
                  measurements: list = [], crs: str = "EPSG:4326"):
+
         res = (-100, 100)
         if product == "s2_msi_l2a":
             res = (-10, 10)
         elif product == "s3_olci_l2wfr":
             res = (-300, 300)
+        elif product == "s2_msi_l1c":
+            res = (-10, 10)
+        elif product == "nmd2018bas_ogeneraliserad_v1_1":
+            res = (-10, 10)
+        elif product == "NMD_Produktivitet_v1_1":
+            res = (-10, 10)
 
         odc_params = {
             'product': product,
