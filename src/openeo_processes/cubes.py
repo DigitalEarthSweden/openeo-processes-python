@@ -2022,9 +2022,10 @@ class AggregateSpatial:
 
     @staticmethod
     def exec_xar(data, geometries, reducer, target_dimension="result", context=None):
-        if len(data.dims) > 3:
+        if len(data.dims) > 4:
             raise TooManyDimensions(f'The number of dimensions must be reduced to three for aggregate_spatial. Input raster-cube dimensions: {data.dims}')
 
+        geometries = gpd.GeoDataFrame.from_features(geometries)
         # If a geopandas.GeoDataFrame is provided make sure it has a crs set
         if isinstance(geometries, gpd.geodataframe.GeoDataFrame) or isinstance(geometries, dask_geopandas.core.GeoDataFrame):
             if not geometries.crs:
@@ -2072,7 +2073,12 @@ class AggregateSpatial:
         xr_crop_list = xr.concat(crop_list, "result")
         xr_crop_list_reduced = reducer(reducer(xr_crop_list, dimension="x"), dimension="y")
         xr_crop_list_reduced_ddf = xr_crop_list_reduced.to_dataset(dim="bands").to_dask_dataframe().drop("result", axis=1)
-        output_ddf_merged = xr_crop_list_reduced_ddf.merge(vector_cube_utm)
+
+        # Outer join
+        vector_cube_utm["key"] = 0
+        xr_crop_list_reduced_ddf["key"] = 0
+        output_ddf_merged = xr_crop_list_reduced_ddf.merge(vector_cube_utm, on="key").drop(columns=["key"])
+
 
         # Metadata gathering operation
         valid_count_list_xr = xr.concat(valid_count_list, dim="valid_count")
@@ -2081,7 +2087,12 @@ class AggregateSpatial:
         total_count_list_xr_ddf = total_count_list_xr.to_dataset(dim="bands").to_dask_dataframe().drop("total_count", axis=1).add_suffix("_total_count")
 
         # Merge all these dataframes
-        output_vector_cube = dask.dataframe.concat([output_ddf_merged, valid_count_list_xr_ddf, total_count_list_xr_ddf], axis=1)
+        output_vector_cube = (output_ddf_merged
+                                    .merge(valid_count_list_xr_ddf, left_on="time", right_on="time_valid_count")
+                                    .merge(total_count_list_xr_ddf, left_on="time", right_on="time_total_count")
+                                    .drop(columns=["time_total_count", "time_valid_count"]))
+
+        output_vector_cube = output_vector_cube.sort_values(by=['time'])
 
         # turn the output back in to a dask-geopandas GeoDataFrame
         output_vector_cube_ddf = dask_geopandas.from_dask_dataframe(output_vector_cube)
