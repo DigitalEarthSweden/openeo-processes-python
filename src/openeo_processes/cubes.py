@@ -2021,6 +2021,14 @@ def aggregate_spatial():
 class AggregateSpatial:
 
     @staticmethod
+    def to_dataset(data_xr, dim):
+        if dim in data_xr.coords.dims:
+            return data_xr.to_dataset(dim=dim)
+        else:
+            return data_xr.to_dataset(name="values")
+
+
+    @staticmethod
     def exec_xar(data, geometries, reducer, target_dimension="result", context=None):
         if len(data.dims) > 4:
             raise TooManyDimensions(f'The number of dimensions must be reduced to three for aggregate_spatial. Input raster-cube dimensions: {data.dims}')
@@ -2072,7 +2080,7 @@ class AggregateSpatial:
         # Reduce operation
         xr_crop_list = xr.concat(crop_list, "result")
         xr_crop_list_reduced = reducer(reducer(xr_crop_list, dimension="x"), dimension="y")
-        xr_crop_list_reduced_ddf = xr_crop_list_reduced.to_dataset(dim="bands").to_dask_dataframe().drop("result", axis=1)
+        xr_crop_list_reduced_ddf = AggregateSpatial.to_dataset(xr_crop_list_reduced, dim="bands").to_dask_dataframe().drop("result", axis=1)
 
         # Outer join
         vector_cube_utm["key"] = 0
@@ -2083,8 +2091,8 @@ class AggregateSpatial:
         # Metadata gathering operation
         valid_count_list_xr = xr.concat(valid_count_list, dim="valid_count")
         total_count_list_xr = xr.concat(total_count_list, dim="total_count")
-        valid_count_list_xr_ddf = valid_count_list_xr.to_dataset(dim="bands").to_dask_dataframe().drop("valid_count", axis=1).add_suffix("_valid_count")
-        total_count_list_xr_ddf = total_count_list_xr.to_dataset(dim="bands").to_dask_dataframe().drop("total_count", axis=1).add_suffix("_total_count")
+        valid_count_list_xr_ddf = AggregateSpatial.to_dataset(valid_count_list_xr, dim="bands").to_dask_dataframe().drop("valid_count", axis=1).add_suffix("_valid_count")
+        total_count_list_xr_ddf = AggregateSpatial.to_dataset(total_count_list_xr, dim="bands").to_dask_dataframe().drop("total_count", axis=1).add_suffix("_total_count")
 
         # Merge all these dataframes
         output_vector_cube = (output_ddf_merged
