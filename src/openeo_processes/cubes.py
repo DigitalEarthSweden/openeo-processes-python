@@ -3,35 +3,39 @@ from os.path import splitext
 from pathlib import Path
 from typing import Any, Dict, List
 
+import dask
+import datacube
 import numpy as np
-import pandas as pd
 import odc.algo
+import pandas as pd
 import rioxarray  # needed by save_result even if not directly called
 import xarray as xr
-from shapely.geometry import Point, LineString, Polygon, MultiPolygon
-from openeo_processes.extension.odc import write_odc_product
-from openeo_processes.utils import process, get_time_dimension_from_data, get_equi7_tiles, derive_datasets_and_filenames_from_tiles
-from openeo_processes.errors import DimensionNotAvailable, TooManyDimensions
-from scipy import optimize
-import datacube
-import dask
 from datacube.utils.geometry import Geometry
+from scipy import optimize
+from shapely.geometry import LineString, MultiPolygon, Point, Polygon
+
+from openeo_processes.errors import DimensionNotAvailable, TooManyDimensions
+from openeo_processes.extension.odc import write_odc_product
+from openeo_processes.utils import (derive_datasets_and_filenames_from_tiles,
+                                    get_equi7_tiles,
+                                    get_time_dimension_from_data, process)
 
 try:
-    from pyproj import Transformer, CRS
+    from pyproj import CRS, Transformer
 except ImportError:
     Transformer = None
     CRS = None
-import xgboost as xgb
+import json
+import os
+import urllib
+from functools import partial
+
 import dask.dataframe as df
 import dask_geopandas
-from openeo_processes.utils import geometry_mask
-
 import geopandas as gpd
-import urllib, json
-import os
+import xgboost as xgb
 
-from functools import partial
+from openeo_processes.utils import geometry_mask
 
 DEFAULT_CRS = 4326
 
@@ -83,7 +87,8 @@ class LoadCollection:
     @staticmethod
     def exec_odc(odc_cube, product: str, dask_chunks: dict,
                  x: tuple = (), y: tuple = (), time: list = [],
-                 measurements: list = [], crs: str = "EPSG:4326"):
+                 measurements: list = [], crs: str = "EPSG:4326",
+                 dataset_predicate = None):
 
         res = (-100, 100)
         if product == "s2_msi_l2a":
@@ -103,6 +108,8 @@ class LoadCollection:
              "output_crs": "EPSG:3006",
              "resolution": res,
         }
+        if dataset_predicate:
+            odc_params['dataset_predicate'] = dataset_predicate
         if x:
             odc_params['x'] = x
         if y:
