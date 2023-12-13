@@ -230,7 +230,21 @@ class SaveResult:
     Class implementing 'save_result' processes.
 
     """
-
+    @staticmethod
+    def write_json(data, output_filepath='out'):
+        if 'compute' in dir(data):
+            with open(f'{output_filepath}result.json', 'w') as f:
+                df = data.compute()
+                date_columns = df.select_dtypes(include=['datetime64']).columns.tolist()
+                df[date_columns] = df[date_columns].astype(str)
+                f.write(df.to_json())
+        else:
+            with open(f'{output_filepath}/result.json', 'w') as f:
+                res = {'result': data}
+                res_str = json.dumps(res)
+                f.write(res_str)
+        return
+    
     @staticmethod
     def exec_xar(data, output_filepath='out', format='GTiff', options={}, write_prod: bool = True):
         """
@@ -247,11 +261,14 @@ class SaveResult:
         format: str, optional
             data format (default: GTiff)
         """
-        formats = ['gtiff', 'netcdf', 'geotiff']
+        formats = ['gtiff', 'netcdf', 'geotiff','json']
         if format.lower() in formats:
             format = format.lower()
         else:
             raise ValueError(f"Error when saving to file. Format '{format}' is not in {formats}.")
+
+        if 'json' == format.casefold():
+            return SaveResult.write_json(data,output_filepath)
 
         data = data.fillna(-9999)
         data.attrs["nodata"] = -9999
